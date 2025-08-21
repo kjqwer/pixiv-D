@@ -1,0 +1,41 @@
+{
+  "name": "pixiv-backend",
+  "version": "1.0.0",
+  "description": "Pixiv 后端服务 - 支持 OAuth 2.0 登录和 API 调用",
+  "main": "backend/start.js",
+  "scripts": {
+    "start": "node backend/start.js",
+    "dev": "node backend/start.js",
+    "test": "node backend/test-login.js",
+    "set-proxy": "node backend/set-proxy.js"
+  },
+  "dependencies": {
+    "appdata-path": "^1.0.0",
+    "axios": "^1.11.0",
+    "cors": "^2.8.5",
+    "crypto": "^1.0.1",
+    "express": "^5.1.0",
+    "fs-extra": "^11.3.1",
+    "js-base64": "^3.7.8",
+    "moment": "^2.30.1",
+    "morgan": "^1.10.1",
+    "proxy-agent": "^6.5.0",
+    "qs": "^6.14.0",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "readline-sync": "^1.4.10"
+  },
+  "keywords": [
+    "pixiv",
+    "oauth",
+    "api",
+    "backend",
+    "download"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
