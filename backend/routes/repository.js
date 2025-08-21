@@ -72,7 +72,7 @@ router.get('/artists', async (req, res) => {
 router.get('/artists/:artistName/artworks', async (req, res) => {
   try {
     const { artistName } = req.params
-    const { offset = 0, limit = 20 } = req.query
+    const { offset = 0, limit = 50 } = req.query
     const artworks = await repositoryService.getArtworksByArtist(
       artistName, 
       parseInt(offset), 
@@ -84,10 +84,21 @@ router.get('/artists/:artistName/artworks', async (req, res) => {
   }
 })
 
+// 获取所有作品列表
+router.get('/artworks', async (req, res) => {
+  try {
+    const { offset = 0, limit = 50 } = req.query
+    const results = await repositoryService.searchArtworks('', parseInt(offset), parseInt(limit))
+    res.json(ResponseUtil.success(results))
+  } catch (error) {
+    res.status(500).json(ResponseUtil.error(error.message))
+  }
+})
+
 // 搜索作品
 router.get('/search', async (req, res) => {
   try {
-    const { q, offset = 0, limit = 20 } = req.query
+    const { q, offset = 0, limit = 50 } = req.query
     if (!q) {
       return res.status(400).json(ResponseUtil.error('搜索关键词不能为空'))
     }

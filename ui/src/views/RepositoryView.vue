@@ -50,6 +50,8 @@
           :artworks="artworks"
           :current-page="currentPage"
           :page-size="pageSize"
+          :total-items="totalItems"
+          :view-mode="viewMode"
           @update:search-query="handleSearchQuery"
           @update:view-mode="handleViewMode"
           @select-artist="selectArtist"
@@ -93,10 +95,13 @@ const config = ref<RepositoryConfig>({
 
 // 浏览相关
 const searchQuery = ref('')
+const viewMode = ref('artworks') // 默认显示作品模式
 const artists = ref<Artist[]>([])
 const artworks = ref<Artwork[]>([])
 const currentPage = ref(1)
-const pageSize = 20
+const pageSize = 50 // 增加每页显示数量
+const totalItems = ref(0) // 添加总数状态
+const currentArtist = ref<string>('') // 添加当前查看的作者状态
 
 // 迁移相关
 const migrateSourceDir = ref('')
@@ -113,7 +118,7 @@ onMounted(async () => {
   await loadStats()
   await loadConfig()
   await loadArtists()
-  await loadAllArtworks() // 添加加载所有作品
+  await loadAllArtworks(1) // 加载第一页
 })
 
 // 加载统计信息
@@ -228,11 +233,14 @@ const loadArtists = async () => {
 }
 
 // 加载所有作品
-const loadAllArtworks = async () => {
+const loadAllArtworks = async (page = 1, limit = pageSize) => {
   try {
-    // 使用搜索空字符串来获取所有作品
-    const result = await repositoryStore.searchArtworks('', 0, 1000)
+    currentArtist.value = '' // 加载所有作品时清除当前作者
+    const offset = (page - 1) * limit
+    const result = await repositoryStore.getAllArtworks(offset, limit)
     artworks.value = result.artworks
+    totalItems.value = result.total // 更新总数
+    currentPage.value = page
   } catch (error: any) {
     console.error('加载所有作品失败:', error)
   }
@@ -241,10 +249,19 @@ const loadAllArtworks = async () => {
 // 选择作者
 const selectArtist = async (artistName: string) => {
   try {
-    const result = await repositoryStore.getArtworksByArtist(artistName)
+    // 重置搜索和分页
+    searchQuery.value = ''
+    currentPage.value = 1
+    currentArtist.value = artistName // 设置当前查看的作者
+    
+    // 获取作者作品
+    const result = await repositoryStore.getArtworksByArtist(artistName, 0, pageSize)
     artworks.value = result.artworks
+    totalItems.value = result.total || result.artworks.length
+    
+    // 切换到作品视图
+    viewMode.value = 'artworks'
     activeTab.value = 'browse'
-    currentPage.value = 1 // 重置到第一页
   } catch (error: any) {
     console.error('加载作者作品失败:', error)
   }
@@ -253,32 +270,45 @@ const selectArtist = async (artistName: string) => {
 // 处理搜索查询
 const handleSearchQuery = async (query: string) => {
   searchQuery.value = query
+  currentArtist.value = '' // 搜索时清除当前作者
+  
+  // 重置分页
+  currentPage.value = 1
+  
   if (query.trim()) {
     try {
-      const result = await repositoryStore.searchArtworks(query)
+      // 搜索作品
+      const result = await repositoryStore.searchArtworks(query, 0, pageSize)
       artworks.value = result.artworks
+      totalItems.value = result.total
+      
+      // 切换到作品视图
+      viewMode.value = 'artworks'
       activeTab.value = 'browse'
-      currentPage.value = 1 // 重置到第一页
     } catch (error: any) {
       console.error('搜索失败:', error)
     }
   } else {
-    await loadAllArtworks() // 清空搜索时加载所有作品
+    // 清空搜索，加载所有作品
+    await loadAllArtworks(1)
   }
 }
 
 // 处理视图模式
 const handleViewMode = (mode: string) => {
+  viewMode.value = mode
+  
   // 根据视图模式加载相应数据
   if (mode === 'artists') {
     // 作者模式，确保作者数据已加载
+    currentArtist.value = '' // 切换到作者模式时清除当前作者
     if (artists.value.length === 0) {
       loadArtists()
     }
   } else if (mode === 'artworks' || mode === 'gallery') {
     // 作品模式，确保作品数据已加载
     if (artworks.value.length === 0) {
-      loadAllArtworks()
+      loadAllArtworks(1)
     }
   }
 }
@@ -305,16 +335,46 @@ const deleteArtwork = async (artworkId: string) => {
     closeArtworkModal()
     await loadStats()
     await loadArtists()
-    await loadAllArtworks() // 重新加载作品列表
+    await loadAllArtworks(currentPage.value) // 重新加载当前页
   } catch (error: any) {
     console.error('删除作品失败:', error)
     alert('删除作品失败: ' + error.message)
   }
 }
 
-// 分页
-const changePage = (page: number) => {
+// 分页处理
+const changePage = async (page: number, options?: { artist?: string }) => {
   currentPage.value = page
+  
+  // 如果传入了作者信息，使用作者特定的分页
+  if (options?.artist) {
+    currentArtist.value = options.artist
+  }
+  
+  if (searchQuery.value.trim()) {
+    // 如果有搜索查询，重新搜索
+    try {
+      const offset = (page - 1) * pageSize
+      const result = await repositoryStore.searchArtworks(searchQuery.value, offset, pageSize)
+      artworks.value = result.artworks
+      totalItems.value = result.total
+    } catch (error: any) {
+      console.error('搜索失败:', error)
+    }
+  } else if (currentArtist.value) {
+    // 如果当前在查看特定作者的作品
+    try {
+      const offset = (page - 1) * pageSize
+      const result = await repositoryStore.getArtworksByArtist(currentArtist.value, offset, pageSize)
+      artworks.value = result.artworks
+      totalItems.value = result.total || result.artworks.length
+    } catch (error: any) {
+      console.error('加载作者作品失败:', error)
+    }
+  } else {
+    // 否则加载指定页面的所有作品
+    await loadAllArtworks(page)
+  }
 }
 
 // 选择下载目录

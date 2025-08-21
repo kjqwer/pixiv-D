@@ -138,12 +138,17 @@ export const useRepositoryStore = defineStore('repository', () => {
   }
 
   // 获取作者作品
-  const getArtworksByArtist = async (artistName: string, offset = 0, limit = 20) => {
+  const getArtworksByArtist = async (artistName: string, offset = 0, limit = 50) => {
     return await apiCall(`/artists/${encodeURIComponent(artistName)}/artworks?offset=${offset}&limit=${limit}`)
   }
 
+  // 获取所有作品
+  const getAllArtworks = async (offset = 0, limit = 50) => {
+    return await apiCall(`/artworks?offset=${offset}&limit=${limit}`)
+  }
+
   // 搜索作品
-  const searchArtworks = async (query: string, offset = 0, limit = 20) => {
+  const searchArtworks = async (query: string, offset = 0, limit = 50) => {
     return await apiCall(`/search?q=${encodeURIComponent(query)}&offset=${offset}&limit=${limit}`)
   }
 
@@ -206,6 +211,7 @@ export const useRepositoryStore = defineStore('repository', () => {
     getStats,
     getArtists,
     getArtworksByArtist,
+    getAllArtworks,
     searchArtworks,
     getArtwork,
     deleteArtwork,

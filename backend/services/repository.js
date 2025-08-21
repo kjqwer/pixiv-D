@@ -238,12 +238,12 @@ class RepositoryService {
     }
   }
 
-  // 按作者浏览作品
-  async getArtworksByArtist(artistName, offset = 0, limit = 20) {
+  // 获取作者作品
+  async getArtworksByArtist(artistName, offset = 0, limit = 50) {
     try {
       const stats = await this.scanRepository()
       const artistArtworks = stats.artworks.filter(artwork => 
-        artwork.artist === artistName
+        artwork.artist.toLowerCase() === artistName.toLowerCase()
       )
       
       return {
@@ -327,7 +327,7 @@ class RepositoryService {
   }
 
   // 搜索作品
-  async searchArtworks(query, offset = 0, limit = 20) {
+  async searchArtworks(query, offset = 0, limit = 50) {
     try {
       const stats = await this.scanRepository()
       const filtered = stats.artworks.filter(artwork =>
