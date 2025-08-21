@@ -99,6 +99,18 @@ onMounted(async () => {
               实时查看下载进度，管理下载历史和任务
             </p>
           </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/>
+              </svg>
+            </div>
+            <h3 class="feature-title">仓库管理</h3>
+            <p class="feature-description">
+              管理本地作品仓库，分类整理和快速检索
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -133,6 +145,15 @@ onMounted(async () => {
               </svg>
             </div>
             <span>作者管理</span>
+          </router-link>
+
+          <router-link to="/repository" class="quick-action-card">
+            <div class="quick-action-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/>
+              </svg>
+            </div>
+            <span>仓库管理</span>
           </router-link>
         </div>
       </div>

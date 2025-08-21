@@ -3,6 +3,62 @@ const router = express.Router();
 const ArtistService = require('../services/artist');
 
 /**
+ * 搜索作者
+ * GET /api/artist/search
+ */
+router.get('/search', async (req, res) => {
+  try {
+    const { keyword, offset = 0, limit = 30 } = req.query;
+    
+    if (!keyword || keyword.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: '搜索关键词不能为空'
+      });
+    }
+    
+    const artistService = new ArtistService(req.backend.getAuth());
+    const result = await artistService.searchArtists({
+      keyword: keyword.trim(),
+      offset: parseInt(offset),
+      limit: parseInt(limit)
+    });
+    
+    if (result.success) {
+      // 转换数据格式以匹配前端期望
+      const artists = (result.data.users || []).map(user => ({
+        id: user.user.id,
+        name: user.user.name,
+        account: user.user.account,
+        profile_image_urls: user.user.profile_image_urls,
+        total_illusts: 0,
+        total_manga: 0,
+        total_followers: 0,
+        is_followed: user.user.is_followed || false
+      }));
+
+      res.json({
+        success: true,
+        data: {
+          artists,
+          total: artists.length
+        }
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        error: result.error
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
  * 获取当前用户关注的作者列表
  * GET /api/artist/following
  */

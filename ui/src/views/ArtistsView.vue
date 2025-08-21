@@ -18,25 +18,47 @@
               </svg>
             </button>
           </div>
+          <button @click="handleRefresh" class="btn btn-secondary" :disabled="artistStore.loading">
+            <svg viewBox="0 0 24 24" fill="currentColor" class="refresh-icon">
+              <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+            </svg>
+            刷新
+          </button>
         </div>
       </div>
 
-      <div v-if="error" class="error-section">
-        <ErrorMessage :error="error" @dismiss="clearError" />
+      <div v-if="artistStore.error" class="error-section">
+        <ErrorMessage :error="artistStore.error" @dismiss="artistStore.clearError" />
       </div>
 
-      <div v-if="loading" class="loading-section">
-        <LoadingSpinner text="加载中..." />
+      <div v-if="artistStore.loading" class="loading-section">
+        <LoadingSpinner text="正在获取最新数据..." />
       </div>
 
       <div v-else class="artists-content">
         <!-- 关注列表 -->
         <div class="section">
-          <h2 class="section-title">关注的作者</h2>
+          <div class="section-header">
+            <h2 class="section-title">关注的作者</h2>
+            <div v-if="artistStore.hasFollowingArtists" class="cache-indicator">
+              <span v-if="artistStore.isDataStale" class="cache-status stale">
+                <svg viewBox="0 0 24 24" fill="currentColor" class="cache-icon">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                数据已过期
+              </span>
+              <span v-else class="cache-status fresh">
+                <svg viewBox="0 0 24 24" fill="currentColor" class="cache-icon">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+                数据已缓存
+              </span>
+            </div>
+          </div>
           
-          <div v-if="followingArtists.length > 0" class="artists-grid">
+          <div v-if="artistStore.followingArtists.length > 0" class="artists-grid">
             <div 
-              v-for="artist in followingArtists" 
+              v-for="artist in artistStore.followingArtists" 
               :key="artist.id"
               class="artist-card"
             >
@@ -91,16 +113,19 @@
               </svg>
               <h3>暂无关注的作者</h3>
               <p>关注喜欢的作者，在这里管理他们</p>
+              <div v-if="!artistStore.loading && artistStore.hasFollowingArtists" class="cache-note">
+                <small>💡 提示：数据已缓存，点击刷新按钮获取最新数据</small>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- 搜索建议 -->
-        <div v-if="searchResults.length > 0" class="section">
+        <div v-if="artistStore.searchResults.length > 0" class="section">
           <h2 class="section-title">搜索结果</h2>
           <div class="artists-grid">
             <div 
-              v-for="artist in searchResults" 
+              v-for="artist in artistStore.searchResults" 
               :key="artist.id"
               class="artist-card"
             >
@@ -158,63 +183,40 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
-import artistService from '@/services/artist';
+import { useArtistStore } from '@/stores/artist';
 import downloadService from '@/services/download';
-import type { Artist } from '@/types';
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
 import ErrorMessage from '@/components/common/ErrorMessage.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();
+const artistStore = useArtistStore();
 
-// 状态
-const followingArtists = ref<Artist[]>([]);
-const searchResults = ref<Artist[]>([]);
+// 本地状态
 const searchKeyword = ref('');
-const loading = ref(false);
-const error = ref<string | null>(null);
 
 // 获取关注的作者
 const fetchFollowingArtists = async () => {
   try {
-    loading.value = true;
-    error.value = null;
-    
-    const response = await artistService.getFollowingArtists();
-    if (response.success && response.data) {
-      followingArtists.value = response.data.artists;
-    } else {
-      throw new Error(response.error || '获取关注列表失败');
-    }
+    await artistStore.fetchFollowingArtists();
   } catch (err) {
-    error.value = err instanceof Error ? err.message : '获取关注列表失败';
     console.error('获取关注列表失败:', err);
-  } finally {
-    loading.value = false;
   }
 };
 
 // 搜索作者
 const handleSearch = async () => {
   if (!searchKeyword.value.trim()) {
-    searchResults.value = [];
+    artistStore.clearSearchResults();
     return;
   }
 
   try {
-    // 这里需要根据实际API调整
-    // const response = await artistService.searchArtists({ keyword: searchKeyword.value });
-    // if (response.success && response.data) {
-    //   searchResults.value = response.data.artists;
-    // }
-    
-    // 暂时使用模拟数据
-    searchResults.value = [];
+    await artistStore.searchArtists(searchKeyword.value);
   } catch (err) {
-    error.value = err instanceof Error ? err.message : '搜索失败';
     console.error('搜索失败:', err);
   }
 };
@@ -222,25 +224,8 @@ const handleSearch = async () => {
 // 关注作者
 const handleFollow = async (artistId: number) => {
   try {
-    const response = await artistService.followArtist(artistId, 'follow');
-    
-    if (response.success) {
-      // 更新搜索结果的关注状态
-      const artist = searchResults.value.find(a => a.id === artistId);
-      if (artist) {
-        artist.is_followed = true;
-      }
-      
-      // 添加到关注列表
-      const artistToAdd = searchResults.value.find(a => a.id === artistId);
-      if (artistToAdd) {
-        followingArtists.value.push(artistToAdd);
-      }
-    } else {
-      throw new Error(response.error || '关注失败');
-    }
+    await artistStore.followArtist(artistId);
   } catch (err) {
-    error.value = err instanceof Error ? err.message : '关注失败';
     console.error('关注失败:', err);
   }
 };
@@ -248,22 +233,8 @@ const handleFollow = async (artistId: number) => {
 // 取消关注
 const handleUnfollow = async (artistId: number) => {
   try {
-    const response = await artistService.followArtist(artistId, 'unfollow');
-    
-    if (response.success) {
-      // 从关注列表中移除
-      followingArtists.value = followingArtists.value.filter(a => a.id !== artistId);
-      
-      // 更新搜索结果的关注状态
-      const artist = searchResults.value.find(a => a.id === artistId);
-      if (artist) {
-        artist.is_followed = false;
-      }
-    } else {
-      throw new Error(response.error || '取消关注失败');
-    }
+    await artistStore.unfollowArtist(artistId);
   } catch (err) {
-    error.value = err instanceof Error ? err.message : '取消关注失败';
     console.error('取消关注失败:', err);
   }
 };
@@ -282,14 +253,18 @@ const handleDownloadArtist = async (artistId: number) => {
       throw new Error(response.error || '下载失败');
     }
   } catch (err) {
-    error.value = err instanceof Error ? err.message : '下载失败';
+    artistStore.error = err instanceof Error ? err.message : '下载失败';
     console.error('下载失败:', err);
   }
 };
 
-// 清除错误
-const clearError = () => {
-  error.value = null;
+// 刷新数据
+const handleRefresh = async () => {
+  try {
+    await artistStore.refreshData();
+  } catch (err) {
+    console.error('刷新失败:', err);
+  }
 };
 
 // 处理图片URL，通过后端代理
@@ -304,6 +279,14 @@ const getImageUrl = (originalUrl: string) => {
   
   return originalUrl;
 };
+
+// 监听数据过期状态，自动刷新
+watch(() => artistStore.isDataStale, (isStale) => {
+  if (isStale && artistStore.hasFollowingArtists) {
+    console.log('数据已过期，自动刷新...');
+    fetchFollowingArtists();
+  }
+});
 
 onMounted(() => {
   fetchFollowingArtists();
@@ -377,6 +360,12 @@ onMounted(() => {
   height: 1.25rem;
 }
 
+.refresh-icon {
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.5rem;
+}
+
 .error-section,
 .loading-section {
   margin-bottom: 2rem;
@@ -393,11 +382,49 @@ onMounted(() => {
   margin-bottom: 3rem;
 }
 
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
 .section-title {
   font-size: 1.5rem;
   font-weight: 600;
   color: #1f2937;
-  margin: 0 0 1.5rem 0;
+  margin: 0;
+}
+
+.cache-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cache-status {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-weight: 500;
+}
+
+.cache-status.fresh {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.cache-status.stale {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.cache-icon {
+  width: 0.875rem;
+  height: 0.875rem;
 }
 
 .artists-grid {
@@ -567,6 +594,19 @@ onMounted(() => {
 .empty-content p {
   color: #6b7280;
   line-height: 1.6;
+}
+
+.cache-note {
+  margin-top: 1rem;
+  padding: 0.5rem;
+  background: #f3f4f6;
+  border-radius: 0.375rem;
+  text-align: center;
+}
+
+.cache-note small {
+  color: #6b7280;
+  font-size: 0.75rem;
 }
 
 @media (max-width: 768px) {

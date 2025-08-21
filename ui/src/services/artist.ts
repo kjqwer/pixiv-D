@@ -19,6 +19,12 @@ export interface ArtistFollowersOptions {
   limit?: number;
 }
 
+export interface SearchArtistsOptions {
+  keyword: string;
+  offset?: number;
+  limit?: number;
+}
+
 class ArtistService {
   /**
    * 获取作者信息
@@ -86,6 +92,20 @@ class ArtistService {
 
     const query = params.toString();
     const url = query ? `/api/artist/following?${query}` : '/api/artist/following';
+    return apiService.get<{ artists: Artist[]; total: number }>(url);
+  }
+
+  /**
+   * 搜索作者
+   */
+  async searchArtists(options: SearchArtistsOptions): Promise<ApiResponse<{ artists: Artist[]; total: number }>> {
+    const params = new URLSearchParams();
+    params.append('keyword', options.keyword);
+    if (options.offset !== undefined) params.append('offset', options.offset.toString());
+    if (options.limit !== undefined) params.append('limit', options.limit.toString());
+
+    const query = params.toString();
+    const url = `/api/artist/search?${query}`;
     return apiService.get<{ artists: Artist[]; total: number }>(url);
   }
 }
