@@ -63,5 +63,5 @@ typings/
 # next.js build output
 .next
 
-old/
+# 下载文件夹
 downloads/

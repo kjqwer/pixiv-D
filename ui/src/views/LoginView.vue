@@ -41,24 +41,53 @@
 
         <div v-else class="login-form">
           <div class="login-info">
-            <p>点击下方按钮将跳转到 Pixiv 官方登录页面</p>
-            <ul class="login-features">
-              <li>安全可靠的官方登录</li>
-              <li>支持所有 Pixiv 功能</li>
-              <li>自动保存登录状态</li>
-            </ul>
+            <p>通过 Pixiv 官方登录页面获取授权码</p>
+            <div class="code-instructions">
+              <h4>获取授权码步骤：</h4>
+              <ol>
+                <li>点击"获取登录链接"按钮</li>
+                <li>在新窗口中完成 Pixiv 登录</li>
+                <li>登录成功后，在地址栏找到 <code>code=</code> 后面的内容</li>
+                <li>复制该授权码并粘贴到下方输入框</li>
+              </ol>
+            </div>
           </div>
 
-          <div class="login-actions">
-            <button 
-              @click="handleLogin" 
-              class="btn btn-primary btn-large"
-              :disabled="loading"
-            >
-              <LoadingSpinner v-if="loading" text="获取登录链接..." />
-              <span v-else>开始登录</span>
-            </button>
+          <div class="code-input-section">
+            <div class="input-group">
+              <label for="authCode" class="input-label">授权码</label>
+              <input
+                id="authCode"
+                v-model="authCode"
+                type="text"
+                placeholder="粘贴授权码..."
+                class="code-input"
+                :disabled="loading"
+              />
+            </div>
             
+            <div class="login-actions">
+              <button 
+                @click="handleLogin" 
+                class="btn btn-secondary"
+                :disabled="loading"
+              >
+                <LoadingSpinner v-if="loading" text="获取登录链接..." />
+                <span v-else>获取登录链接</span>
+              </button>
+              
+              <button 
+                @click="handleManualLogin" 
+                class="btn btn-primary btn-large"
+                :disabled="!authCode.trim() || loading"
+              >
+                <LoadingSpinner v-if="loading" text="登录中..." />
+                <span v-else>完成登录</span>
+              </button>
+            </div>
+          </div>
+          
+          <div class="login-actions">
             <router-link to="/" class="btn btn-text">
               返回首页
             </router-link>
@@ -79,7 +108,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
@@ -87,6 +116,9 @@ import ErrorMessage from '@/components/common/ErrorMessage.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();
+
+// 响应式变量
+const authCode = ref('');
 
 const isLoggedIn = computed(() => authStore.isLoggedIn);
 const username = computed(() => authStore.username);
@@ -103,6 +135,22 @@ const handleLogin = async () => {
     window.open(loginUrl, '_blank');
   } catch (err) {
     console.error('获取登录URL失败:', err);
+  }
+};
+
+
+
+const handleManualLogin = async () => {
+  if (!authCode.value.trim()) {
+    return;
+  }
+
+  try {
+    await authStore.handleLoginCallback(authCode.value.trim());
+    authCode.value = ''; // 清空输入框
+    router.push('/');
+  } catch (err) {
+    console.error('手动登录失败:', err);
   }
 };
 
@@ -199,6 +247,82 @@ const clearError = () => {
 
 .login-form {
   margin-bottom: 2rem;
+}
+
+
+
+.code-instructions {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.code-instructions h4 {
+  margin: 0 0 0.75rem 0;
+  color: #374151;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.code-instructions ol {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: #6b7280;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.code-instructions li {
+  margin-bottom: 0.5rem;
+}
+
+.code-instructions code {
+  background: #f3f4f6;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: #dc2626;
+}
+
+
+
+.code-input-section {
+  margin-bottom: 1.5rem;
+}
+
+.input-group {
+  margin-bottom: 1.5rem;
+}
+
+.input-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.code-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.code-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.code-input:disabled {
+  background: #f9fafb;
+  cursor: not-allowed;
 }
 
 .login-info {

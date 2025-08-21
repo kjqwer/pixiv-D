@@ -67,8 +67,11 @@ class PixivServer {
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
     
-    // 静态文件服务 - 临时注释掉
+    // 静态文件服务
     this.app.use('/downloads', express.static(path.join(__dirname, '../downloads')));
+    
+    // 前端静态文件服务
+    this.app.use(express.static(path.join(__dirname, '../ui/dist')));
     
     // 将后端实例注入到请求对象中
     this.app.use((req, res, next) => {
@@ -102,10 +105,16 @@ class PixivServer {
     
     // 404 处理
     this.app.use((req, res) => {
-      res.status(404).json({ 
-        error: 'Not Found', 
-        message: `Route ${req.originalUrl} not found` 
-      });
+      // 如果是API请求，返回JSON格式的404
+      if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ 
+          error: 'Not Found', 
+          message: `Route ${req.originalUrl} not found` 
+        });
+      }
+      
+      // 否则返回前端页面（SPA路由支持）
+      res.sendFile(path.join(__dirname, '../ui/dist/index.html'));
     });
   }
 
@@ -122,7 +131,8 @@ class PixivServer {
   start() {
     this.app.listen(this.port, () => {
       console.log(`🚀 Pixiv 后端服务器已启动`);
-      console.log(`📍 地址: http://localhost:${this.port}`);
+      console.log(`📍 后端API: http://localhost:${this.port}`);
+      console.log(`🌐 前端页面: http://localhost:${this.port}`);
       console.log(`🔗 健康检查: http://localhost:${this.port}/health`);
       console.log(`📊 登录状态: ${this.backend.isLoggedIn ? '已登录' : '未登录'}`);
       if (this.backend.isLoggedIn) {
