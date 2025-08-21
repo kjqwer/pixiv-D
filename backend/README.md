@@ -19,11 +19,13 @@ backend/
 │   ├── auth.js          # 认证路由
 │   ├── artwork.js       # 作品路由
 │   ├── artist.js        # 作者路由
-│   └── download.js      # 下载路由
+│   ├── download.js      # 下载路由
+│   └── repository.js    # 仓库管理路由
 ├── services/            # 服务层
 │   ├── artwork.js       # 作品服务
 │   ├── artist.js        # 作者服务
-│   └── download.js      # 下载服务
+│   ├── download.js      # 下载服务
+│   └── repository.js    # 仓库管理服务
 └── utils/               # 工具类
     └── response.js      # 响应工具
 ```
@@ -79,6 +81,29 @@ backend/
 - `GET /api/proxy/image` - 图片代理服务
   - 参数: `url` (图片URL)
 
+### 仓库管理相关
+
+- `POST /api/repository/initialize` - 初始化仓库
+- `GET /api/repository/config` - 获取仓库配置
+- `PUT /api/repository/config` - 更新仓库配置
+- `GET /api/repository/stats` - 获取仓库统计信息
+- `GET /api/repository/artists` - 获取作者列表
+  - 参数: `offset`, `limit`
+- `GET /api/repository/artists/:artistName/artworks` - 获取作者作品列表
+  - 参数: `offset`, `limit`
+- `GET /api/repository/search` - 搜索作品
+  - 参数: `q`, `offset`, `limit`
+- `GET /api/repository/artworks/:artworkId` - 获取作品详情
+- `DELETE /api/repository/artworks/:artworkId` - 删除作品
+- `POST /api/repository/migrate` - 自动迁移旧项目
+  - 参数: `sourceDir` (源目录路径)
+- `GET /api/repository/preview` - 文件预览代理
+  - 参数: `path` (文件路径)
+- `GET /api/repository/file-info` - 获取文件信息
+  - 参数: `path` (文件路径)
+- `GET /api/repository/directory` - 获取目录结构
+  - 参数: `path` (目录路径)
+
 ## 🔧 配置说明
 
 ### 代理配置
@@ -110,6 +135,7 @@ backend/
 - **artwork.js**: 作品相关路由
 - **artist.js**: 作者相关路由
 - **download.js**: 下载相关路由
+- **repository.js**: 仓库管理路由
 - **proxy.js**: 代理服务路由
 
 ### 服务层
@@ -117,6 +143,7 @@ backend/
 - **artwork.js**: 作品服务，处理作品API调用
 - **artist.js**: 作者服务，处理作者API调用
 - **download.js**: 下载服务，处理文件下载
+- **repository.js**: 仓库管理服务，处理文件管理和配置
 
 ### 工具类
 
@@ -147,6 +174,15 @@ backend/
 - OAuth2.0 登录流程
 - 自动刷新令牌
 - 登录状态管理
+
+### 5. 仓库管理
+- 文件存储配置管理
+- 作品文件浏览和搜索
+- 按作者分类浏览
+- 文件预览和下载
+- 自动迁移旧项目
+- 磁盘使用情况监控
+- 作品删除管理
 
 ## 🔒 安全特性
 

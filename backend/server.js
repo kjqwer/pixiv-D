@@ -9,6 +9,7 @@ const artworkRoutes = require('./routes/artwork');
 const artistRoutes = require('./routes/artist');
 const downloadRoutes = require('./routes/download');
 const proxyRoutes = require('./routes/proxy');
+const repositoryRoutes = require('./routes/repository');
 
 // 导入中间件 - 临时注释掉来定位问题
 const { errorHandler } = require('./middleware/errorHandler');
@@ -101,6 +102,7 @@ class PixivServer {
     this.app.use('/api/artwork', authMiddleware, artworkRoutes);
     this.app.use('/api/artist', authMiddleware, artistRoutes);
     this.app.use('/api/download', authMiddleware, downloadRoutes);
+    this.app.use('/api/repository', repositoryRoutes); // 仓库管理，不需要认证
     this.app.use('/api/proxy', proxyRoutes); // 图片代理，不需要认证
     
     // 404 处理

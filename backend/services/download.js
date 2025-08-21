@@ -374,8 +374,10 @@ class DownloadService {
       const artistName = (artwork.user.name || 'Unknown Artist').replace(/[<>:"/\\|?*]/g, '_');
       const artworkTitle = (artwork.title || 'Untitled').replace(/[<>:"/\\|?*]/g, '_');
       
-      // 创建作品目录
-      const artworkDir = path.join(this.downloadPath, `${artistName}_${artworkId}`, artworkTitle);
+      // 创建作品目录 - 使用仓库管理格式
+      const artistDir = path.join(this.downloadPath, artistName);
+      const artworkDirName = `${artworkId}_${artworkTitle}`;
+      const artworkDir = path.join(artistDir, artworkDirName);
       await fs.ensureDir(artworkDir);
 
       // 获取图片URL

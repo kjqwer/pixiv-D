@@ -32,6 +32,7 @@ onMounted(async () => {
           <RouterLink to="/search" class="nav-link" v-if="isLoggedIn">搜索</RouterLink>
           <RouterLink to="/downloads" class="nav-link" v-if="isLoggedIn">下载管理</RouterLink>
           <RouterLink to="/artists" class="nav-link" v-if="isLoggedIn">作者管理</RouterLink>
+          <RouterLink to="/repository" class="nav-link" v-if="isLoggedIn">仓库管理</RouterLink>
         </div>
 
         <div class="nav-auth">
