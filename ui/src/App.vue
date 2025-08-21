@@ -52,7 +52,7 @@ onMounted(async () => {
     <!-- 页脚 -->
     <footer class="footer">
       <div class="footer-container">
-        <p>&copy; 2024 Pixiv Manager. 仅供学习和个人使用。</p>
+        <p>&copy; 2025 Pixiv Manager. 仅供学习和个人使用。</p>
       </div>
     </footer>
   </div>
