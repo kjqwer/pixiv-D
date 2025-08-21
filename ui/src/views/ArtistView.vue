@@ -9,6 +9,16 @@
         <ErrorMessage :error="error" @dismiss="clearError" />
       </div>
 
+      <!-- 下载成功提示 -->
+      <div v-if="downloadSuccess" class="success-message">
+        <div class="success-content">
+          <svg viewBox="0 0 24 24" fill="currentColor" class="success-icon">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+          </svg>
+          <span>{{ downloadSuccess }}</span>
+        </div>
+      </div>
+
       <div v-else-if="artist" class="artist-content">
         <!-- 作者信息卡片 -->
         <div class="artist-header">
@@ -30,9 +40,23 @@
             <button @click="handleFollow" class="btn btn-primary">
               {{ artist.is_followed ? '取消关注' : '关注' }}
             </button>
-            <button @click="handleDownloadAll" class="btn btn-secondary" :disabled="downloading">
-              {{ downloading ? '下载中...' : '下载所有作品' }}
-            </button>
+            <div class="download-section">
+              <div class="download-input-group">
+                <label for="downloadLimit">下载数量:</label>
+                <select v-model="downloadLimit" id="downloadLimit" class="download-select">
+                  <option value="10">10个</option>
+                  <option value="30">30个</option>
+                  <option value="50">50个</option>
+                  <option value="100">100个</option>
+                  <option value="200">200个</option>
+                  <option value="500">500个</option>
+                  <option value="9999">全部</option>
+                </select>
+              </div>
+              <button @click="handleDownloadAll" class="btn btn-secondary" :disabled="downloading">
+                {{ downloading ? '下载中...' : '下载作品' }}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -65,7 +89,7 @@
           <div class="section-header">
             <h2>作品列表</h2>
             <div class="artwork-filters">
-              <select v-model="artworkType" @change="() => fetchArtworks()" class="filter-select">
+              <select v-model="artworkType" @change="handleTypeChange" class="filter-select">
                 <option value="art">插画</option>
                 <option value="manga">漫画</option>
                 <option value="novel">小说</option>
@@ -90,10 +114,47 @@
             <p>暂无作品</p>
           </div>
 
-          <div v-if="hasMore" class="load-more">
-            <button @click="loadMore" class="btn btn-secondary" :disabled="loadingMore">
-              {{ loadingMore ? '加载中...' : '加载更多' }}
+          <!-- 分页导航 -->
+          <div v-if="totalPages > 1 && artworks.length > 0" class="pagination">
+            <button 
+              @click="goToPage(currentPage - 1)" 
+              class="page-btn"
+              :disabled="currentPage <= 1"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" class="page-icon">
+                <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+              </svg>
+              上一页
             </button>
+            
+            <div class="page-numbers">
+              <button 
+                v-for="page in visiblePages" 
+                :key="page"
+                @click="goToPage(page)"
+                class="page-number"
+                :class="{ active: page === currentPage }"
+              >
+                {{ page }}
+              </button>
+            </div>
+            
+            <button 
+              @click="goToPage(currentPage + 1)" 
+              class="page-btn"
+              :disabled="currentPage >= totalPages"
+            >
+              下一页
+              <svg viewBox="0 0 24 24" fill="currentColor" class="page-icon">
+                <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- 页面信息 -->
+          <div v-if="totalPages > 1 && artworks.length > 0" class="page-info">
+            <span>第 {{ currentPage }} 页，共 {{ totalPages }} 页</span>
+            <span>共 {{ totalCount }} 个作品</span>
           </div>
         </div>
       </div>
@@ -102,7 +163,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import artistService from '@/services/artist';
@@ -121,20 +182,91 @@ const artist = ref<Artist | null>(null);
 const artworks = ref<Artwork[]>([]);
 const loading = ref(false);
 const artworksLoading = ref(false);
-const loadingMore = ref(false);
 const error = ref<string | null>(null);
 const downloading = ref(false);
+const downloadSuccess = ref<string | null>(null);
 
-// 筛选状态
+// 筛选和分页状态
 const artworkType = ref<'art' | 'manga' | 'novel'>('art');
-const offset = ref(0);
-const hasMore = ref(true);
+const currentPage = ref(1);
+const pageSize = ref(30);
+const totalCount = ref(0);
+const totalPages = ref(0);
+
+// 下载设置
+const downloadLimit = ref('50');
+
+// 缓存相关
+const cache = ref<Map<string, any>>(new Map());
+const cacheTimeout = ref<Map<string, number>>(new Map());
+const CACHE_DURATION = 5 * 60 * 1000; // 5分钟缓存
+
+// 计算属性
+const visiblePages = computed(() => {
+  const pages = [];
+  const maxVisible = 5;
+  let start = Math.max(1, currentPage.value - Math.floor(maxVisible / 2));
+  let end = Math.min(totalPages.value, start + maxVisible - 1);
+  
+  if (end - start + 1 < maxVisible) {
+    start = Math.max(1, end - maxVisible + 1);
+  }
+  
+  for (let i = start; i <= end; i++) {
+    pages.push(i);
+  }
+  
+  return pages;
+});
+
+// 缓存键生成
+const getCacheKey = (type: string, page: number) => {
+  return `${route.params.id}_${type}_${page}`;
+};
+
+// 获取缓存
+const getCache = (key: string) => {
+  const cached = cache.value.get(key);
+  const timeout = cacheTimeout.value.get(key);
+  
+  if (cached && timeout && Date.now() < timeout) {
+    return cached;
+  }
+  
+  // 清除过期缓存
+  if (cached) {
+    cache.value.delete(key);
+    cacheTimeout.value.delete(key);
+  }
+  
+  return null;
+};
+
+// 设置缓存
+const setCache = (key: string, data: any) => {
+  cache.value.set(key, data);
+  cacheTimeout.value.set(key, Date.now() + CACHE_DURATION);
+};
+
+// 清除缓存
+const clearCache = () => {
+  cache.value.clear();
+  cacheTimeout.value.clear();
+};
 
 // 获取作者信息
 const fetchArtistInfo = async () => {
   const artistId = parseInt(route.params.id as string);
   if (isNaN(artistId)) {
     error.value = '无效的作者ID';
+    return;
+  }
+
+  // 检查缓存
+  const cacheKey = `artist_${artistId}`;
+  const cached = getCache(cacheKey);
+  if (cached) {
+    artist.value = cached;
     return;
   }
 
@@ -146,6 +278,7 @@ const fetchArtistInfo = async () => {
     
     if (response.success && response.data) {
       artist.value = response.data;
+      setCache(cacheKey, response.data);
     } else {
       throw new Error(response.error || '获取作者信息失败');
     }
@@ -158,30 +291,68 @@ const fetchArtistInfo = async () => {
 };
 
 // 获取作者作品
-const fetchArtworks = async (reset = true) => {
+const fetchArtworks = async (page = 1) => {
   if (!artist.value) return;
+
+  const cacheKey = getCacheKey(artworkType.value, page);
+  const cached = getCache(cacheKey);
+  
+  if (cached) {
+    artworks.value = cached.artworks;
+    totalCount.value = cached.totalCount;
+    totalPages.value = cached.totalPages;
+    currentPage.value = page;
+    return;
+  }
 
   try {
     artworksLoading.value = true;
-    if (reset) {
-      offset.value = 0;
-      artworks.value = [];
-    }
     
+    const offset = (page - 1) * pageSize.value;
     const response = await artistService.getArtistArtworks(artist.value.id, {
       type: artworkType.value,
-      offset: offset.value,
-      limit: 30
+      offset: offset,
+      limit: pageSize.value
     });
     
     if (response.success && response.data) {
-      if (reset) {
-        artworks.value = response.data.artworks;
+      artworks.value = response.data.artworks;
+      
+      // 基于 next_url 来判断是否还有更多页面
+      const hasMore = !!response.data.next_url;
+      
+      if (page === 1) {
+        // 第一页，基于是否有下一页来判断总数
+        if (hasMore) {
+          // 如果有下一页，至少说明有2页
+          totalCount.value = pageSize.value * 2;
+          totalPages.value = 2;
+        } else {
+          // 没有下一页，说明只有1页
+          totalCount.value = response.data.artworks.length;
+          totalPages.value = 1;
+        }
       } else {
-        artworks.value.push(...response.data.artworks);
+        // 非第一页，基于当前页面位置和是否有下一页来判断
+        if (hasMore) {
+          // 如果有下一页，说明至少还有1页
+          totalCount.value = Math.max(totalCount.value, (page + 1) * pageSize.value);
+          totalPages.value = Math.max(totalPages.value, page + 1);
+        } else {
+          // 没有下一页，说明这是最后一页
+          totalCount.value = Math.max(totalCount.value, page * pageSize.value);
+          totalPages.value = Math.max(totalPages.value, page);
+        }
       }
-      hasMore.value = response.data.artworks.length === 30;
-      offset.value += response.data.artworks.length;
+      
+      currentPage.value = page;
+      
+      // 缓存结果
+      setCache(cacheKey, {
+        artworks: response.data.artworks,
+        totalCount: totalCount.value,
+        totalPages: totalPages.value
+      });
     } else {
       throw new Error(response.error || '获取作品列表失败');
     }
@@ -193,13 +364,16 @@ const fetchArtworks = async (reset = true) => {
   }
 };
 
-// 加载更多
-const loadMore = async () => {
-  if (loadingMore.value || !hasMore.value) return;
-  
-  loadingMore.value = true;
-  await fetchArtworks(false);
-  loadingMore.value = false;
+// 处理类型切换
+const handleTypeChange = () => {
+  currentPage.value = 1;
+  fetchArtworks(1);
+};
+
+// 跳转到指定页面
+const goToPage = (page: number) => {
+  if (page < 1 || page > totalPages.value || page === currentPage.value) return;
+  fetchArtworks(page);
 };
 
 // 关注/取消关注
@@ -212,6 +386,9 @@ const handleFollow = async () => {
     
     if (response.success) {
       artist.value.is_followed = !artist.value.is_followed;
+      // 更新缓存
+      const cacheKey = `artist_${artist.value.id}`;
+      setCache(cacheKey, artist.value);
     } else {
       throw new Error(response.error || '操作失败');
     }
@@ -221,7 +398,7 @@ const handleFollow = async () => {
   }
 };
 
-// 下载所有作品
+// 下载作品
 const handleDownloadAll = async () => {
   if (!artist.value) return;
 
@@ -229,11 +406,18 @@ const handleDownloadAll = async () => {
     downloading.value = true;
     const response = await downloadService.downloadArtistArtworks(artist.value.id, {
       type: artworkType.value,
-      limit: 50
+      limit: parseInt(downloadLimit.value)
     });
     
     if (response.success) {
       console.log('下载任务已创建:', response.data);
+      const limitText = downloadLimit.value === '9999' ? '全部' : downloadLimit.value;
+      downloadSuccess.value = `下载任务已创建，将下载 ${limitText} 个作品`;
+      
+      // 3秒后清除成功提示
+      setTimeout(() => {
+        downloadSuccess.value = null;
+      }, 3000);
     } else {
       throw new Error(response.error || '下载失败');
     }
@@ -260,12 +444,14 @@ const getImageUrl = (originalUrl: string) => {
 
 // 点击作品
 const handleArtworkClick = (artwork: Artwork) => {
-  // 传递作者ID和作品类型信息，用于导航
+  // 传递作者ID、作品类型和当前页面信息，用于导航
   router.push({
     path: `/artwork/${artwork.id}`,
     query: {
       artistId: artist.value?.id.toString(),
-      artworkType: artworkType.value
+      artworkType: artworkType.value,
+      page: currentPage.value.toString(),
+      returnUrl: route.fullPath
     }
   });
 };
@@ -275,9 +461,38 @@ const clearError = () => {
   error.value = null;
 };
 
+// 监听路由变化
+watch(() => route.params.id, () => {
+  // 清除缓存并重新加载
+  clearCache();
+  fetchArtistInfo();
+  
+  // 检查是否有返回的页面信息
+  const returnPage = parseInt(route.query.page as string);
+  if (returnPage && returnPage > 0) {
+    currentPage.value = returnPage;
+    fetchArtworks(returnPage);
+  } else {
+    fetchArtworks(1);
+  }
+});
+
+// 组件卸载时清理缓存
+onUnmounted(() => {
+  clearCache();
+});
+
 onMounted(async () => {
   await fetchArtistInfo();
-  await fetchArtworks();
+  
+  // 检查是否有返回的页面信息
+  const returnPage = parseInt(route.query.page as string);
+  if (returnPage && returnPage > 0) {
+    currentPage.value = returnPage;
+    await fetchArtworks(returnPage);
+  } else {
+    await fetchArtworks(1);
+  }
 });
 </script>
 
@@ -300,6 +515,42 @@ onMounted(async () => {
   justify-content: center;
   align-items: center;
   min-height: 400px;
+}
+
+.success-message {
+  position: fixed;
+  top: 2rem;
+  right: 2rem;
+  background: #10b981;
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  animation: slideIn 0.3s ease-out;
+}
+
+.success-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.success-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 .artist-header {
@@ -354,6 +605,35 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.download-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.download-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.download-input-group label {
+  font-size: 0.875rem;
+  color: #374151;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.download-select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  background: white;
+  font-size: 0.875rem;
+  color: #374151;
+  min-width: 100px;
 }
 
 .btn {
@@ -471,8 +751,81 @@ onMounted(async () => {
   color: #6b7280;
 }
 
-.load-more {
-  text-align: center;
+/* 分页样式 */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.page-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background: white;
+  color: #374151;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.page-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.page-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.page-numbers {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.page-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background: white;
+  color: #374151;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.page-number:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.page-number.active {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.page-info {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  color: #6b7280;
+  font-size: 0.875rem;
 }
 
 @media (max-width: 768px) {
@@ -494,6 +847,16 @@ onMounted(async () => {
     flex-direction: row;
   }
   
+  .download-section {
+    flex-direction: row;
+    align-items: center;
+    gap: 1rem;
+  }
+  
+  .download-input-group {
+    flex-shrink: 0;
+  }
+  
   .btn {
     flex: 1;
   }
@@ -506,6 +869,21 @@ onMounted(async () => {
   
   .artworks-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .pagination {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .page-numbers {
+    order: -1;
+  }
+  
+  .page-info {
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
   }
 }
 </style> 

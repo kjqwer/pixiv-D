@@ -55,12 +55,15 @@ class ArtistService {
         `/v1/user/illusts?${stringify(params)}`
       );
 
+      console.log('Artworks response keys:', Object.keys(response));
+      console.log('Artworks count:', response.illusts?.length || 0);
+      console.log('Next URL:', response.next_url);
+
       return {
         success: true,
         data: {
           artworks: response.illusts,
-          next_url: response.next_url,
-          total: response.illusts.length
+          next_url: response.next_url
         }
       };
 

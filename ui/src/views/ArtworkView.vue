@@ -86,6 +86,16 @@
           <!-- 作品导航 -->
           <div v-if="showNavigation" class="artwork-navigation">
             <button 
+              @click="goBackToArtist" 
+              class="nav-btn nav-back"
+              title="返回作者页面"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+              </svg>
+              <span>返回</span>
+            </button>
+            <button 
               @click="navigateToPrevious" 
               class="nav-btn nav-prev" 
               :disabled="!previousArtwork"
@@ -347,9 +357,16 @@ const fetchArtistArtworks = async () => {
 
   try {
     navigationLoading.value = true;
+    
+    // 获取当前页面信息
+    const currentPage = parseInt(route.query.page as string) || 1;
+    const pageSize = 30;
+    const offset = (currentPage - 1) * pageSize;
+    
     const response = await artistService.getArtistArtworks(parseInt(artistId as string), {
       type: artworkType as 'art' | 'manga' | 'novel',
-      limit: 100 // 获取更多作品以便导航
+      offset: offset,
+      limit: pageSize
     });
     
     if (response.success && response.data) {
@@ -372,7 +389,9 @@ const navigateToPrevious = () => {
       path: `/artwork/${previousArtwork.value.id}`,
       query: {
         artistId: route.query.artistId,
-        artworkType: route.query.artworkType
+        artworkType: route.query.artworkType,
+        page: route.query.page,
+        returnUrl: route.query.returnUrl
       }
     });
   }
@@ -385,9 +404,20 @@ const navigateToNext = () => {
       path: `/artwork/${nextArtwork.value.id}`,
       query: {
         artistId: route.query.artistId,
-        artworkType: route.query.artworkType
+        artworkType: route.query.artworkType,
+        page: route.query.page,
+        returnUrl: route.query.returnUrl
       }
     });
+  }
+};
+
+// 返回作者页面
+const goBackToArtist = () => {
+  if (route.query.returnUrl) {
+    router.push(route.query.returnUrl as string);
+  } else if (route.query.artistId) {
+    router.push(`/artist/${route.query.artistId}`);
   }
 };
 
@@ -412,6 +442,9 @@ const handleKeydown = (event: KeyboardEvent) => {
   } else if (event.key === 'ArrowRight' && nextArtwork.value) {
     event.preventDefault();
     navigateToNext();
+  } else if (event.key === 'Escape') {
+    event.preventDefault();
+    goBackToArtist();
   }
 };
 
@@ -454,7 +487,7 @@ onUnmounted(() => {
 
 .artwork-content {
   display: grid;
-  grid-template-columns: 1fr 400px;
+  grid-template-columns: 1fr 460px;
   gap: 3rem;
   align-items: start;
 }
@@ -736,7 +769,6 @@ onUnmounted(() => {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
-  flex: 1;
   justify-content: center;
 }
 
@@ -753,6 +785,24 @@ onUnmounted(() => {
 .nav-btn svg {
   width: 1.25rem;
   height: 1.25rem;
+}
+
+.nav-back {
+  flex: 0 0 auto;
+  min-width: 100px;
+  justify-content: center;
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.nav-back:hover {
+  background: #e5e7eb;
+}
+
+.nav-prev,
+.nav-next {
+  flex: 1;
+  min-width: 120px;
 }
 
 .nav-prev {
@@ -821,6 +871,22 @@ onUnmounted(() => {
   .thumbnail {
     width: 50px;
     height: 50px;
+  }
+  
+  .artwork-navigation {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .nav-back {
+    order: -1;
+    align-self: flex-start;
+    min-width: 80px;
+  }
+  
+  .nav-prev,
+  .nav-next {
+    min-width: auto;
   }
 }
 </style> 

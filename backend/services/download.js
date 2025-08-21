@@ -774,6 +774,9 @@ class DownloadService {
           allArtworks.push(...artworks);
           offset += artworks.length;
           
+          // 基于 next_url 判断是否还有更多页面
+          hasMore = !!artworksResult.data.next_url;
+          
           // 添加延迟避免请求过于频繁
           await new Promise(resolve => setTimeout(resolve, 500));
         }
