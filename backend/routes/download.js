@@ -22,7 +22,7 @@ router.post('/artwork/:id', async (req, res) => {
       });
     }
     
-    const downloadService = new DownloadService(req.backend.getAuth());
+    const downloadService = req.backend.getDownloadService();
     const result = await downloadService.downloadArtwork(parseInt(id), {
       size,
       quality,
@@ -76,7 +76,7 @@ router.post('/artworks', async (req, res) => {
       });
     }
     
-    const downloadService = new DownloadService(req.backend.getAuth());
+    const downloadService = req.backend.getDownloadService();
     const result = await downloadService.downloadMultipleArtworks(artworkIds, {
       size,
       quality,
@@ -112,12 +112,10 @@ router.post('/artist/:id', async (req, res) => {
     const { id } = req.params;
     const { 
       type = 'art',
-      filter = 'for_ios',
+      limit = 50,
       size = 'original',
       quality = 'high',
-      format = 'auto',
-      limit = 50,
-      concurrent = 3
+      format = 'auto'
     } = req.body;
     
     if (!id || isNaN(parseInt(id))) {
@@ -127,15 +125,13 @@ router.post('/artist/:id', async (req, res) => {
       });
     }
     
-    const downloadService = new DownloadService(req.backend.getAuth());
+    const downloadService = req.backend.getDownloadService();
     const result = await downloadService.downloadArtistArtworks(parseInt(id), {
       type,
-      filter,
+      limit: parseInt(limit),
       size,
       quality,
-      format,
-      limit: parseInt(limit),
-      concurrent: parseInt(concurrent)
+      format
     });
     
     if (result.success) {
@@ -158,34 +154,48 @@ router.post('/artist/:id', async (req, res) => {
 });
 
 /**
- * 获取下载进度
+ * 获取任务进度
  * GET /api/download/progress/:taskId
  */
 router.get('/progress/:taskId', async (req, res) => {
   try {
     const { taskId } = req.params;
     
-    if (!taskId) {
-      return res.status(400).json({
+    const downloadService = req.backend.getDownloadService();
+    const progress = downloadService.getTaskProgress(taskId);
+    
+    if (!progress) {
+      return res.status(404).json({
         success: false,
-        error: 'Task ID is required'
+        error: 'Task not found'
       });
     }
     
-    const downloadService = new DownloadService(req.backend.getAuth());
-    const result = await downloadService.getDownloadProgress(taskId);
+    res.json({
+      success: true,
+      data: progress
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 获取所有任务
+ * GET /api/download/tasks
+ */
+router.get('/tasks', async (req, res) => {
+  try {
+    const downloadService = req.backend.getDownloadService();
+    const tasks = downloadService.getAllTasks();
     
-    if (result.success) {
-      res.json({
-        success: true,
-        data: result.data
-      });
-    } else {
-      res.status(404).json({
-        success: false,
-        error: result.error
-      });
-    }
+    res.json({
+      success: true,
+      data: tasks
+    });
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -196,26 +206,19 @@ router.get('/progress/:taskId', async (req, res) => {
 
 /**
  * 取消下载任务
- * DELETE /api/download/cancel/:taskId
+ * POST /api/download/cancel/:taskId
  */
-router.delete('/cancel/:taskId', async (req, res) => {
+router.post('/cancel/:taskId', async (req, res) => {
   try {
     const { taskId } = req.params;
     
-    if (!taskId) {
-      return res.status(400).json({
-        success: false,
-        error: 'Task ID is required'
-      });
-    }
-    
-    const downloadService = new DownloadService(req.backend.getAuth());
-    const result = await downloadService.cancelDownload(taskId);
+    const downloadService = req.backend.getDownloadService();
+    const result = await downloadService.cancelTask(taskId);
     
     if (result.success) {
       res.json({
         success: true,
-        message: 'Download task cancelled successfully'
+        message: 'Task cancelled successfully'
       });
     } else {
       res.status(400).json({
@@ -237,21 +240,120 @@ router.delete('/cancel/:taskId', async (req, res) => {
  */
 router.get('/history', async (req, res) => {
   try {
-    const { 
-      offset = 0, 
-      limit = 20 
-    } = req.query;
+    const { limit = 50, offset = 0 } = req.query;
     
-    const downloadService = new DownloadService(req.backend.getAuth());
-    const result = await downloadService.getDownloadHistory({
-      offset: parseInt(offset),
-      limit: parseInt(limit)
+    const downloadService = req.backend.getDownloadService();
+    const history = downloadService.getDownloadHistory(parseInt(limit), parseInt(offset));
+    
+    res.json({
+      success: true,
+      data: history
     });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 获取下载的文件列表
+ * GET /api/download/files
+ */
+router.get('/files', async (req, res) => {
+  try {
+    const downloadService = req.backend.getDownloadService();
+    const files = await downloadService.getDownloadedFiles();
+    
+    res.json({
+      success: true,
+      data: files
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 检查作品是否已下载
+ * GET /api/download/check/:artworkId
+ */
+router.get('/check/:artworkId', async (req, res) => {
+  try {
+    const { artworkId } = req.params;
+    
+    if (!artworkId || isNaN(parseInt(artworkId))) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid artwork ID'
+      });
+    }
+    
+    const downloadService = req.backend.getDownloadService();
+    const isDownloaded = await downloadService.isArtworkDownloaded(parseInt(artworkId));
+    
+    res.json({
+      success: true,
+      data: {
+        artwork_id: parseInt(artworkId),
+        is_downloaded: isDownloaded
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 获取已下载的作品ID列表
+ * GET /api/download/downloaded-ids
+ */
+router.get('/downloaded-ids', async (req, res) => {
+  try {
+    const downloadService = req.backend.getDownloadService();
+    const downloadedIds = await downloadService.getDownloadedArtworkIds();
+    
+    res.json({
+      success: true,
+      data: downloadedIds
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 删除下载的文件
+ * DELETE /api/download/files
+ */
+router.delete('/files', async (req, res) => {
+  try {
+    const { artist, artwork } = req.body;
+    
+    if (!artist || !artwork) {
+      return res.status(400).json({
+        success: false,
+        error: 'Artist and artwork names are required'
+      });
+    }
+    
+    const downloadService = req.backend.getDownloadService();
+    const result = await downloadService.deleteDownloadedFiles(artist, artwork);
     
     if (result.success) {
       res.json({
         success: true,
-        data: result.data
+        message: 'Files deleted successfully'
       });
     } else {
       res.status(400).json({

@@ -2,11 +2,12 @@
   <div class="artwork-card" @click="handleClick">
     <div class="artwork-image">
       <img 
-        :src="artwork.image_urls.medium" 
+        :src="getImageUrl(artwork.image_urls.medium)" 
         :alt="artwork.title"
         @load="imageLoaded = true"
         @error="imageError = true"
         :class="{ loaded: imageLoaded, error: imageError }"
+        crossorigin="anonymous"
       />
       <div v-if="!imageLoaded && !imageError" class="image-placeholder">
         <LoadingSpinner text="加载中..." />
@@ -24,9 +25,10 @@
       <div class="artwork-meta">
         <div class="artist-info">
           <img 
-            :src="artwork.user.profile_image_urls.medium" 
+            :src="getImageUrl(artwork.user.profile_image_urls.medium)" 
             :alt="artwork.user.name"
             class="artist-avatar"
+            crossorigin="anonymous"
           />
           <span class="artist-name">{{ artwork.user.name }}</span>
         </div>
@@ -84,6 +86,19 @@ const imageError = ref(false);
 
 const handleClick = () => {
   emit('click', props.artwork);
+};
+
+// 处理图片URL，通过后端代理
+const getImageUrl = (originalUrl: string) => {
+  if (!originalUrl) return '';
+  
+  // 如果是Pixiv的图片URL，通过后端代理
+  if (originalUrl.includes('i.pximg.net')) {
+    const encodedUrl = encodeURIComponent(originalUrl);
+    return `http://localhost:3000/api/proxy/image?url=${encodedUrl}`;
+  }
+  
+  return originalUrl;
 };
 </script>
 

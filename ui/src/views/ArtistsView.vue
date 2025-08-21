@@ -42,9 +42,10 @@
             >
               <div class="artist-header">
                 <img 
-                  :src="artist.profile_image_urls.medium" 
+                  :src="getImageUrl(artist.profile_image_urls.medium)" 
                   :alt="artist.name"
                   class="artist-avatar"
+                  crossorigin="anonymous"
                 />
                 <div class="artist-info">
                   <h3 class="artist-name">{{ artist.name }}</h3>
@@ -105,9 +106,10 @@
             >
               <div class="artist-header">
                 <img 
-                  :src="artist.profile_image_urls.medium" 
+                  :src="getImageUrl(artist.profile_image_urls.medium)" 
                   :alt="artist.name"
                   class="artist-avatar"
+                  crossorigin="anonymous"
                 />
                 <div class="artist-info">
                   <h3 class="artist-name">{{ artist.name }}</h3>
@@ -181,14 +183,12 @@ const fetchFollowingArtists = async () => {
     loading.value = true;
     error.value = null;
     
-    // 这里需要根据实际API调整
-    // const response = await artistService.getFollowingArtists();
-    // if (response.success && response.data) {
-    //   followingArtists.value = response.data.artists;
-    // }
-    
-    // 暂时使用模拟数据
-    followingArtists.value = [];
+    const response = await artistService.getFollowingArtists();
+    if (response.success && response.data) {
+      followingArtists.value = response.data.artists;
+    } else {
+      throw new Error(response.error || '获取关注列表失败');
+    }
   } catch (err) {
     error.value = err instanceof Error ? err.message : '获取关注列表失败';
     console.error('获取关注列表失败:', err);
@@ -290,6 +290,19 @@ const handleDownloadArtist = async (artistId: number) => {
 // 清除错误
 const clearError = () => {
   error.value = null;
+};
+
+// 处理图片URL，通过后端代理
+const getImageUrl = (originalUrl: string) => {
+  if (!originalUrl) return '';
+  
+  // 如果是Pixiv的图片URL，通过后端代理
+  if (originalUrl.includes('i.pximg.net')) {
+    const encodedUrl = encodeURIComponent(originalUrl);
+    return `http://localhost:3000/api/proxy/image?url=${encodedUrl}`;
+  }
+  
+  return originalUrl;
 };
 
 onMounted(() => {

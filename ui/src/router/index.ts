@@ -18,31 +18,31 @@ const router = createRouter({
     {
       path: '/search',
       name: 'search',
-      component: () => import('../views/SearchView.vue'),
+      component: () => import('@/views/SearchView.vue'),
       meta: { requiresAuth: true }
     },
     {
       path: '/artwork/:id',
       name: 'artwork',
-      component: () => import('../views/ArtworkView.vue'),
+      component: () => import('@/views/ArtworkView.vue'),
       meta: { requiresAuth: true }
     },
     {
       path: '/artist/:id',
       name: 'artist',
-      component: () => import('../views/ArtistView.vue'),
+      component: () => import('@/views/ArtistView.vue'),
       meta: { requiresAuth: true }
     },
     {
       path: '/downloads',
       name: 'downloads',
-      component: () => import('../views/DownloadsView.vue'),
+      component: () => import('@/views/DownloadsView.vue'),
       meta: { requiresAuth: true }
     },
     {
       path: '/artists',
       name: 'artists',
-      component: () => import('../views/ArtistsView.vue'),
+      component: () => import('@/views/ArtistsView.vue'),
       meta: { requiresAuth: true }
     }
   ]

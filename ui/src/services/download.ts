@@ -1,66 +1,105 @@
 import apiService from './api';
-import type { ApiResponse, DownloadTask, DownloadParams } from '@/types';
-
-export interface DownloadArtworkRequest extends DownloadParams {
-  size?: 'original' | 'large' | 'medium' | 'square_medium';
-  quality?: 'high' | 'medium' | 'low';
-  format?: 'auto' | 'jpg' | 'png';
-}
-
-export interface DownloadMultipleRequest extends DownloadParams {
-  artworkIds: number[];
-  concurrent?: number;
-}
-
-export interface DownloadArtistRequest extends DownloadParams {
-  type?: 'art' | 'manga' | 'novel';
-  filter?: 'for_ios' | 'for_android';
-  limit?: number;
-}
+import type { DownloadTask } from '@/types';
 
 class DownloadService {
   /**
    * 下载单个作品
    */
-  async downloadArtwork(id: number, params: DownloadArtworkRequest = {}): Promise<ApiResponse<any>> {
-    return apiService.post(`/api/download/artwork/${id}`, params);
+  async downloadArtwork(artworkId: number, options: {
+    size?: string;
+    quality?: string;
+    format?: string;
+  } = {}) {
+    return apiService.post(`/api/download/artwork/${artworkId}`, options);
   }
 
   /**
    * 批量下载作品
    */
-  async downloadMultipleArtworks(params: DownloadMultipleRequest): Promise<ApiResponse<any>> {
-    return apiService.post('/api/download/artworks', params);
+  async downloadMultipleArtworks(artworkIds: number[], options: {
+    size?: string;
+    quality?: string;
+    format?: string;
+    concurrent?: number;
+  } = {}) {
+    return apiService.post('/api/download/artworks', {
+      artworkIds,
+      ...options
+    });
   }
 
   /**
    * 下载作者作品
    */
-  async downloadArtistArtworks(id: number, params: DownloadArtistRequest = {}): Promise<ApiResponse<any>> {
-    return apiService.post(`/api/download/artist/${id}`, params);
+  async downloadArtistArtworks(artistId: number, options: {
+    type?: string;
+    limit?: number;
+    size?: string;
+    quality?: string;
+    format?: string;
+  } = {}) {
+    return apiService.post(`/api/download/artist/${artistId}`, options);
   }
 
   /**
-   * 获取下载进度
+   * 获取任务进度
    */
-  async getDownloadProgress(taskId: string): Promise<ApiResponse<DownloadTask>> {
-    return apiService.get<DownloadTask>(`/api/download/progress/${taskId}`);
+  async getTaskProgress(taskId: string) {
+    return apiService.get(`/api/download/progress/${taskId}`);
+  }
+
+  /**
+   * 获取所有任务
+   */
+  async getAllTasks() {
+    return apiService.get('/api/download/tasks');
   }
 
   /**
    * 取消下载任务
    */
-  async cancelDownload(taskId: string): Promise<ApiResponse> {
-    return apiService.delete(`/api/download/cancel/${taskId}`);
+  async cancelTask(taskId: string) {
+    return apiService.post(`/api/download/cancel/${taskId}`);
   }
 
   /**
    * 获取下载历史
    */
-  async getDownloadHistory(offset: number = 0, limit: number = 20): Promise<ApiResponse<{ tasks: DownloadTask[]; total: number; offset: number; limit: number }>> {
-    return apiService.get<{ tasks: DownloadTask[]; total: number; offset: number; limit: number }>(`/api/download/history?offset=${offset}&limit=${limit}`);
+  async getDownloadHistory(limit: number = 50, offset: number = 0) {
+    return apiService.get('/api/download/history', {
+      params: { limit, offset }
+    });
+  }
+
+  /**
+   * 获取下载的文件列表
+   */
+  async getDownloadedFiles() {
+    return apiService.get('/api/download/files');
+  }
+
+  /**
+   * 检查作品是否已下载
+   */
+  async checkArtworkDownloaded(artworkId: number) {
+    return apiService.get(`/api/download/check/${artworkId}`);
+  }
+
+  /**
+   * 获取已下载的作品ID列表
+   */
+  async getDownloadedArtworkIds() {
+    return apiService.get('/api/download/downloaded-ids');
+  }
+
+  /**
+   * 删除下载的文件
+   */
+  async deleteDownloadedFiles(artist: string, artwork: string) {
+    return apiService.delete('/api/download/files', {
+      data: { artist, artwork }
+    });
   }
 }
 
-export const downloadService = new DownloadService();
-export default downloadService; 
+export default new DownloadService(); 

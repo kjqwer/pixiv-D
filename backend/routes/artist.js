@@ -3,22 +3,18 @@ const router = express.Router();
 const ArtistService = require('../services/artist');
 
 /**
- * 获取作者信息
- * GET /api/artist/:id
+ * 获取当前用户关注的作者列表
+ * GET /api/artist/following
  */
-router.get('/:id', async (req, res) => {
+router.get('/following', async (req, res) => {
   try {
-    const { id } = req.params;
-    
-    if (!id || isNaN(parseInt(id))) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid artist ID'
-      });
-    }
+    const { offset = 0, limit = 30 } = req.query;
     
     const artistService = new ArtistService(req.backend.getAuth());
-    const result = await artistService.getArtistInfo(parseInt(id));
+    const result = await artistService.getFollowingArtists({
+      offset: parseInt(offset),
+      limit: parseInt(limit)
+    });
     
     if (result.success) {
       res.json({
@@ -210,6 +206,43 @@ router.post('/:id/follow', async (req, res) => {
       });
     } else {
       res.status(400).json({
+        success: false,
+        error: result.error
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 获取作者信息
+ * GET /api/artist/:id
+ */
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid artist ID'
+      });
+    }
+    
+    const artistService = new ArtistService(req.backend.getAuth());
+    const result = await artistService.getArtistInfo(parseInt(id));
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        data: result.data
+      });
+    } else {
+      res.status(404).json({
         success: false,
         error: result.error
       });

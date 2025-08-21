@@ -4,21 +4,75 @@
         <div class="container">
           <h1 class="page-title">搜索作品</h1>
           
-          <div class="search-form">
-            <div class="search-input-group">
-              <input
-                v-model="searchKeyword"
-                type="text"
-                placeholder="输入关键词搜索作品..."
-                class="search-input"
-                @keyup.enter="handleSearch"
-              />
-              <button @click="handleSearch" class="search-btn" :disabled="loading">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-                </svg>
-              </button>
-            </div>
+                  <div class="search-form">
+          <!-- 搜索类型选择 -->
+          <div class="search-type-tabs">
+            <button 
+              @click="searchMode = 'keyword'" 
+              class="tab-btn"
+              :class="{ active: searchMode === 'keyword' }"
+            >
+              关键词搜索
+            </button>
+            <button 
+              @click="searchMode = 'artwork'" 
+              class="tab-btn"
+              :class="{ active: searchMode === 'artwork' }"
+            >
+              作品ID
+            </button>
+            <button 
+              @click="searchMode = 'artist'" 
+              class="tab-btn"
+              :class="{ active: searchMode === 'artist' }"
+            >
+              作者ID
+            </button>
+          </div>
+
+          <!-- 关键词搜索 -->
+          <div v-if="searchMode === 'keyword'" class="search-input-group">
+            <input
+              v-model="searchKeyword"
+              type="text"
+              placeholder="输入关键词搜索作品..."
+              class="search-input"
+              @keyup.enter="handleSearch"
+            />
+            <button @click="handleSearch" class="search-btn" :disabled="loading">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- 作品ID搜索 -->
+          <div v-if="searchMode === 'artwork'" class="search-input-group">
+            <input
+              v-model="artworkId"
+              type="text"
+              placeholder="输入作品ID..."
+              class="search-input"
+              @keyup.enter="handleArtworkSearch"
+            />
+            <button @click="handleArtworkSearch" class="search-btn" :disabled="loading">
+              查看作品
+            </button>
+          </div>
+
+          <!-- 作者ID搜索 -->
+          <div v-if="searchMode === 'artist'" class="search-input-group">
+            <input
+              v-model="artistId"
+              type="text"
+              placeholder="输入作者ID..."
+              class="search-input"
+              @keyup.enter="handleArtistSearch"
+            />
+            <button @click="handleArtistSearch" class="search-btn" :disabled="loading">
+              查看作者
+            </button>
+          </div>
             
             <div class="search-filters">
               <select v-model="searchType" class="filter-select">
@@ -111,6 +165,11 @@
   
   // 搜索状态
   const searchKeyword = ref('');
+  const searchMode = ref<'keyword' | 'artwork' | 'artist'>('keyword');
+  const artworkId = ref('');
+  const artistId = ref('');
+  
+  // 关键词搜索参数
   const searchType = ref<'all' | 'art' | 'manga' | 'novel'>('all');
   const searchSort = ref<'date_desc' | 'date_asc' | 'popular_desc'>('date_desc');
   const searchDuration = ref<'all' | 'within_last_day' | 'within_last_week' | 'within_last_month'>('all');
@@ -197,9 +256,43 @@
     router.push(`/artwork/${artwork.id}`);
   };
   
-  const clearError = () => {
-    error.value = null;
-  };
+  // 作品ID搜索
+const handleArtworkSearch = () => {
+  const idStr = artworkId.value?.toString().trim();
+  if (!idStr) {
+    error.value = '请输入作品ID';
+    return;
+  }
+  
+  const id = parseInt(idStr);
+  if (isNaN(id)) {
+    error.value = '请输入有效的作品ID';
+    return;
+  }
+  
+  router.push(`/artwork/${id}`);
+};
+
+// 作者ID搜索
+const handleArtistSearch = () => {
+  const idStr = artistId.value?.toString().trim();
+  if (!idStr) {
+    error.value = '请输入作者ID';
+    return;
+  }
+  
+  const id = parseInt(idStr);
+  if (isNaN(id)) {
+    error.value = '请输入有效的作者ID';
+    return;
+  }
+  
+  router.push(`/artist/${id}`);
+};
+
+const clearError = () => {
+  error.value = null;
+};
   </script>
   
   <style scoped>
@@ -233,10 +326,38 @@
     gap: 1rem;
   }
   
-  .search-input-group {
-    display: flex;
-    gap: 0.5rem;
-  }
+  .search-type-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.tab-btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #6b7280;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.875rem;
+}
+
+.tab-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.tab-btn.active {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.search-input-group {
+  display: flex;
+  gap: 0.5rem;
+}
   
   .search-input {
     flex: 1;

@@ -105,10 +105,14 @@ export interface DownloadTask {
   failed: number;
   start_time: string;
   end_time?: string;
+  error?: string;
+  artwork_id?: number;
+  artist_id?: number;
   files?: Array<{
     path: string;
     url: string;
     size: string;
+    filename: string;
   }>;
   results?: any[];
 }

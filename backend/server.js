@@ -3,11 +3,12 @@ const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
 
-// 导入路由模块 - 临时注释掉来定位问题
+// 导入路由模块
 const authRoutes = require('./routes/auth');
 const artworkRoutes = require('./routes/artwork');
 const artistRoutes = require('./routes/artist');
 const downloadRoutes = require('./routes/download');
+const proxyRoutes = require('./routes/proxy');
 
 // 导入中间件 - 临时注释掉来定位问题
 const { errorHandler } = require('./middleware/errorHandler');
@@ -58,7 +59,7 @@ class PixivServer {
     
     // CORS 中间件
     this.app.use(cors({
-      origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+      origin: process.env.FRONTEND_URL || 'http://localhost:5173',
       credentials: true
     }));
     
@@ -92,11 +93,12 @@ class PixivServer {
       });
     });
 
-    // API 路由 - 临时注释掉来定位问题
+    // API 路由
     this.app.use('/api/auth', authRoutes);
     this.app.use('/api/artwork', authMiddleware, artworkRoutes);
     this.app.use('/api/artist', authMiddleware, artistRoutes);
     this.app.use('/api/download', authMiddleware, downloadRoutes);
+    this.app.use('/api/proxy', proxyRoutes); // 图片代理，不需要认证
     
     // 404 处理
     this.app.use((req, res) => {

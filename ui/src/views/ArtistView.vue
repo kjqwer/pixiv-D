@@ -14,9 +14,10 @@
         <div class="artist-header">
           <div class="artist-profile">
             <img 
-              :src="artist.profile_image_urls.medium" 
+              :src="getImageUrl(artist.profile_image_urls.medium)" 
               :alt="artist.name"
               class="artist-avatar"
+              crossorigin="anonymous"
             />
             <div class="artist-info">
               <h1 class="artist-name">{{ artist.name }}</h1>
@@ -64,7 +65,7 @@
           <div class="section-header">
             <h2>作品列表</h2>
             <div class="artwork-filters">
-              <select v-model="artworkType" @change="fetchArtworks" class="filter-select">
+              <select v-model="artworkType" @change="() => fetchArtworks()" class="filter-select">
                 <option value="art">插画</option>
                 <option value="manga">漫画</option>
                 <option value="novel">小说</option>
@@ -242,6 +243,19 @@ const handleDownloadAll = async () => {
   } finally {
     downloading.value = false;
   }
+};
+
+// 处理图片URL，通过后端代理
+const getImageUrl = (originalUrl: string) => {
+  if (!originalUrl) return '';
+  
+  // 如果是Pixiv的图片URL，通过后端代理
+  if (originalUrl.includes('i.pximg.net')) {
+    const encodedUrl = encodeURIComponent(originalUrl);
+    return `http://localhost:3000/api/proxy/image?url=${encodedUrl}`;
+  }
+  
+  return originalUrl;
 };
 
 // 点击作品

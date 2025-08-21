@@ -199,12 +199,18 @@ class PixivAuth {
       
       this.accessToken = tokenData.access_token;
       this.refreshToken = tokenData.refresh_token;
+      
+      // 如果响应中包含用户信息，则保存
+      if (tokenData.user) {
+        this.user = tokenData.user;
+      }
 
       console.log('刷新访问令牌成功');
       return {
         success: true,
         access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token
+        refresh_token: tokenData.refresh_token,
+        user: tokenData.user
       };
 
     } catch (error) {

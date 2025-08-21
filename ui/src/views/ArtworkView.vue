@@ -14,11 +14,12 @@
         <div class="artwork-gallery">
           <div class="main-image">
             <img 
-              :src="currentImageUrl" 
+              :src="getImageUrl(currentImageUrl)" 
               :alt="artwork.title"
               @load="imageLoaded = true"
               @error="imageError = true"
               :class="{ loaded: imageLoaded, error: imageError }"
+              crossorigin="anonymous"
             />
             <div v-if="!imageLoaded && !imageError" class="image-placeholder">
               <LoadingSpinner text="加载中..." />
@@ -37,7 +38,7 @@
               class="thumbnail"
               :class="{ active: currentPage === index }"
             >
-              <img :src="page.image_urls.square_medium" :alt="`第 ${index + 1} 页`" />
+              <img :src="getImageUrl(page.image_urls.square_medium)" :alt="`第 ${index + 1} 页`" crossorigin="anonymous" />
             </button>
           </div>
         </div>
@@ -59,9 +60,10 @@
           <!-- 作者信息 -->
           <div class="artist-info">
             <img 
-              :src="artwork.user.profile_image_urls.medium" 
+              :src="getImageUrl(artwork.user.profile_image_urls.medium)" 
               :alt="artwork.user.name"
               class="artist-avatar"
+              crossorigin="anonymous"
             />
             <div class="artist-details">
               <h3 class="artist-name">{{ artwork.user.name }}</h3>
@@ -221,6 +223,19 @@ const handleBookmark = () => {
 // 格式化日期
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString('zh-CN');
+};
+
+// 处理图片URL，通过后端代理
+const getImageUrl = (originalUrl: string) => {
+  if (!originalUrl) return '';
+  
+  // 如果是Pixiv的图片URL，通过后端代理
+  if (originalUrl.includes('i.pximg.net')) {
+    const encodedUrl = encodeURIComponent(originalUrl);
+    return `http://localhost:3000/api/proxy/image?url=${encodedUrl}`;
+  }
+  
+  return originalUrl;
 };
 
 // 清除错误

@@ -1,6 +1,7 @@
 const Fse = require('fs-extra');
 const Path = require('path');
 const PixivAuth = require('./auth');
+const DownloadService = require('./services/download');
 
 // 配置文件路径
 const CONFIG_FILE_DIR = require('appdata-path').getAppDataPath('pxder');
@@ -24,6 +25,7 @@ class PixivBackend {
     this.config = null;
     this.auth = null;
     this.isLoggedIn = false;
+    this.downloadService = null;
   }
 
   /**
@@ -38,6 +40,10 @@ class PixivBackend {
     
     // 创建认证实例，传入代理配置
     this.auth = new PixivAuth(this.config.proxy);
+    
+    // 创建下载服务实例
+    this.downloadService = new DownloadService(this.auth);
+    await this.downloadService.init();
     
     // 检查登录状态
     if (this.config.refresh_token) {
@@ -161,6 +167,12 @@ class PixivBackend {
         // 更新配置
         this.config.access_token = result.access_token;
         this.config.refresh_token = result.refresh_token;
+        
+        // 如果刷新令牌响应中包含用户信息，则更新
+        if (result.user) {
+          this.config.user = result.user;
+        }
+        
         this.saveConfig();
         
         this.isLoggedIn = true;
@@ -252,6 +264,13 @@ class PixivBackend {
    */
   getAuth() {
     return this.auth;
+  }
+
+  /**
+   * 获取下载服务实例
+   */
+  getDownloadService() {
+    return this.downloadService;
   }
 }
 

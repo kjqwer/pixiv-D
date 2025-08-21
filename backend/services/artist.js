@@ -149,6 +149,110 @@ class ArtistService {
   }
 
   /**
+   * 获取当前用户关注的作者列表
+   */
+  async getFollowingArtists(options = {}) {
+    try {
+      const {
+        offset = 0,
+        limit = 30
+      } = options;
+
+      // 检查认证状态
+      if (!this.auth || !this.auth.accessToken) {
+        return {
+          success: false,
+          error: '未登录或认证已过期'
+        };
+      }
+
+      // 尝试从认证实例获取当前用户ID
+      let currentUserId = this.auth.user?.id;
+      
+      // 如果认证实例中没有用户信息，尝试从状态中获取
+      if (!currentUserId) {
+        const status = this.auth.getStatus();
+        currentUserId = status.user?.id;
+      }
+      
+      if (!currentUserId) {
+        return {
+          success: false,
+          error: '无法获取当前用户信息，请重新登录'
+        };
+      }
+
+      const params = {
+        user_id: currentUserId,
+        restrict: 'public',
+        offset,
+        limit
+      };
+
+      console.log('获取关注作者列表，参数:', params);
+
+      const response = await this.makeRequest(
+        'GET',
+        `/v1/user/following?${stringify(params)}`
+      );
+
+      // 转换数据格式以匹配前端期望
+      const artists = (response.user_previews || []).map(user => ({
+        id: user.user.id,
+        name: user.user.name,
+        account: user.user.account,
+        profile_image_urls: user.user.profile_image_urls,
+        total_illusts: 0, // 这些信息需要通过 /v1/user/detail 获取
+        total_manga: 0,
+        total_followers: 0,
+        is_followed: user.user.is_followed || false
+      }));
+
+      // 为前5个用户获取详细信息（避免API调用过多）
+      const artistsToFetch = artists.slice(0, 5);
+      const detailedArtists = await Promise.all(
+        artistsToFetch.map(async (artist) => {
+          try {
+            const detailResponse = await this.getArtistInfo(artist.id);
+            if (detailResponse.success) {
+              return {
+                ...artist,
+                total_illusts: detailResponse.data.total_illusts || 0,
+                total_manga: detailResponse.data.total_manga || 0,
+                total_followers: detailResponse.data.total_followers || 0
+              };
+            }
+          } catch (error) {
+            console.error(`获取用户 ${artist.id} 详细信息失败:`, error.message);
+          }
+          return artist;
+        })
+      );
+
+      // 合并详细信息和基本信息
+      const finalArtists = [
+        ...detailedArtists,
+        ...artists.slice(5) // 其余用户保持基本信息
+      ];
+
+      return {
+        success: true,
+        data: {
+          artists: finalArtists,
+          total: finalArtists.length
+        }
+      };
+
+    } catch (error) {
+      console.error('获取关注作者列表失败:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
    * 关注/取消关注作者
    */
   async followArtist(artistId, action = 'follow') {
@@ -336,8 +440,21 @@ class ArtistService {
       }
     }
 
-    const response = await axios(config);
-    return response.data;
+    try {
+      console.log(`发送API请求: ${method} ${endpoint}`);
+      const response = await axios(config);
+      return response.data;
+    } catch (error) {
+      console.error('API请求失败:', {
+        method,
+        endpoint,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
   }
 }
 

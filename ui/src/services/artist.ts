@@ -75,6 +75,19 @@ class ArtistService {
   async followArtist(id: number, action: 'follow' | 'unfollow'): Promise<ApiResponse> {
     return apiService.post(`/api/artist/${id}/follow`, { action });
   }
+
+  /**
+   * 获取当前用户关注的作者列表
+   */
+  async getFollowingArtists(options: { offset?: number; limit?: number } = {}): Promise<ApiResponse<{ artists: Artist[]; total: number }>> {
+    const params = new URLSearchParams();
+    if (options.offset !== undefined) params.append('offset', options.offset.toString());
+    if (options.limit !== undefined) params.append('limit', options.limit.toString());
+
+    const query = params.toString();
+    const url = query ? `/api/artist/following?${query}` : '/api/artist/following';
+    return apiService.get<{ artists: Artist[]; total: number }>(url);
+  }
 }
 
 export const artistService = new ArtistService();

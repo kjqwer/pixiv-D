@@ -158,14 +158,49 @@ class ArtworkService {
         limit = 30
       } = searchOptions;
 
+      // 验证搜索参数
+      if (!keyword || keyword.trim() === '') {
+        return {
+          success: false,
+          error: 'Search keyword is required'
+        };
+      }
+
+      // 映射搜索参数到Pixiv API格式
+      const searchTargetMap = {
+        'all': 'partial_match_for_tags',
+        'art': 'partial_match_for_tags',
+        'manga': 'partial_match_for_tags',
+        'novel': 'partial_match_for_tags'
+      };
+
+      const sortMap = {
+        'date_desc': 'date_desc',
+        'date_asc': 'date_asc',
+        'popular_desc': 'popular_desc'
+      };
+
+      const durationMap = {
+        'all': null, // 不传递duration参数表示全部时间
+        'within_last_day': 'within_last_day',
+        'within_last_week': 'within_last_week',
+        'within_last_month': 'within_last_month'
+      };
+
       const params = {
-        word: keyword,
-        search_target: type,
-        sort: sort,
-        duration: duration,
-        offset,
+        word: keyword.trim(),
+        search_target: searchTargetMap[type] || 'partial_match_for_tags',
+        sort: sortMap[sort] || 'date_desc',
+        offset: parseInt(offset) || 0,
         filter: 'for_ios'
       };
+
+      // 只有当duration不是'all'时才添加duration参数
+      if (durationMap[duration] && durationMap[duration] !== null) {
+        params.duration = durationMap[duration];
+      }
+
+      console.log('Search params:', params);
 
       const response = await this.makeRequest(
         'GET',
@@ -175,17 +210,20 @@ class ArtworkService {
       return {
         success: true,
         data: {
-          artworks: response.illusts,
+          artworks: response.illusts || [],
           next_url: response.next_url,
           search_span_limit: response.search_span_limit,
-          total: response.illusts.length
+          total: response.illusts ? response.illusts.length : 0
         }
       };
 
     } catch (error) {
+      console.error('Search error:', error.message);
+      console.error('Search error details:', error.response?.data);
+      
       return {
         success: false,
-        error: error.message
+        error: error.message || 'Search failed'
       };
     }
   }
@@ -275,32 +313,50 @@ class ArtworkService {
    * 发送API请求
    */
   async makeRequest(method, endpoint, data = null) {
-    const headers = {
-      'Authorization': `Bearer ${this.auth.accessToken}`,
-      'Accept-Language': 'en-us',
-      'App-OS': 'android',
-      'App-OS-Version': '9.0',
-      'App-Version': '5.0.234',
-      'User-Agent': 'PixivAndroidApp/5.0.234 (Android 9.0; Pixel 3)'
-    };
-
-    const config = {
-      method,
-      url: `${this.baseURL}${endpoint}`,
-      headers,
-      timeout: 30000
-    };
-
-    if (data) {
-      if (method === 'GET') {
-        config.params = data;
-      } else {
-        config.data = data;
+    try {
+      if (!this.auth || !this.auth.accessToken) {
+        throw new Error('No access token available');
       }
-    }
 
-    const response = await axios(config);
-    return response.data;
+      const headers = {
+        'Authorization': `Bearer ${this.auth.accessToken}`,
+        'Accept-Language': 'en-us',
+        'App-OS': 'android',
+        'App-OS-Version': '9.0',
+        'App-Version': '5.0.234',
+        'User-Agent': 'PixivAndroidApp/5.0.234 (Android 9.0; Pixel 3)'
+      };
+
+      const config = {
+        method,
+        url: `${this.baseURL}${endpoint}`,
+        headers,
+        timeout: 30000
+      };
+
+      if (data) {
+        if (method === 'GET') {
+          config.params = data;
+        } else {
+          config.data = data;
+        }
+      }
+
+      console.log(`Making request to: ${config.url}`);
+      console.log('Request config:', { method, endpoint, data });
+
+      const response = await axios(config);
+      return response.data;
+    } catch (error) {
+      console.error('API request failed:', {
+        method,
+        endpoint,
+        error: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      throw error;
+    }
   }
 }
 
