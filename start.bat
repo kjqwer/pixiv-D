@@ -5,7 +5,7 @@ chcp 65001 >nul
 :: 代理配置 - 请根据你的代理软件修改端口号
 :: 常见端口: Clash=7890, V2Ray=10809, Shadowsocks=1080
 :: ========================================
-set PROXY_PORT=xxxx
+set PROXY_PORT=
 
 echo.
 echo 🚀 Pixiv Manager 启动中...
