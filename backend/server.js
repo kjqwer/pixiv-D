@@ -108,9 +108,9 @@ class PixivServer {
       // 如果是API请求，返回JSON格式的404
       if (req.path.startsWith('/api/')) {
         return res.status(404).json({ 
-          error: 'Not Found', 
-          message: `Route ${req.originalUrl} not found` 
-        });
+        error: 'Not Found', 
+        message: `Route ${req.originalUrl} not found` 
+      });
       }
       
       // 否则返回前端页面（SPA路由支持）

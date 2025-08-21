@@ -199,7 +199,7 @@ class PixivAuth {
       
       this.accessToken = tokenData.access_token;
       this.refreshToken = tokenData.refresh_token;
-      
+
       // 如果响应中包含用户信息，则保存
       if (tokenData.user) {
         this.user = tokenData.user;
