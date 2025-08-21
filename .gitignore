@@ -67,5 +67,8 @@ typings/
 downloads/
 data/
 
+# 用户配置文件（每个用户不同）
+backend/config/user-config.json
+
 # 自己的启动文件
 start_me.bat

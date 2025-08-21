@@ -2,19 +2,41 @@ const fs = require('fs').promises
 const path = require('path')
 const { promisify } = require('util')
 const { exec } = require('child_process')
+const ConfigManager = require('../config/config-manager')
 const execAsync = promisify(exec)
 
 class RepositoryService {
   constructor() {
-    this.baseDir = process.env.DOWNLOAD_DIR || path.join(process.cwd(), 'downloads')
-    this.configFile = path.join(this.baseDir, '.repository-config.json')
+    // 初始化配置管理器
+    this.configManager = new ConfigManager()
+    this.config = null
+  }
+
+  // 获取当前工作目录（基于配置）
+  getCurrentBaseDir() {
+    if (this.config && this.config.downloadDir) {
+      // 如果是相对路径，转换为绝对路径
+      return path.isAbsolute(this.config.downloadDir) 
+        ? this.config.downloadDir 
+        : path.resolve(process.cwd(), this.config.downloadDir)
+    }
+    // 默认返回项目根目录下的downloads文件夹
+    return path.resolve(process.cwd(), 'downloads')
   }
 
   // 初始化仓库
   async initialize() {
     try {
-      await fs.mkdir(this.baseDir, { recursive: true })
+      // 初始化配置管理器
+      await this.configManager.initialize()
+      
+      // 加载配置
       await this.loadConfig()
+      
+      // 确保下载目录存在
+      const currentBaseDir = this.getCurrentBaseDir()
+      await fs.mkdir(currentBaseDir, { recursive: true })
+      
       return { success: true, message: '仓库初始化成功' }
     } catch (error) {
       throw new Error(`仓库初始化失败: ${error.message}`)
@@ -24,30 +46,21 @@ class RepositoryService {
   // 加载配置
   async loadConfig() {
     try {
-      const configData = await fs.readFile(this.configFile, 'utf8')
-      this.config = JSON.parse(configData)
+      this.config = await this.configManager.readConfig()
     } catch (error) {
-      // 如果配置文件不存在，创建默认配置
-      this.config = {
-        downloadDir: this.baseDir,
-        autoMigration: false,
-        migrationRules: [],
-        fileStructure: 'artist/artwork', // artist/artwork, artwork, flat
-        namingPattern: '{artist_name}/{artwork_id}_{title}',
-        maxFileSize: 0, // 0表示无限制
-        allowedExtensions: ['.jpg', '.png', '.gif', '.webp']
-      }
-      await this.saveConfig()
+      console.error('加载配置失败:', error)
+      // 如果加载失败，使用默认配置
+      this.config = await this.configManager.readConfig()
     }
   }
 
   // 保存配置
   async saveConfig() {
     try {
-      await fs.writeFile(this.configFile, JSON.stringify(this.config, null, 2))
+      await this.configManager.saveConfig(this.config)
     } catch (error) {
       throw new Error(`保存配置失败: ${error.message}`)
-  }
+    }
   }
 
   // 获取仓库配置
@@ -61,6 +74,16 @@ class RepositoryService {
     this.config = { ...this.config, ...newConfig }
     await this.saveConfig()
     return { success: true, message: '配置更新成功' }
+  }
+
+  // 重置仓库配置为默认值
+  async resetConfig() {
+    try {
+      this.config = await this.configManager.resetToDefault()
+      return { success: true, message: '配置已重置为默认值' }
+    } catch (error) {
+      throw new Error(`重置配置失败: ${error.message}`)
+    }
   }
 
   // 获取仓库统计信息
@@ -89,8 +112,11 @@ class RepositoryService {
       // 确保配置已加载
       await this.loadConfig()
       
+      // 使用当前配置的目录
+      const currentBaseDir = this.getCurrentBaseDir()
+      
       // 扫描作者目录
-      const artistEntries = await fs.readdir(this.baseDir, { withFileTypes: true })
+      const artistEntries = await fs.readdir(currentBaseDir, { withFileTypes: true })
       
       for (const artistEntry of artistEntries) {
         if (!artistEntry.isDirectory()) continue
@@ -101,7 +127,7 @@ class RepositoryService {
         }
         
         const artistName = artistEntry.name
-        const artistPath = path.join(this.baseDir, artistName)
+        const artistPath = path.join(currentBaseDir, artistName)
         
         // 扫描作者下的作品目录
         const artworkEntries = await fs.readdir(artistPath, { withFileTypes: true })
@@ -164,9 +190,10 @@ class RepositoryService {
           
           if (this.config.allowedExtensions.includes(ext)) {
             const stats = await fs.stat(filePath)
+            const currentBaseDir = this.getCurrentBaseDir()
             files.push({
               name: entry.name,
-              path: path.relative(this.baseDir, filePath),
+              path: path.relative(currentBaseDir, filePath),
               size: stats.size,
               extension: ext,
               modifiedAt: stats.mtime
@@ -194,7 +221,8 @@ class RepositoryService {
   // 获取磁盘使用情况
   async getDiskUsage() {
     try {
-      const stats = await fs.statfs(this.baseDir)
+      const currentBaseDir = this.getCurrentBaseDir()
+      const stats = await fs.statfs(currentBaseDir)
       const total = stats.blocks * stats.bsize
       const free = stats.bavail * stats.bsize
       const used = total - free
@@ -236,6 +264,65 @@ class RepositoryService {
       return stats.artworks.find(artwork => artwork.id === artworkId)
     } catch (error) {
       throw new Error(`查找作品失败: ${error.message}`)
+    }
+  }
+
+  // 检查作品是否已下载
+  async isArtworkDownloaded(artworkId) {
+    try {
+      // 确保配置已加载
+      await this.loadConfig()
+      
+      // 使用当前配置的目录
+      const currentBaseDir = this.getCurrentBaseDir()
+      
+      // 扫描所有作者目录
+      const artistEntries = await fs.readdir(currentBaseDir, { withFileTypes: true })
+      
+      for (const artistEntry of artistEntries) {
+        if (!artistEntry.isDirectory()) continue
+        
+        // 跳过配置文件和隐藏文件
+        if (artistEntry.name.startsWith('.') || artistEntry.name === '.repository-config.json') {
+          continue
+        }
+        
+        const artistPath = path.join(currentBaseDir, artistEntry.name)
+        
+        // 扫描作者下的作品目录
+        const artworkEntries = await fs.readdir(artistPath, { withFileTypes: true })
+        
+        for (const artworkEntry of artworkEntries) {
+          if (!artworkEntry.isDirectory()) continue
+          
+          // 检查是否是目标作品目录（包含数字ID）
+          const artworkMatch = artworkEntry.name.match(/^(\d+)_(.+)$/)
+          if (artworkMatch && artworkMatch[1] === artworkId.toString()) {
+            // 检查作品目录中是否有图片文件
+            const artworkPath = path.join(artistPath, artworkEntry.name)
+            const files = await this.scanArtworkFiles(artworkPath)
+            return files.length > 0
+          }
+        }
+      }
+      
+      return false
+    } catch (error) {
+      console.error('检查作品下载状态失败:', error)
+      return false
+    }
+  }
+
+  // 检查目录是否存在
+  async checkDirectoryExists(dirPath) {
+    try {
+      // 如果是相对路径，转换为绝对路径
+      const fullPath = path.isAbsolute(dirPath) ? dirPath : path.resolve(process.cwd(), dirPath)
+      
+      const stats = await fs.stat(fullPath)
+      return stats.isDirectory()
+    } catch (error) {
+      return false
     }
   }
 
@@ -295,65 +382,138 @@ class RepositoryService {
   // 自动迁移旧项目
   async migrateOldProjects(sourceDir) {
     try {
-      const migrationLog = []
+      // 确保配置已加载
+      await this.loadConfig()
+      
+      const currentBaseDir = this.getCurrentBaseDir()
+      const result = {
+        success: true,
+        message: '迁移完成',
+        log: [],
+        totalMigrated: 0
+      }
+      
+      // 确保目标目录存在
+      await fs.mkdir(currentBaseDir, { recursive: true })
       
       // 扫描源目录
-      const scanSource = async (dirPath, relativePath = '') => {
-        const entries = await fs.readdir(dirPath, { withFileTypes: true })
+      const sourceEntries = await fs.readdir(sourceDir, { withFileTypes: true })
+      
+      for (const entry of sourceEntries) {
+        if (!entry.isDirectory()) continue
         
-        for (const entry of entries) {
-          const fullPath = path.join(dirPath, entry.name)
-          const newRelativePath = path.join(relativePath, entry.name)
+        const oldDirPath = path.join(sourceDir, entry.name)
+        const newDirPath = path.join(currentBaseDir, entry.name)
+        
+        // 检查是否已存在
+        try {
+          await fs.access(newDirPath)
+          result.log.push({
+            id: entry.name,
+            title: entry.name,
+            status: 'skipped',
+            reason: '目录已存在'
+          })
+          continue
+        } catch (error) {
+          // 目录不存在，可以迁移
+        }
+        
+        try {
+          // 直接移动整个目录
+          await fs.rename(oldDirPath, newDirPath)
           
-          if (entry.isDirectory()) {
-            // 检查是否是作品目录
-            const artworkMatch = entry.name.match(/^(\d+)_(.+)$/)
-            if (artworkMatch) {
-              const artworkId = artworkMatch[1]
-              const title = artworkMatch[2]
-              
-              // 检查是否已存在
-              const existingArtwork = await this.findArtworkById(artworkId)
-              if (!existingArtwork) {
-                // 迁移作品
-                const targetPath = path.join(this.baseDir, newRelativePath)
-                await fs.mkdir(path.dirname(targetPath), { recursive: true })
-                await this.copyDirectory(fullPath, targetPath)
-                
-                migrationLog.push({
-                  type: 'artwork',
-                  id: artworkId,
-                  title: title,
-                  source: fullPath,
-                  target: targetPath,
-                  status: 'success'
-                })
-              } else {
-                migrationLog.push({
-                  type: 'artwork',
-                  id: artworkId,
-                  title: title,
-                  source: fullPath,
-                  status: 'skipped',
-                  reason: '已存在'
-                })
-              }
-            } else {
-              // 递归扫描子目录
-              await scanSource(fullPath, newRelativePath)
-            }
-          }
+          result.log.push({
+            id: entry.name,
+            title: entry.name,
+            status: 'success'
+          })
+          result.totalMigrated++
+          
+        } catch (error) {
+          result.log.push({
+            id: entry.name,
+            title: entry.name,
+            status: 'error',
+            reason: error.message
+          })
         }
       }
       
-      await scanSource(sourceDir)
-      
-      return {
+      return result
+    } catch (error) {
+      throw new Error(`迁移失败: ${error.message}`)
+    }
+  }
+
+  // 从旧目录迁移到新目录
+  async migrateFromOldToNew(oldDir, newDir) {
+    try {
+      const result = {
         success: true,
         message: '迁移完成',
-        log: migrationLog,
-        totalMigrated: migrationLog.filter(item => item.status === 'success').length
+        log: [],
+        totalMigrated: 0
       }
+      
+      // 检查旧目录是否存在
+      try {
+        await fs.access(oldDir)
+      } catch (error) {
+        return {
+          ...result,
+          message: '旧目录不存在，无需迁移'
+        }
+      }
+      
+      // 确保新目录存在
+      await fs.mkdir(newDir, { recursive: true })
+      
+      // 扫描旧目录
+      const oldEntries = await fs.readdir(oldDir, { withFileTypes: true })
+      
+      for (const entry of oldEntries) {
+        if (!entry.isDirectory()) continue
+        
+        const oldEntryPath = path.join(oldDir, entry.name)
+        const newEntryPath = path.join(newDir, entry.name)
+        
+        // 检查是否已存在
+        try {
+          await fs.access(newEntryPath)
+          result.log.push({
+            id: entry.name,
+            title: entry.name,
+            status: 'skipped',
+            reason: '目录已存在'
+          })
+          continue
+        } catch (error) {
+          // 目录不存在，可以迁移
+        }
+        
+        try {
+          // 直接移动整个目录
+          await fs.rename(oldEntryPath, newEntryPath)
+          
+          result.log.push({
+            id: entry.name,
+            title: entry.name,
+            status: 'success'
+          })
+          result.totalMigrated++
+          
+        } catch (error) {
+          result.log.push({
+            id: entry.name,
+            title: entry.name,
+            status: 'error',
+            reason: error.message
+          })
+        }
+      }
+      
+      return result
     } catch (error) {
       throw new Error(`迁移失败: ${error.message}`)
     }

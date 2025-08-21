@@ -49,11 +49,20 @@
             <h1 class="artwork-title">{{ artwork.title }}</h1>
             <div class="artwork-actions">
               <button @click="handleDownload" class="btn btn-primary" :disabled="downloading">
-                {{ downloading ? '下载中...' : '下载' }}
+                {{ downloading ? '下载中...' : (isDownloaded ? '重新下载' : '下载') }}
               </button>
               <button @click="handleBookmark" class="btn btn-secondary">
                 {{ artwork.is_bookmarked ? '取消收藏' : '收藏' }}
               </button>
+            </div>
+            <!-- 下载状态提示 -->
+            <div v-if="isDownloaded" class="download-status">
+              <div class="status-indicator">
+                <svg viewBox="0 0 24 24" fill="currentColor" class="status-icon">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+                <span>已下载到本地</span>
+              </div>
             </div>
           </div>
 
@@ -162,6 +171,7 @@ import { useAuthStore } from '@/stores/auth';
 import artworkService from '@/services/artwork';
 import artistService from '@/services/artist';
 import downloadService from '@/services/download';
+import { useRepositoryStore } from '@/stores/repository';
 import type { Artwork } from '@/types';
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
 import ErrorMessage from '@/components/common/ErrorMessage.vue';
@@ -169,6 +179,7 @@ import ErrorMessage from '@/components/common/ErrorMessage.vue';
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
+const repositoryStore = useRepositoryStore();
 
 // 状态
 const artwork = ref<Artwork | null>(null);
@@ -178,6 +189,8 @@ const currentPage = ref(0);
 const imageLoaded = ref(false);
 const imageError = ref(false);
 const downloading = ref(false);
+const isDownloaded = ref(false);
+const checkingDownloadStatus = ref(false);
 
 // 导航相关状态
 const artistArtworks = ref<Artwork[]>([]);
@@ -236,6 +249,8 @@ const fetchArtworkDetail = async () => {
     
     if (response.success && response.data) {
       artwork.value = response.data;
+      // 检查下载状态
+      await checkDownloadStatus(artworkId);
     } else {
       throw new Error(response.error || '获取作品详情失败');
     }
@@ -244,6 +259,27 @@ const fetchArtworkDetail = async () => {
     console.error('获取作品详情失败:', err);
   } finally {
     loading.value = false;
+  }
+};
+
+// 检查下载状态
+const checkDownloadStatus = async (artworkId: number) => {
+  try {
+    checkingDownloadStatus.value = true;
+    const response = await repositoryStore.checkArtworkDownloaded(artworkId);
+    
+    console.log('下载状态检查响应:', response);
+    
+    // repository store的apiCall返回的是data.data，所以response直接是数据对象
+    if (response && typeof response === 'object') {
+      isDownloaded.value = response.is_downloaded || false;
+      console.log('作品下载状态:', isDownloaded.value);
+    }
+  } catch (err) {
+    console.error('检查下载状态失败:', err);
+    isDownloaded.value = false;
+  } finally {
+    checkingDownloadStatus.value = false;
   }
 };
 
@@ -258,6 +294,10 @@ const handleDownload = async () => {
     if (response.success) {
       // 可以显示下载成功提示
       console.log('下载任务已创建:', response.data);
+      // 下载完成后重新检查下载状态
+      setTimeout(() => {
+        checkDownloadStatus(artwork.value!.id);
+      }, 2000); // 等待2秒让下载完成
     } else {
       throw new Error(response.error || '下载失败');
     }
@@ -721,6 +761,32 @@ onUnmounted(() => {
 
 .nav-next {
   justify-content: flex-end;
+}
+
+.download-status {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #0369a1;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #059669;
 }
 
 @media (max-width: 1024px) {

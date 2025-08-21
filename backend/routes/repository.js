@@ -37,6 +37,16 @@ router.put('/config', async (req, res) => {
   }
 })
 
+// 重置仓库配置为默认值
+router.post('/config/reset', async (req, res) => {
+  try {
+    const result = await repositoryService.resetConfig()
+    res.json(ResponseUtil.success(result))
+  } catch (error) {
+    res.status(500).json(ResponseUtil.error(error.message))
+  }
+})
+
 // 获取仓库统计信息
 router.get('/stats', async (req, res) => {
   try {
@@ -139,10 +149,11 @@ router.get('/preview', async (req, res) => {
       return res.status(400).json(ResponseUtil.error('文件路径不能为空'))
     }
     
-    const fullPath = path.join(repositoryService.baseDir, filePath)
+    const currentBaseDir = repositoryService.getCurrentBaseDir()
+    const fullPath = path.join(currentBaseDir, filePath)
     
     // 安全检查：确保文件在仓库目录内
-    const relativePath = path.relative(repositoryService.baseDir, fullPath)
+    const relativePath = path.relative(currentBaseDir, fullPath)
     
     if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
       return res.status(403).json(ResponseUtil.error('访问被拒绝'))
@@ -180,10 +191,11 @@ router.get('/file-info', async (req, res) => {
       return res.status(400).json(ResponseUtil.error('文件路径不能为空'))
     }
     
-    const fullPath = path.join(repositoryService.baseDir, filePath)
+    const currentBaseDir = repositoryService.getCurrentBaseDir()
+    const fullPath = path.join(currentBaseDir, filePath)
     
     // 安全检查
-    const relativePath = path.relative(repositoryService.baseDir, fullPath)
+    const relativePath = path.relative(currentBaseDir, fullPath)
     if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
       return res.status(403).json(ResponseUtil.error('访问被拒绝'))
     }
@@ -206,14 +218,18 @@ router.get('/file-info', async (req, res) => {
   }
 })
 
-// 获取目录结构
+/**
+ * 获取目录结构
+ * GET /api/repository/directory
+ */
 router.get('/directory', async (req, res) => {
   try {
     const { path: dirPath = '' } = req.query
-    const fullPath = path.join(repositoryService.baseDir, dirPath)
+    const currentBaseDir = repositoryService.getCurrentBaseDir()
+    const fullPath = path.join(currentBaseDir, dirPath)
     
     // 安全检查
-    const relativePath = path.relative(repositoryService.baseDir, fullPath)
+    const relativePath = path.relative(currentBaseDir, fullPath)
     if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
       return res.status(403).json(ResponseUtil.error('访问被拒绝'))
     }
@@ -262,7 +278,72 @@ router.get('/directory', async (req, res) => {
   }
 })
 
-// 获取内容类型
+/**
+ * 检查作品是否已下载
+ * GET /api/repository/check-downloaded/:artworkId
+ */
+router.get('/check-downloaded/:artworkId', async (req, res) => {
+  try {
+    const { artworkId } = req.params
+    
+    if (!artworkId || isNaN(parseInt(artworkId))) {
+      return res.status(400).json(ResponseUtil.error('无效的作品ID'))
+    }
+    
+    const isDownloaded = await repositoryService.isArtworkDownloaded(parseInt(artworkId))
+    
+    res.json(ResponseUtil.success({
+      artwork_id: parseInt(artworkId),
+      is_downloaded: isDownloaded
+    }))
+  } catch (error) {
+    res.status(500).json(ResponseUtil.error(error.message))
+  }
+})
+
+/**
+ * 检查目录是否存在
+ * GET /api/repository/check-directory
+ */
+router.get('/check-directory', async (req, res) => {
+  try {
+    const { path: dirPath } = req.query
+    
+    if (!dirPath) {
+      return res.status(400).json(ResponseUtil.error('目录路径不能为空'))
+    }
+    
+    const exists = await repositoryService.checkDirectoryExists(dirPath)
+    
+    res.json(ResponseUtil.success({
+      path: dirPath,
+      exists: exists
+    }))
+  } catch (error) {
+    res.status(500).json(ResponseUtil.error(error.message))
+  }
+})
+
+/**
+ * 从旧目录迁移到新目录
+ * POST /api/repository/migrate-old-to-new
+ */
+router.post('/migrate-old-to-new', async (req, res) => {
+  try {
+    const { oldDir, newDir } = req.body
+    
+    if (!oldDir || !newDir) {
+      return res.status(400).json(ResponseUtil.error('旧目录和新目录路径都不能为空'))
+    }
+    
+    const result = await repositoryService.migrateFromOldToNew(oldDir, newDir)
+    res.json(ResponseUtil.success(result))
+  } catch (error) {
+    res.status(500).json(ResponseUtil.error(error.message))
+  }
+})
+
+// 获取文件信息
 function getContentType(extension) {
   const contentTypes = {
     '.jpg': 'image/jpeg',

@@ -4,13 +4,14 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const ArtworkService = require('./artwork');
 const ArtistService = require('./artist');
+const ConfigManager = require('../config/config-manager');
 
 class DownloadService {
   constructor(auth) {
     this.auth = auth;
     this.artworkService = new ArtworkService(auth);
     this.artistService = new ArtistService(auth);
-    this.downloadPath = path.join(__dirname, '../../downloads');
+    this.configManager = new ConfigManager();
     this.dataPath = path.join(__dirname, '../../data');
     this.tasksFile = path.join(this.dataPath, 'download_tasks.json');
     this.historyFile = path.join(this.dataPath, 'download_history.json');
@@ -21,12 +22,32 @@ class DownloadService {
   }
 
   /**
+   * 获取当前下载路径
+   */
+  async getDownloadPath() {
+    try {
+      const config = await this.configManager.readConfig();
+      const downloadDir = config.downloadDir || './downloads';
+      
+      // 如果是相对路径，转换为绝对路径
+      return path.isAbsolute(downloadDir) 
+        ? downloadDir 
+        : path.resolve(process.cwd(), downloadDir);
+    } catch (error) {
+      console.error('获取下载路径失败:', error);
+      // 返回默认路径
+      return path.resolve(process.cwd(), 'downloads');
+    }
+  }
+
+  /**
    * 初始化服务
    */
   async init() {
     try {
       // 确保目录存在
-      await fs.ensureDir(this.downloadPath);
+      const downloadPath = await this.getDownloadPath();
+      await fs.ensureDir(downloadPath);
       await fs.ensureDir(this.dataPath);
       
       // 加载历史记录
@@ -36,7 +57,7 @@ class DownloadService {
       await this.loadTasks();
       
       this.initialized = true;
-      console.log('下载服务初始化完成');
+      console.log('下载服务初始化完成，下载路径:', downloadPath);
     } catch (error) {
       console.error('下载服务初始化失败:', error);
       this.initialized = false;
@@ -152,10 +173,11 @@ class DownloadService {
   async getDownloadedFiles() {
     try {
       const files = [];
-      const artists = await fs.readdir(this.downloadPath);
+      const downloadPath = await this.getDownloadPath();
+      const artists = await fs.readdir(downloadPath);
       
       for (const artist of artists) {
-        const artistPath = path.join(this.downloadPath, artist);
+        const artistPath = path.join(downloadPath, artist);
         const artistStat = await fs.stat(artistPath);
         
         if (artistStat.isDirectory()) {
@@ -198,20 +220,39 @@ class DownloadService {
    */
   async isArtworkDownloaded(artworkId) {
     try {
-      // 从历史记录中查找
-      const historyItem = this.history.find(item => 
-        item.artwork_id === artworkId && item.status === 'completed'
-      );
+      const downloadPath = await this.getDownloadPath();
       
-      if (historyItem) {
-        // 检查文件是否还存在
-        const exists = await fs.pathExists(historyItem.download_path);
-        if (exists) {
-          const files = await fs.readdir(historyItem.download_path);
-          const imageFiles = files.filter(file => 
-            /\.(jpg|jpeg|png|gif|webp)$/i.test(file)
-          );
-          return imageFiles.length > 0;
+      // 扫描下载目录查找作品
+      const artists = await fs.readdir(downloadPath);
+      
+      for (const artist of artists) {
+        const artistPath = path.join(downloadPath, artist);
+        const artistStat = await fs.stat(artistPath);
+        
+        if (artistStat.isDirectory()) {
+          const artworks = await fs.readdir(artistPath);
+          
+          for (const artwork of artworks) {
+            // 检查是否是作品目录（包含数字ID）
+            const artworkMatch = artwork.match(/^(\d+)_(.+)$/);
+            if (artworkMatch) {
+              const foundArtworkId = artworkMatch[1];
+              
+              if (parseInt(foundArtworkId) === parseInt(artworkId)) {
+                // 找到作品目录，检查是否包含图片文件
+                const artworkPath = path.join(artistPath, artwork);
+                const artworkStat = await fs.stat(artworkPath);
+                
+                if (artworkStat.isDirectory()) {
+                  const files = await fs.readdir(artworkPath);
+                  const imageFiles = files.filter(file => 
+                    /\.(jpg|jpeg|png|gif|webp)$/i.test(file)
+                  );
+                  return imageFiles.length > 0;
+                }
+              }
+            }
+          }
         }
       }
       
@@ -228,18 +269,37 @@ class DownloadService {
   async getDownloadedArtworkIds() {
     try {
       const downloadedIds = new Set();
+      const downloadPath = await this.getDownloadPath();
       
-      // 从历史记录中获取
-      for (const item of this.history) {
-        if (item.artwork_id && item.status === 'completed') {
-          const exists = await fs.pathExists(item.download_path);
-          if (exists) {
-            const files = await fs.readdir(item.download_path);
-            const imageFiles = files.filter(file => 
-              /\.(jpg|jpeg|png|gif|webp)$/i.test(file)
-            );
-            if (imageFiles.length > 0) {
-              downloadedIds.add(item.artwork_id);
+      // 扫描下载目录获取所有已下载的作品ID
+      const artists = await fs.readdir(downloadPath);
+      
+      for (const artist of artists) {
+        const artistPath = path.join(downloadPath, artist);
+        const artistStat = await fs.stat(artistPath);
+        
+        if (artistStat.isDirectory()) {
+          const artworks = await fs.readdir(artistPath);
+          
+          for (const artwork of artworks) {
+            // 检查是否是作品目录（包含数字ID）
+            const artworkMatch = artwork.match(/^(\d+)_(.+)$/);
+            if (artworkMatch) {
+              const artworkId = artworkMatch[1];
+              
+              // 检查作品目录是否包含图片文件
+              const artworkPath = path.join(artistPath, artwork);
+              const artworkStat = await fs.stat(artworkPath);
+              
+              if (artworkStat.isDirectory()) {
+                const files = await fs.readdir(artworkPath);
+                const imageFiles = files.filter(file => 
+                  /\.(jpg|jpeg|png|gif|webp)$/i.test(file)
+                );
+                if (imageFiles.length > 0) {
+                  downloadedIds.add(parseInt(artworkId));
+                }
+              }
             }
           }
         }
@@ -279,7 +339,8 @@ class DownloadService {
    */
   async deleteDownloadedFiles(artist, artwork) {
     try {
-      const targetPath = path.join(this.downloadPath, artist, artwork);
+      const downloadPath = await this.getDownloadPath();
+      const targetPath = path.join(downloadPath, artist, artwork);
       if (await fs.pathExists(targetPath)) {
         await fs.remove(targetPath);
         
@@ -375,7 +436,8 @@ class DownloadService {
       const artworkTitle = (artwork.title || 'Untitled').replace(/[<>:"/\\|?*]/g, '_');
       
       // 创建作品目录 - 使用仓库管理格式
-      const artistDir = path.join(this.downloadPath, artistName);
+      const downloadPath = await this.getDownloadPath();
+      const artistDir = path.join(downloadPath, artistName);
       const artworkDirName = `${artworkId}_${artworkTitle}`;
       const artworkDir = path.join(artistDir, artworkDirName);
       await fs.ensureDir(artworkDir);

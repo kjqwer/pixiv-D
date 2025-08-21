@@ -115,6 +115,16 @@ export const useRepositoryStore = defineStore('repository', () => {
     return result
   }
 
+  // 重置配置
+  const resetConfig = async (): Promise<any> => {
+    const result = await apiCall('/config/reset', {
+      method: 'POST',
+    })
+    // 重新加载配置
+    config.value = await getConfig()
+    return result
+  }
+
   // 获取统计信息
   const getStats = async (): Promise<RepositoryStats> => {
     const result = await apiCall('/stats')
@@ -165,6 +175,24 @@ export const useRepositoryStore = defineStore('repository', () => {
     return await apiCall(`/directory?path=${encodeURIComponent(dirPath)}`)
   }
 
+  // 检查作品是否已下载
+  const checkArtworkDownloaded = async (artworkId: number) => {
+    return await apiCall(`/check-downloaded/${artworkId}`)
+  }
+
+  // 检查目录是否存在
+  const checkDirectoryExists = async (dirPath: string) => {
+    return await apiCall(`/check-directory?path=${encodeURIComponent(dirPath)}`)
+  }
+
+  // 从旧目录迁移到新目录
+  const migrateFromOldToNew = async (oldDir: string, newDir: string) => {
+    return await apiCall('/migrate-old-to-new', {
+      method: 'POST',
+      body: JSON.stringify({ oldDir, newDir }),
+    })
+  }
+
   return {
     // 状态
     config,
@@ -174,6 +202,7 @@ export const useRepositoryStore = defineStore('repository', () => {
     initialize,
     getConfig,
     updateConfig,
+    resetConfig,
     getStats,
     getArtists,
     getArtworksByArtist,
@@ -183,5 +212,8 @@ export const useRepositoryStore = defineStore('repository', () => {
     migrateOldProjects,
     getFileInfo,
     getDirectory,
+    checkArtworkDownloaded,
+    checkDirectoryExists,
+    migrateFromOldToNew,
   }
 }) 

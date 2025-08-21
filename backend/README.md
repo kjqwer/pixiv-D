@@ -103,6 +103,11 @@ backend/
   - 参数: `path` (文件路径)
 - `GET /api/repository/directory` - 获取目录结构
   - 参数: `path` (目录路径)
+- `GET /api/repository/check-downloaded/:artworkId` - 检查作品是否已下载
+- `GET /api/repository/check-directory` - 检查目录是否存在
+  - 参数: `path` (目录路径)
+- `POST /api/repository/migrate-old-to-new` - 从旧目录迁移到新目录
+  - 参数: `oldDir` (旧目录路径), `newDir` (新目录路径)
 
 ## 🔧 配置说明
 

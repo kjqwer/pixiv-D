@@ -55,13 +55,6 @@
         >
           文件浏览
         </button>
-        <button 
-          class="tab-button" 
-          :class="{ active: activeTab === 'migrate' }"
-          @click="activeTab = 'migrate'"
-        >
-          数据迁移
-        </button>
       </div>
 
       <!-- 配置管理 -->
@@ -75,15 +68,73 @@
                 <input 
                   v-model="config.downloadDir" 
                   type="text" 
-                  placeholder="设置下载目录路径"
+                  placeholder="设置下载目录路径，例如: ./downloads 或 D:\downloads"
                   class="form-input"
-                  readonly
                 />
                 <button type="button" @click="selectDownloadDir" class="btn btn-secondary">
                   选择目录
                 </button>
+                <button type="button" @click="testDownloadDir" class="btn btn-outline">
+                  测试
+                </button>
               </div>
-              <small class="form-help">默认路径: ./downloads</small>
+              <small class="form-help">
+                <strong>路径示例：</strong><br>
+                • 相对路径：<code>./downloads</code>（相对于项目根目录）<br>
+                • 绝对路径：<code>D:\downloads</code> 或 <code>/home/user/downloads</code><br>
+                • 当前目录：<code>.</code> 或 <code>./</code>
+              </small>
+            </div>
+            
+            <!-- 自动迁移选项 -->
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input 
+                  v-model="config.autoMigration" 
+                  type="checkbox" 
+                  class="form-checkbox"
+                />
+                <span>自动迁移旧下载文件</span>
+              </label>
+              <small class="form-help">
+                启用后，保存配置时会自动将旧下载目录中的文件移动到新目录
+              </small>
+            </div>
+            
+            <!-- 迁移进度显示 -->
+            <div v-if="migrating" class="migration-progress">
+              <div class="progress-header">
+                <h4>正在迁移文件...</h4>
+                <span class="progress-text">{{ migrationProgress }}</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill" :style="{ width: migrationPercent + '%' }"></div>
+              </div>
+            </div>
+            
+            <!-- 迁移结果 -->
+            <div v-if="migrationResult" class="migration-result">
+              <h4>迁移完成</h4>
+              <div class="result-stats">
+                <p>✅ 成功迁移: {{ migrationResult.totalMigrated }} 个作品</p>
+                <p>⏭️ 跳过: {{ migrationResult.log.filter((item: any) => item.status === 'skipped').length }} 个作品</p>
+              </div>
+              <div class="migration-log">
+                <h5>详细日志</h5>
+                <div 
+                  v-for="(item, index) in migrationResult.log.slice(0, 10)" 
+                  :key="index"
+                  class="log-item"
+                  :class="(item as any).status"
+                >
+                  <span class="log-status">{{ (item as any).status === 'success' ? '✅' : '⏭️' }}</span>
+                  <span class="log-text">{{ (item as any).title }} (ID: {{ (item as any).id }})</span>
+                  <span v-if="(item as any).reason" class="log-reason">{{ (item as any).reason }}</span>
+                </div>
+                <div v-if="migrationResult.log.length > 10" class="log-more">
+                  还有 {{ migrationResult.log.length - 10 }} 个文件...
+                </div>
+              </div>
             </div>
             <div class="form-group">
               <label>文件结构</label>
@@ -124,6 +175,9 @@
             <div class="form-actions">
               <button @click="saveConfig" class="btn btn-primary" :disabled="saving">
                 {{ saving ? '保存中...' : '保存配置' }}
+              </button>
+              <button @click="resetConfig" class="btn btn-outline" :disabled="saving">
+                重置为默认
               </button>
             </div>
           </div>
@@ -236,14 +290,22 @@
                 <input 
                   v-model="migrateSourceDir" 
                   type="text" 
-                  placeholder="选择要迁移的目录路径"
+                  placeholder="选择要迁移的目录路径，例如: D:\old-downloads"
                   class="form-input"
-                  readonly
                 />
                 <button type="button" @click="selectMigrateDir" class="btn btn-secondary">
                   选择目录
                 </button>
+                <button type="button" @click="testMigrateDir" class="btn btn-outline">
+                  测试
+                </button>
               </div>
+              <small class="form-help">
+                <strong>迁移说明：</strong><br>
+                • 选择要迁移的源目录，系统会将整个目录结构移动到目标位置<br>
+                • 如果目标位置已存在同名目录，将跳过迁移<br>
+                • 迁移完成后，源文件会被移动到新位置（移动操作）
+              </small>
             </div>
             <div class="form-actions">
               <button 
@@ -361,6 +423,8 @@ const totalPages = computed(() => Math.ceil(artworks.value.length / pageSize))
 const migrateSourceDir = ref('')
 const migrating = ref(false)
 const migrationResult = ref<any>(null)
+const migrationProgress = ref('')
+const migrationPercent = ref(0)
 
 // 模态框
 const selectedArtwork = ref<Artwork | null>(null)
@@ -404,13 +468,79 @@ const saveConfig = async () => {
         .filter((ext: string) => ext)
     }
     
+    // 获取当前配置（旧配置）
+    const oldConfig = await repositoryStore.getConfig()
+    const oldDownloadDir = oldConfig.downloadDir
+    
+    // 保存新配置
     await repositoryStore.updateConfig(config.value)
+    
+    // 如果启用了自动迁移，且下载目录发生了变化，执行迁移
+    if (config.value.autoMigration && oldDownloadDir !== config.value.downloadDir) {
+      await performAutoMigration(oldDownloadDir)
+    }
+    
     alert('配置保存成功')
   } catch (error: any) {
     console.error('保存配置失败:', error)
     alert('保存配置失败: ' + error.message)
   } finally {
     saving.value = false
+  }
+}
+
+// 重置配置
+const resetConfig = async () => {
+  if (!confirm('确定要重置配置为默认值吗？此操作不可恢复。')) {
+    return
+  }
+  
+  saving.value = true
+  try {
+    await repositoryStore.resetConfig()
+    // 重新加载配置
+    await loadConfig()
+    alert('配置已重置为默认值')
+  } catch (error: any) {
+    console.error('重置配置失败:', error)
+    alert('重置配置失败: ' + error.message)
+  } finally {
+    saving.value = false
+  }
+}
+
+// 执行自动迁移
+const performAutoMigration = async (oldDownloadDir: string) => {
+  try {
+    migrating.value = true
+    migrationProgress.value = '正在准备迁移...'
+    migrationPercent.value = 10
+    
+    console.log('开始自动迁移:', { oldDir: oldDownloadDir, newDir: config.value.downloadDir })
+    
+    migrationProgress.value = `正在从 ${oldDownloadDir} 迁移到 ${config.value.downloadDir}...`
+    migrationPercent.value = 30
+    
+    // 执行迁移：从旧目录到新目录
+    const result = await repositoryStore.migrateFromOldToNew(oldDownloadDir, config.value.downloadDir)
+    migrationResult.value = result
+    migrationPercent.value = 100
+    
+    console.log('迁移完成:', result)
+    
+    // 显示迁移结果
+    if (result.totalMigrated > 0) {
+      alert(`迁移完成！成功移动 ${result.totalMigrated} 个目录`)
+    } else {
+      alert('迁移完成，但没有找到需要迁移的文件')
+    }
+    
+  } catch (error: any) {
+    console.error('自动迁移失败:', error)
+    migrationProgress.value = '迁移失败: ' + error.message
+    alert('自动迁移失败: ' + error.message)
+  } finally {
+    migrating.value = false
   }
 }
 
@@ -491,8 +621,18 @@ const startMigration = async () => {
   
   migrating.value = true
   try {
+    console.log('开始手动迁移:', { sourceDir: migrateSourceDir.value })
+    
     migrationResult.value = await repositoryStore.migrateOldProjects(migrateSourceDir.value)
-    alert('迁移完成')
+    
+    console.log('手动迁移完成:', migrationResult.value)
+    
+    if (migrationResult.value.totalMigrated > 0) {
+      alert(`迁移完成！成功移动 ${migrationResult.value.totalMigrated} 个目录`)
+    } else {
+      alert('迁移完成，但没有找到需要迁移的文件')
+    }
+    
     await loadStats()
     await loadArtists()
   } catch (error: any) {
@@ -500,6 +640,20 @@ const startMigration = async () => {
     alert('迁移失败: ' + error.message)
   } finally {
     migrating.value = false
+  }
+}
+
+// 选择迁移目录
+const selectMigrateDir = async () => {
+  try {
+    // 使用简单的prompt方式，让用户输入完整路径
+    const dir = prompt('请输入要迁移的源目录完整路径:', migrateSourceDir.value || '')
+    if (dir && dir.trim()) {
+      migrateSourceDir.value = dir.trim()
+    }
+  } catch (error: any) {
+    console.error('选择目录失败:', error)
+    alert('选择目录失败，请手动输入路径')
   }
 }
 
@@ -513,56 +667,55 @@ const changePage = (page: number) => {
 // 选择下载目录
 const selectDownloadDir = async () => {
   try {
-    // 使用HTML5文件选择器选择目录
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.webkitdirectory = true
-    input.multiple = false
-    
-    input.onchange = (e) => {
-      const files = (e.target as HTMLInputElement).files
-      if (files && files.length > 0) {
-        // 获取选择的目录路径
-        const path = files[0].webkitRelativePath.split('/')[0]
-        config.value.downloadDir = path
-      }
+    // 使用简单的prompt方式，让用户输入完整路径
+    const dir = prompt('请输入下载目录的完整路径:', config.value.downloadDir || './downloads')
+    if (dir && dir.trim()) {
+      config.value.downloadDir = dir.trim()
     }
-    
-    input.click()
   } catch (error: any) {
     console.error('选择目录失败:', error)
-    // 降级到prompt
-    const dir = prompt('请输入下载目录路径:', './downloads')
-    if (dir) {
-      config.value.downloadDir = dir
-    }
+    alert('选择目录失败，请手动输入路径')
   }
 }
 
-// 选择迁移目录
-const selectMigrateDir = async () => {
+// 验证目录路径
+const validateDirectory = async (path: string) => {
   try {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.webkitdirectory = true
-    input.multiple = false
-    
-    input.onchange = (e) => {
-      const files = (e.target as HTMLInputElement).files
-      if (files && files.length > 0) {
-        const path = files[0].webkitRelativePath.split('/')[0]
-        migrateSourceDir.value = path
-      }
+    // 这里可以添加后端API调用来验证目录是否存在
+    // 暂时使用简单的客户端验证
+    if (!path || path.trim() === '') {
+      return { valid: false, message: '路径不能为空' }
     }
     
-    input.click()
+    // 检查路径格式
+    const trimmedPath = path.trim()
+    if (trimmedPath.includes('..') || trimmedPath.includes('//')) {
+      return { valid: false, message: '路径格式不正确' }
+    }
+    
+    return { valid: true, message: '路径格式正确' }
   } catch (error: any) {
-    console.error('选择目录失败:', error)
-    // 降级到prompt
-    const dir = prompt('请选择要迁移的源目录路径:')
-    if (dir) {
-      migrateSourceDir.value = dir
-    }
+    return { valid: false, message: '验证失败: ' + error.message }
+  }
+}
+
+// 测试下载目录
+const testDownloadDir = async () => {
+  const validation = await validateDirectory(config.value.downloadDir)
+  if (validation.valid) {
+    alert('路径格式正确！保存配置后系统会验证目录是否存在。')
+  } else {
+    alert('路径验证失败: ' + validation.message)
+  }
+}
+
+// 测试迁移目录
+const testMigrateDir = async () => {
+  const validation = await validateDirectory(migrateSourceDir.value)
+  if (validation.valid) {
+    alert('路径格式正确！开始迁移时会验证目录是否存在。')
+  } else {
+    alert('路径验证失败: ' + validation.message)
   }
 }
 
@@ -718,12 +871,43 @@ const getPreviewUrl = (filePath: string) => {
 
 .path-input-group .btn {
   white-space: nowrap;
+  min-width: 80px;
 }
 
 .form-help {
   color: #6b7280;
   font-size: 0.75rem;
   margin-top: 0.25rem;
+  line-height: 1.4;
+}
+
+.form-help strong {
+  color: #374151;
+  font-weight: 600;
+}
+
+.form-help code {
+  background: #f3f4f6;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-family: 'Courier New', monospace;
+  font-size: 0.7rem;
+  color: #1f2937;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-weight: 500;
+  color: #374151;
+}
+
+.form-checkbox {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #3b82f6;
 }
 
 .form-actions {
@@ -750,6 +934,21 @@ const getPreviewUrl = (filePath: string) => {
 
 .btn-secondary {
   background: #6b7280;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: #4b5563;
+}
+
+.btn-outline {
+  background: white;
+  color: #3b82f6;
+  border: 1px solid #3b82f6;
+}
+
+.btn-outline:hover {
+  background: #3b82f6;
   color: white;
 }
 
@@ -899,6 +1098,45 @@ const getPreviewUrl = (filePath: string) => {
   margin-bottom: 2rem;
 }
 
+.migration-progress {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.progress-header h4 {
+  margin: 0;
+  color: #1f2937;
+}
+
+.progress-text {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.progress-bar {
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #3b82f6;
+  border-radius: 4px;
+  transition: width 0.3s ease-in-out;
+}
+
 .migration-result {
   margin-top: 2rem;
   padding: 1.5rem;
@@ -930,6 +1168,12 @@ const getPreviewUrl = (filePath: string) => {
 .log-reason {
   color: #6b7280;
   font-size: 0.875rem;
+}
+
+.log-more {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 0.5rem;
 }
 
 .modal-overlay {
