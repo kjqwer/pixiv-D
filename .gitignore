@@ -65,3 +65,6 @@ typings/
 
 # 下载文件夹
 downloads/
+
+# 自己的启动文件
+start_me.bat

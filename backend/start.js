@@ -6,8 +6,33 @@
 
 const PixivServer = require('./server');
 
+// 解析命令行参数
+function parseArguments() {
+  const args = process.argv.slice(2);
+  const options = {};
+  
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === '--proxy-port' && i + 1 < args.length) {
+      options.proxyPort = parseInt(args[i + 1]);
+      i++; // 跳过下一个参数
+    }
+  }
+  
+  return options;
+}
+
+// 获取命令行参数
+const cliOptions = parseArguments();
+
 // 设置环境变量
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
+
+// 如果提供了代理端口，设置环境变量
+if (cliOptions.proxyPort) {
+  process.env.PROXY_PORT = cliOptions.proxyPort.toString();
+  console.log(`📡 代理端口已设置为: ${cliOptions.proxyPort}`);
+}
 
 console.log('🚀 启动 Pixiv 后端服务器...');
 console.log(`📊 环境: ${process.env.NODE_ENV}`);

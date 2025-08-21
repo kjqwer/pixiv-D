@@ -3,7 +3,7 @@ const proxyConfig = {
   // 系统代理配置
   system: {
     host: '127.0.0.1',
-    port: 7897,
+    port: process.env.PROXY_PORT ? parseInt(process.env.PROXY_PORT) : 7890,
     protocol: 'http'
   },
   
