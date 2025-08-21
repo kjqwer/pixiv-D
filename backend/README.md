@@ -1,6 +1,6 @@
 # Pixiv 后端服务
 
-这是一个优雅的 Pixiv 后端服务架构，提供作品信息获取、作者信息查询、文件下载等功能。
+Pixiv 后端服务架构，提供作品信息获取、作者信息查询、文件下载等功能。
 
 ## 🏗️ 项目架构
 
@@ -28,33 +28,6 @@ backend/
     └── response.js      # 响应工具
 ```
 
-## 🚀 快速开始
-
-### 1. 安装依赖
-
-```bash
-npm install
-```
-
-### 2. 启动服务器
-
-```bash
-# 开发模式
-npm run dev
-
-# 生产模式
-npm start
-
-# 或直接运行
-node backend/start.js
-```
-
-### 3. 测试登录
-
-```bash
-node backend/test-login.js
-```
-
 ## 📡 API 接口
 
 ### 认证相关
@@ -67,43 +40,50 @@ node backend/test-login.js
 
 ### 作品相关
 
+- `GET /api/artwork/search` - 搜索作品
+  - 参数: `keyword`, `type`, `sort`, `duration`, `offset`, `limit`
 - `GET /api/artwork/:id` - 获取作品详情
+  - 参数: `include_user`, `include_series`
 - `GET /api/artwork/:id/preview` - 获取作品预览
 - `GET /api/artwork/:id/images` - 获取作品图片URL
-- `GET /api/artwork/search` - 搜索作品
+  - 参数: `size` (small/medium/large/original)
 
 ### 作者相关
 
-- `GET /api/artist/:id` - 获取作者信息
+- `GET /api/artist/following` - 获取当前用户关注的作者列表
+  - 参数: `offset`, `limit`
 - `GET /api/artist/:id/artworks` - 获取作者作品列表
+  - 参数: `type`, `filter`, `offset`, `limit`
 - `GET /api/artist/:id/following` - 获取作者关注列表
+  - 参数: `restrict`, `offset`, `limit`
 - `GET /api/artist/:id/followers` - 获取作者粉丝列表
+  - 参数: `restrict`, `offset`, `limit`
 - `POST /api/artist/:id/follow` - 关注/取消关注作者
+  - 参数: `restrict` (public/private)
 
 ### 下载相关
 
 - `POST /api/download/artwork/:id` - 下载单个作品
+  - 参数: `size`, `quality`, `format`
 - `POST /api/download/artworks` - 批量下载作品
+  - 参数: `artworkIds`, `size`, `quality`, `format`, `concurrent`
 - `POST /api/download/artist/:id` - 下载作者作品
+  - 参数: `type`, `filter`, `size`, `quality`, `format`, `concurrent`
 - `GET /api/download/progress/:taskId` - 获取下载进度
 - `DELETE /api/download/cancel/:taskId` - 取消下载任务
 - `GET /api/download/history` - 获取下载历史
+  - 参数: `offset`, `limit`
+
+### 代理相关
+
+- `GET /api/proxy/image` - 图片代理服务
+  - 参数: `url` (图片URL)
 
 ## 🔧 配置说明
 
 ### 代理配置
 
 在 `config.js` 中配置代理设置：
-
-```javascript
-const proxyConfig = {
-  system: {
-    host: '127.0.0.1',
-    port: 7897,
-    protocol: 'http'
-  }
-};
-```
 
 ### 环境变量
 
@@ -130,6 +110,7 @@ const proxyConfig = {
 - **artwork.js**: 作品相关路由
 - **artist.js**: 作者相关路由
 - **download.js**: 下载相关路由
+- **proxy.js**: 代理服务路由
 
 ### 服务层
 
@@ -212,6 +193,6 @@ const proxyConfig = {
 
 欢迎提交 Issue 和 Pull Request！
 
-## �� 许可证
+## 许可证
 
 MIT License 
