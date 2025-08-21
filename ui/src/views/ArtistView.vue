@@ -260,7 +260,14 @@ const getImageUrl = (originalUrl: string) => {
 
 // 点击作品
 const handleArtworkClick = (artwork: Artwork) => {
-  router.push(`/artwork/${artwork.id}`);
+  // 传递作者ID和作品类型信息，用于导航
+  router.push({
+    path: `/artwork/${artwork.id}`,
+    query: {
+      artistId: artist.value?.id.toString(),
+      artworkType: artworkType.value
+    }
+  });
 };
 
 // 清除错误

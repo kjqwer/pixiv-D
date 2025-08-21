@@ -74,6 +74,32 @@
             </router-link>
           </div>
 
+          <!-- 作品导航 -->
+          <div v-if="showNavigation" class="artwork-navigation">
+            <button 
+              @click="navigateToPrevious" 
+              class="nav-btn nav-prev" 
+              :disabled="!previousArtwork"
+              :title="previousArtwork ? `上一个: ${previousArtwork.title}` : '没有上一个作品'"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+              </svg>
+              <span>上一个</span>
+            </button>
+            <button 
+              @click="navigateToNext" 
+              class="nav-btn nav-next" 
+              :disabled="!nextArtwork"
+              :title="nextArtwork ? `下一个: ${nextArtwork.title}` : '没有下一个作品'"
+            >
+              <span>下一个</span>
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/>
+              </svg>
+            </button>
+          </div>
+
           <!-- 作品统计 -->
           <div class="artwork-stats">
             <div class="stat">
@@ -130,10 +156,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import artworkService from '@/services/artwork';
+import artistService from '@/services/artist';
 import downloadService from '@/services/download';
 import type { Artwork } from '@/types';
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
@@ -152,6 +179,11 @@ const imageLoaded = ref(false);
 const imageError = ref(false);
 const downloading = ref(false);
 
+// 导航相关状态
+const artistArtworks = ref<Artwork[]>([]);
+const currentArtworkIndex = ref(-1);
+const navigationLoading = ref(false);
+
 // 计算属性
 const currentImageUrl = computed(() => {
   if (!artwork.value) return '';
@@ -165,6 +197,25 @@ const currentImageUrl = computed(() => {
   return artwork.value.image_urls.large;
 });
 
+// 导航相关计算属性
+const showNavigation = computed(() => {
+  return route.query.artistId && route.query.artworkType;
+});
+
+const previousArtwork = computed(() => {
+  if (currentArtworkIndex.value > 0) {
+    return artistArtworks.value[currentArtworkIndex.value - 1];
+  }
+  return null;
+});
+
+const nextArtwork = computed(() => {
+  if (currentArtworkIndex.value >= 0 && currentArtworkIndex.value < artistArtworks.value.length - 1) {
+    return artistArtworks.value[currentArtworkIndex.value + 1];
+  }
+  return null;
+});
+
 // 获取作品详情
 const fetchArtworkDetail = async () => {
   const artworkId = parseInt(route.params.id as string);
@@ -176,6 +227,10 @@ const fetchArtworkDetail = async () => {
   try {
     loading.value = true;
     error.value = null;
+    // 重置图片加载状态
+    imageLoaded.value = false;
+    imageError.value = false;
+    currentPage.value = 0;
     
     const response = await artworkService.getArtworkDetail(artworkId);
     
@@ -243,8 +298,96 @@ const clearError = () => {
   error.value = null;
 };
 
+// 获取作者作品列表用于导航
+const fetchArtistArtworks = async () => {
+  const artistId = route.query.artistId;
+  const artworkType = route.query.artworkType;
+  
+  if (!artistId || !artworkType) return;
+
+  try {
+    navigationLoading.value = true;
+    const response = await artistService.getArtistArtworks(parseInt(artistId as string), {
+      type: artworkType as 'art' | 'manga' | 'novel',
+      limit: 100 // 获取更多作品以便导航
+    });
+    
+    if (response.success && response.data) {
+      artistArtworks.value = response.data.artworks;
+      // 找到当前作品在列表中的位置
+      const currentId = parseInt(route.params.id as string);
+      currentArtworkIndex.value = artistArtworks.value.findIndex(art => art.id === currentId);
+    }
+  } catch (err) {
+    console.error('获取作者作品列表失败:', err);
+  } finally {
+    navigationLoading.value = false;
+  }
+};
+
+// 导航到上一个作品
+const navigateToPrevious = () => {
+  if (previousArtwork.value) {
+    router.push({
+      path: `/artwork/${previousArtwork.value.id}`,
+      query: {
+        artistId: route.query.artistId,
+        artworkType: route.query.artworkType
+      }
+    });
+  }
+};
+
+// 导航到下一个作品
+const navigateToNext = () => {
+  if (nextArtwork.value) {
+    router.push({
+      path: `/artwork/${nextArtwork.value.id}`,
+      query: {
+        artistId: route.query.artistId,
+        artworkType: route.query.artworkType
+      }
+    });
+  }
+};
+
+// 监听路由变化，重新获取作品详情和导航数据
+watch(() => route.params.id, () => {
+  // 重新获取作品详情
+  fetchArtworkDetail();
+  
+  // 如果是从作者页面来的，重新获取导航数据
+  if (showNavigation.value) {
+    fetchArtistArtworks();
+  }
+});
+
+// 键盘快捷键支持
+const handleKeydown = (event: KeyboardEvent) => {
+  if (!showNavigation.value) return;
+  
+  if (event.key === 'ArrowLeft' && previousArtwork.value) {
+    event.preventDefault();
+    navigateToPrevious();
+  } else if (event.key === 'ArrowRight' && nextArtwork.value) {
+    event.preventDefault();
+    navigateToNext();
+  }
+};
+
 onMounted(() => {
   fetchArtworkDetail();
+  if (showNavigation.value) {
+    fetchArtistArtworks();
+  }
+  
+  // 添加键盘事件监听
+  document.addEventListener('keydown', handleKeydown);
+});
+
+// 组件卸载时移除事件监听
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown);
 });
 </script>
 
@@ -530,6 +673,54 @@ onMounted(() => {
   color: #6b7280;
   font-size: 0.875rem;
   margin: 0.25rem 0;
+}
+
+.artwork-navigation {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 0.75rem;
+}
+
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background: white;
+  color: #374151;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex: 1;
+  justify-content: center;
+}
+
+.nav-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.nav-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.nav-btn svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.nav-prev {
+  justify-content: flex-start;
+}
+
+.nav-next {
+  justify-content: flex-end;
 }
 
 @media (max-width: 1024px) {
