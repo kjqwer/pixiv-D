@@ -19,6 +19,88 @@ const { authMiddleware } = require('./middleware/auth');
 const PixivBackend = require('./core');
 const proxyConfig = require('./config');
 
+// 自定义日志中间件
+function customLogger(req, res, next) {
+  // 过滤掉静态资源请求
+  const isStaticResource = req.path.startsWith('/assets/') || 
+                          req.path.startsWith('/downloads/') ||
+                          req.path.includes('.js') ||
+                          req.path.includes('.css') ||
+                          req.path.includes('.ico') ||
+                          req.path.includes('.png') ||
+                          req.path.includes('.jpg') ||
+                          req.path.includes('.jpeg') ||
+                          req.path.includes('.gif') ||
+                          req.path.includes('.svg') ||
+                          req.path.includes('.woff') ||
+                          req.path.includes('.woff2') ||
+                          req.path.includes('.ttf') ||
+                          req.path.includes('.eot');
+
+  // 只记录API请求和重要请求
+  if (!isStaticResource) {
+    const start = Date.now();
+    
+    // 原始响应结束方法
+    const originalEnd = res.end;
+    
+    // 重写响应结束方法以获取响应时间
+    res.end = function(chunk, encoding) {
+      const duration = Date.now() - start;
+      const statusCode = res.statusCode;
+      const method = req.method;
+      const url = req.originalUrl;
+      
+      // 根据状态码选择颜色和图标
+      let statusIcon, statusColor;
+      if (statusCode >= 200 && statusCode < 300) {
+        statusIcon = '✅';
+        statusColor = '\x1b[32m'; // 绿色
+      } else if (statusCode >= 300 && statusCode < 400) {
+        statusIcon = '🔄';
+        statusColor = '\x1b[33m'; // 黄色
+      } else if (statusCode >= 400 && statusCode < 500) {
+        statusIcon = '⚠️';
+        statusColor = '\x1b[33m'; // 黄色
+      } else {
+        statusIcon = '❌';
+        statusColor = '\x1b[31m'; // 红色
+      }
+      
+      // 根据请求类型选择图标
+      let methodIcon;
+      switch (method) {
+        case 'GET': methodIcon = '📥'; break;
+        case 'POST': methodIcon = '📤'; break;
+        case 'PUT': methodIcon = '🔄'; break;
+        case 'DELETE': methodIcon = '🗑️'; break;
+        case 'PATCH': methodIcon = '🔧'; break;
+        default: methodIcon = '❓';
+      }
+      
+      // 格式化时间
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('zh-CN', { 
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+      
+      // 构建日志消息
+      const logMessage = `${statusColor}${statusIcon} ${methodIcon} ${method} ${url} ${statusCode} ${duration}ms\x1b[0m`;
+      
+      // 输出日志
+      console.log(`[${timeStr}] ${logMessage}`);
+      
+      // 调用原始的end方法
+      originalEnd.call(this, chunk, encoding);
+    };
+  }
+  
+  next();
+}
+
 class PixivServer {
   constructor() {
     this.app = express();
@@ -30,7 +112,7 @@ class PixivServer {
    * 初始化服务器
    */
   async init() {
-    console.log('正在初始化 Pixiv 后端服务器...');
+    console.log('\x1b[34m🔧 正在初始化 Pixiv 后端服务器...\x1b[0m');
     
     // 设置代理
     proxyConfig.setEnvironmentVariables();
@@ -48,15 +130,15 @@ class PixivServer {
     // 配置错误处理 - 临时注释掉
     this.setupErrorHandling();
     
-    console.log('服务器初始化完成');
+    console.log('\x1b[32m✅ 服务器初始化完成\x1b[0m');
   }
 
   /**
    * 配置中间件
    */
   setupMiddleware() {
-    // 日志中间件
-    this.app.use(morgan('combined'));
+    // 自定义日志中间件（替换morgan）
+    this.app.use(customLogger);
     
     // CORS 中间件
     this.app.use(cors({
@@ -132,14 +214,14 @@ class PixivServer {
    */
   start() {
     this.app.listen(this.port, () => {
-      console.log(`🚀 Pixiv 后端服务器已启动`);
-      console.log(`📍 后端API: http://localhost:${this.port}`);
-      console.log(`🌐 前端页面: http://localhost:${this.port}`);
-      console.log(`🔗 健康检查: http://localhost:${this.port}/health`);
-      console.log(`📊 登录状态: ${this.backend.isLoggedIn ? '已登录' : '未登录'}`);
+      console.log('\x1b[32m✅ Pixiv 后端服务器已启动\x1b[0m');
+      console.log(`\x1b[36m📍 服务地址: http://localhost:${this.port}\x1b[0m`);
+      console.log(`\x1b[36m🔗 健康检查: http://localhost:${this.port}/health\x1b[0m`);
+      console.log(`\x1b[33m📊 登录状态: ${this.backend.isLoggedIn ? '已登录' : '未登录'}\x1b[0m`);
       if (this.backend.isLoggedIn) {
-        console.log(`👤 用户: ${this.backend.config.user?.account}`);
+        console.log(`\x1b[33m👤 用户: ${this.backend.config.user?.account}\x1b[0m`);
       }
+      console.log('\x1b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m');
     });
   }
 
@@ -147,9 +229,10 @@ class PixivServer {
    * 优雅关闭
    */
   async shutdown() {
-    console.log('正在关闭服务器...');
+    console.log('\x1b[33m🔄 正在关闭服务器...\x1b[0m');
     // 清理代理环境变量
     proxyConfig.clearEnvironmentVariables();
+    console.log('\x1b[32m✅ 服务器已关闭\x1b[0m');
     process.exit(0);
   }
 }
