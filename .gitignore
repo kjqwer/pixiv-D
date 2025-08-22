@@ -1,6 +1,3 @@
-/test
-/package-lock.json
-
 # Logs
 logs
 *.log
@@ -72,3 +69,7 @@ backend/config/user-config.json
 
 # 自己的启动文件
 start_me.bat
+
+#打包文件夹
+dist/
+pixiv-manager-portable/

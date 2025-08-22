@@ -12,7 +12,18 @@ class DownloadService {
     this.artworkService = new ArtworkService(auth);
     this.artistService = new ArtistService(auth);
     this.configManager = new ConfigManager();
-    this.dataPath = path.join(__dirname, '../../data');
+    
+    // 检测是否在pkg打包环境中运行
+    const isPkg = process.pkg !== undefined;
+    
+    if (isPkg) {
+      // 在打包环境中，使用可执行文件所在目录
+      this.dataPath = path.join(process.cwd(), 'data');
+    } else {
+      // 在开发环境中，使用相对路径
+      this.dataPath = path.join(__dirname, '../../data');
+    }
+    
     this.tasksFile = path.join(this.dataPath, 'download_tasks.json');
     this.historyFile = path.join(this.dataPath, 'download_history.json');
     

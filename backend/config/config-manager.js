@@ -7,7 +7,17 @@ const path = require('path')
  */
 class ConfigManager {
   constructor() {
-    this.configDir = path.join(__dirname, 'user-config.json')
+    // 检测是否在pkg打包环境中运行
+    const isPkg = process.pkg !== undefined;
+    
+    if (isPkg) {
+      // 在打包环境中，使用可执行文件所在目录
+      this.configDir = path.join(process.cwd(), 'data', 'user-config.json')
+    } else {
+      // 在开发环境中，使用相对路径
+      this.configDir = path.join(__dirname, 'user-config.json')
+    }
+    
     this.defaultConfig = {
       downloadDir: "./downloads",
       fileStructure: "artist/artwork",

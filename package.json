@@ -1,13 +1,26 @@
 {
   "name": "pixiv-backend",
   "version": "1.0.0",
-  "description": "Pixiv 后端服务 - 支持 OAuth 2.0 登录和 API 调用",
+  "description": "Pixiv 下载浏览管理器",
   "main": "backend/start.js",
+  "bin": "backend/start.js",
+  "pkg": {
+    "targets": ["node18-win-x64"],
+    "outputPath": "dist",
+    "assets": [
+      "backend/**/*",
+      "ui/**/*",
+      "data/**/*",
+      "node_modules/**/*"
+    ]
+  },
   "scripts": {
     "start": "node backend/start.js",
     "dev": "node backend/start.js",
     "test": "node backend/test-login.js",
-    "set-proxy": "node backend/set-proxy.js"
+    "set-proxy": "node backend/set-proxy.js",
+    "build": "pkg .",
+    "build-portable": "npm run build && node scripts/create-portable.js"
   },
   "dependencies": {
     "appdata-path": "^1.0.0",
