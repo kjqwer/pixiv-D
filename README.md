@@ -15,6 +15,12 @@ Pixiv 下载浏览管理器是一个基于 Web 的应用程序，提供以下功
 - 🖼️ 画廊模式浏览
 - 🔍 作品检索和分类
 
+## 视频演示
+
+观看完整教学演示（视频使用的是便携包）：
+
+[![视频演示](https://img.shields.io/badge/📹-演示视频-blue?style=for-the-badge)](https://sywb.top/Staticfiles/p%E6%95%99%E7%A8%8B.mp4)
+
 ## 🚀 快速开始
 
 ### 便携版下载（如果不想自义定或者是懒）
