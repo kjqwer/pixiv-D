@@ -151,6 +151,7 @@ class ArtworkService {
     try {
       const {
         keyword,
+        tags,
         type = 'all',
         sort = 'date_desc',
         duration = 'all',
@@ -159,10 +160,10 @@ class ArtworkService {
       } = searchOptions;
 
       // 验证搜索参数
-      if (!keyword || keyword.trim() === '') {
+      if ((!keyword || keyword.trim() === '') && (!tags || tags.length === 0)) {
         return {
           success: false,
-          error: 'Search keyword is required'
+          error: 'Search keyword or tags are required'
         };
       }
 
@@ -187,8 +188,17 @@ class ArtworkService {
         'within_last_month': 'within_last_month'
       };
 
+      // 构建搜索关键词
+      let searchWord = '';
+      if (keyword && keyword.trim()) {
+        searchWord = keyword.trim();
+      } else if (tags && tags.length > 0) {
+        // 将标签数组转换为搜索关键词，用空格分隔
+        searchWord = tags.join(' ');
+      }
+
       const params = {
-        word: keyword.trim(),
+        word: searchWord,
         search_target: searchTargetMap[type] || 'partial_match_for_tags',
         sort: sortMap[sort] || 'date_desc',
         offset: parseInt(offset) || 0,

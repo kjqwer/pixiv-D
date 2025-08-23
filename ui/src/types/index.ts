@@ -114,7 +114,8 @@ export interface DownloadTask {
 
 // 搜索参数
 export interface SearchParams {
-  keyword: string;
+  keyword?: string;
+  tags?: string[];
   type?: 'all' | 'art' | 'manga' | 'novel';
   sort?: 'date_desc' | 'date_asc' | 'popular_desc';
   duration?: 'all' | 'within_last_day' | 'within_last_week' | 'within_last_month';

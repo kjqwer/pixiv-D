@@ -10,6 +10,7 @@ router.get('/search', async (req, res) => {
   try {
     const { 
       keyword, 
+      tags,
       type = 'all', 
       sort = 'date_desc', 
       duration = 'all',
@@ -17,16 +18,27 @@ router.get('/search', async (req, res) => {
       limit = 30
     } = req.query;
     
-    if (!keyword) {
+    // 处理标签参数
+    let tagsArray = [];
+    if (tags) {
+      if (Array.isArray(tags)) {
+        tagsArray = tags;
+      } else {
+        tagsArray = [tags];
+      }
+    }
+    
+    if (!keyword && (!tagsArray || tagsArray.length === 0)) {
       return res.status(400).json({
         success: false,
-        error: 'Search keyword is required'
+        error: 'Search keyword or tags are required'
       });
     }
     
     const artworkService = new ArtworkService(req.backend.getAuth());
     const result = await artworkService.searchArtworks({
       keyword,
+      tags: tagsArray,
       type,
       sort,
       duration,

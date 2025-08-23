@@ -10,6 +10,9 @@
             <button @click="searchMode = 'keyword'" class="tab-btn" :class="{ active: searchMode === 'keyword' }">
               关键词搜索
             </button>
+            <button @click="searchMode = 'tags'" class="tab-btn" :class="{ active: searchMode === 'tags' }">
+              标签搜索
+            </button>
             <button @click="searchMode = 'artwork'" class="tab-btn" :class="{ active: searchMode === 'artwork' }">
               作品ID
             </button>
@@ -28,6 +31,45 @@
                   d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
               </svg>
             </button>
+          </div>
+
+          <!-- 标签搜索 -->
+          <div v-if="searchMode === 'tags'" class="tags-search-section">
+            <div class="tags-input-group">
+              <input 
+                v-model="tagInput" 
+                type="text" 
+                placeholder="输入标签，按回车或逗号分隔..." 
+                class="search-input"
+                @keyup.enter="addTag"
+                @keyup.space="addTag"
+                @keyup.comma="addTag"
+              />
+              <button @click="addTag" class="search-btn" :disabled="loading">
+                添加标签
+              </button>
+            </div>
+            
+            <!-- 已添加的标签 -->
+            <div v-if="searchTags.length > 0" class="tags-display">
+              <div class="tags-list">
+                <span 
+                  v-for="(tag, index) in searchTags" 
+                  :key="index" 
+                  class="tag-item"
+                >
+                  {{ tag }}
+                  <button @click="removeTag(index)" class="tag-remove" title="移除标签">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                  </button>
+                </span>
+              </div>
+              <button @click="handleTagSearch" class="search-btn" :disabled="loading || searchTags.length === 0">
+                搜索标签
+              </button>
+            </div>
           </div>
 
           <!-- 作品ID搜索 -->
@@ -122,8 +164,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import artworkService from '@/services/artwork';
 import type { Artwork, SearchParams } from '@/types';
@@ -132,13 +174,16 @@ import ErrorMessage from '@/components/common/ErrorMessage.vue';
 import ArtworkCard from '@/components/artwork/ArtworkCard.vue';
 
 const router = useRouter();
+const route = useRoute();
 const authStore = useAuthStore();
 
 // 搜索状态
 const searchKeyword = ref('');
-const searchMode = ref<'keyword' | 'artwork' | 'artist'>('keyword');
+const searchMode = ref<'keyword' | 'tags' | 'artwork' | 'artist'>('keyword');
 const artworkId = ref('');
 const artistId = ref('');
+const searchTags = ref<string[]>([]);
+const tagInput = ref('');
 
 // 关键词搜索参数
 const searchType = ref<'all' | 'art' | 'manga' | 'novel'>('all');
@@ -191,7 +236,15 @@ const handleSearch = async () => {
 };
 
 const loadMore = async () => {
-  if (!searchKeyword.value.trim() || loadingMore.value) {
+  if (loadingMore.value) {
+    return;
+  }
+
+  // 检查是否有搜索条件
+  const hasKeyword = searchKeyword.value.trim();
+  const hasTags = searchTags.value.length > 0;
+  
+  if (!hasKeyword && !hasTags) {
     return;
   }
 
@@ -200,13 +253,19 @@ const loadMore = async () => {
     offset.value += 30;
 
     const params: SearchParams = {
-      keyword: searchKeyword.value.trim(),
       type: searchType.value,
       sort: searchSort.value,
       duration: searchDuration.value,
       offset: offset.value,
       limit: 30
     };
+
+    // 根据当前搜索模式添加相应的参数
+    if (searchMode.value === 'keyword' && hasKeyword) {
+      params.keyword = searchKeyword.value.trim();
+    } else if (searchMode.value === 'tags' && hasTags) {
+      params.tags = searchTags.value;
+    }
 
     const response = await artworkService.searchArtworks(params);
 
@@ -261,9 +320,91 @@ const handleArtistSearch = () => {
   router.push(`/artist/${id}`);
 };
 
+// 标签相关方法
+const addTag = () => {
+  const tag = tagInput.value.trim();
+  if (tag && !searchTags.value.includes(tag)) {
+    searchTags.value.push(tag);
+    tagInput.value = '';
+  }
+};
+
+const removeTag = (index: number) => {
+  searchTags.value.splice(index, 1);
+};
+
+const handleTagSearch = async () => {
+  if (searchTags.value.length === 0) {
+    return;
+  }
+
+  try {
+    loading.value = true;
+    error.value = null;
+    offset.value = 0;
+    hasSearched.value = true;
+
+    const params: SearchParams = {
+      tags: searchTags.value,
+      type: searchType.value,
+      sort: searchSort.value,
+      duration: searchDuration.value,
+      offset: 0,
+      limit: 30
+    };
+
+    const response = await artworkService.searchArtworks(params);
+
+    if (response.success && response.data) {
+      searchResults.value = response.data.artworks;
+      totalResults.value = response.data.total;
+    } else {
+      throw new Error(response.error || '标签搜索失败');
+    }
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '标签搜索失败';
+    console.error('标签搜索失败:', err);
+  } finally {
+    loading.value = false;
+  }
+};
+
 const clearError = () => {
   error.value = null;
 };
+
+// 监听路由变化，处理URL参数
+watch(() => route.query, () => {
+  const urlMode = route.query.mode as string;
+  const urlTag = route.query.tag as string;
+  const urlTags = route.query.tags;
+  
+  if (urlMode === 'tags') {
+    // 自动设置标签搜索模式
+    searchMode.value = 'tags';
+    
+    if (urlTags) {
+      // 处理多个标签
+      if (Array.isArray(urlTags)) {
+        searchTags.value = urlTags.filter(tag => tag !== null) as string[];
+      } else {
+        searchTags.value = urlTags ? [urlTags] : [];
+      }
+      // 保存到sessionStorage
+      sessionStorage.setItem('currentSearchTags', JSON.stringify(searchTags.value));
+    } else if (urlTag) {
+      // 处理单个标签
+      searchTags.value = [urlTag];
+      // 清除sessionStorage中的多标签选择
+      sessionStorage.removeItem('currentSearchTags');
+    }
+    
+    // 如果有标签，自动执行搜索
+    if (searchTags.value.length > 0) {
+      handleTagSearch();
+    }
+  }
+}, { immediate: true });
 </script>
 
 <style scoped>
@@ -366,6 +507,66 @@ const clearError = () => {
 .search-btn svg {
   width: 1.25rem;
   height: 1.25rem;
+}
+
+/* 标签搜索样式 */
+.tags-search-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.tags-input-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tags-display {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tag-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  background: #e0f2fe;
+  color: #0369a1;
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.tag-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  background: none;
+  border: none;
+  color: #0369a1;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.tag-remove:hover {
+  background: #0369a1;
+  color: white;
+}
+
+.tag-remove svg {
+  width: 0.75rem;
+  height: 0.75rem;
 }
 
 .search-filters {
@@ -495,6 +696,19 @@ const clearError = () => {
 
   .artworks-grid {
     grid-template-columns: 1fr;
+  }
+
+  .tags-input-group {
+    flex-direction: column;
+  }
+
+  .tags-list {
+    justify-content: flex-start;
+  }
+
+  .tag-item {
+    font-size: 0.75rem;
+    padding: 0.375rem 0.625rem;
   }
 }
 </style>

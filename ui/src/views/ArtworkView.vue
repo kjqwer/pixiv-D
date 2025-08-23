@@ -158,13 +158,16 @@
           <div class="artwork-tags">
             <h3>标签</h3>
             <div class="tags-list">
-              <span 
+              <button 
                 v-for="tag in artwork.tags" 
                 :key="tag.name"
-                class="tag"
+                @click="handleTagClick($event, tag.name)"
+                class="tag tag-clickable"
+                :class="{ 'tag-selected': selectedTags.includes(tag.name) }"
+                :title="`搜索标签: ${tag.name} (按住Ctrl键点击选择多个标签，松开Ctrl键搜索)`"
               >
                 {{ tag.name }}
-              </span>
+              </button>
             </div>
           </div>
 
@@ -534,6 +537,88 @@ const goBackToArtist = () => {
   }
 };
 
+// 选中的标签状态
+const selectedTags = ref<string[]>([]);
+const isCtrlPressed = ref(false);
+
+// 处理标签点击
+const handleTagClick = (event: MouseEvent, tagName: string) => {
+  // 阻止默认行为
+  event.preventDefault();
+  
+  console.log('标签点击事件:', {
+    tagName,
+    ctrlKey: event.ctrlKey,
+    metaKey: event.metaKey,
+    isCtrlPressed: isCtrlPressed.value
+  });
+  
+  // 如果按住Ctrl键，则添加到选中状态（不跳转）
+  if (event.ctrlKey || event.metaKey || isCtrlPressed.value) {
+    console.log('检测到Ctrl键，添加到选中状态');
+    
+    // 切换标签的选中状态
+    const index = selectedTags.value.indexOf(tagName);
+    if (index > -1) {
+      // 如果已选中，则取消选中
+      selectedTags.value.splice(index, 1);
+    } else {
+      // 如果未选中，则添加到选中列表
+      selectedTags.value.push(tagName);
+    }
+    
+    console.log('当前选中的标签:', selectedTags.value);
+    
+    // 保存到sessionStorage
+    sessionStorage.setItem('currentSearchTags', JSON.stringify(selectedTags.value));
+    
+    // 不跳转，只是更新选中状态
+  } else {
+    console.log('普通点击，执行单标签搜索');
+    // 普通点击，只搜索当前标签，清除之前的多标签选择
+    selectedTags.value = [];
+    sessionStorage.removeItem('currentSearchTags');
+    
+    router.push({
+      path: '/search',
+      query: {
+        mode: 'tags',
+        tag: tagName
+      }
+    });
+  }
+};
+
+// 处理键盘事件
+const handleKeyDown = (event: KeyboardEvent) => {
+  if (event.key === 'Control' || event.key === 'Meta') {
+    isCtrlPressed.value = true;
+  }
+};
+
+const handleKeyUp = (event: KeyboardEvent) => {
+  if (event.key === 'Control' || event.key === 'Meta') {
+    isCtrlPressed.value = false;
+    
+    // 当松开Ctrl键时，如果有选中的标签，则跳转到搜索页面
+    if (selectedTags.value.length > 0) {
+      console.log('松开Ctrl键，跳转到搜索页面，标签:', selectedTags.value);
+      
+      router.push({
+        path: '/search',
+        query: {
+          mode: 'tags',
+          tags: selectedTags.value
+        }
+      });
+      
+      // 清空选中状态
+      selectedTags.value = [];
+      sessionStorage.removeItem('currentSearchTags');
+    }
+  }
+};
+
 // 监听路由变化，重新获取作品详情和导航数据
 watch(() => route.params.id, () => {
   // 清理之前的任务状态
@@ -573,11 +658,15 @@ onMounted(() => {
   
   // 添加键盘事件监听
   document.addEventListener('keydown', handleKeydown);
+  document.addEventListener('keydown', handleKeyDown);
+  document.addEventListener('keyup', handleKeyUp);
 });
 
 // 组件卸载时移除事件监听和清理SSE连接
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown);
+  document.removeEventListener('keydown', handleKeyDown);
+  document.removeEventListener('keyup', handleKeyUp);
   stopTaskStreaming();
 });
 </script>
@@ -841,6 +930,35 @@ onUnmounted(() => {
   border-radius: 1rem;
   font-size: 0.875rem;
   line-height: 1;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tag-clickable {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.tag-clickable:hover {
+  background: #bae6fd;
+  color: #075985;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.tag-selected {
+  background: #3b82f6 !important;
+  color: white !important;
+  border-color: #2563eb !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+.tag-selected:hover {
+  background: #2563eb !important;
+  color: white !important;
 }
 
 .artwork-description {

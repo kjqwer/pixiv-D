@@ -56,7 +56,19 @@ class ArtworkService {
    */
   async searchArtworks(params: SearchParams): Promise<ApiResponse<{ artworks: Artwork[]; next_url?: string; total: number }>> {
     const queryParams = new URLSearchParams();
-    queryParams.append('keyword', params.keyword);
+    
+    // 处理关键词搜索
+    if (params.keyword) {
+      queryParams.append('keyword', params.keyword);
+    }
+    
+    // 处理标签搜索
+    if (params.tags && params.tags.length > 0) {
+      params.tags.forEach(tag => {
+        queryParams.append('tags', tag);
+      });
+    }
+    
     if (params.type) queryParams.append('type', params.type);
     if (params.sort) queryParams.append('sort', params.sort);
     if (params.duration) queryParams.append('duration', params.duration);
