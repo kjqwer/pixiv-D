@@ -98,22 +98,17 @@ export interface LoginStatus {
 export interface DownloadTask {
   id: string;
   type: 'artwork' | 'batch' | 'artist';
-  status: 'downloading' | 'completed' | 'failed' | 'partial' | 'cancelled';
+  status: 'downloading' | 'completed' | 'failed' | 'partial' | 'cancelled' | 'paused';
   progress: number;
-  total: number;
-  completed: number;
-  failed: number;
+  total_files: number;
+  completed_files: number;
+  failed_files: number;
+  artwork_id?: number;
+  artist_name?: string;
+  artwork_title?: string;
   start_time: string;
   end_time?: string;
   error?: string;
-  artwork_id?: number;
-  artist_id?: number;
-  files?: Array<{
-    path: string;
-    url: string;
-    size: string;
-    filename: string;
-  }>;
   results?: any[];
 }
 

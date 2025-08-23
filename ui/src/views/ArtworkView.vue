@@ -55,8 +55,12 @@
                 {{ artwork.is_bookmarked ? '取消收藏' : '收藏' }}
               </button>
             </div>
+          </div>
+
+          <!-- 下载状态和进度区域 -->
+          <div class="download-section">
             <!-- 下载状态提示 -->
-            <div v-if="isDownloaded" class="download-status">
+            <div v-if="isDownloaded && !currentTask" class="download-status">
               <div class="status-indicator">
                 <svg viewBox="0 0 24 24" fill="currentColor" class="status-icon">
                   <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
@@ -64,6 +68,15 @@
                 <span>已下载到本地</span>
               </div>
             </div>
+
+            <!-- 下载进度 -->
+            <DownloadProgress 
+              v-if="currentTask"
+              :task="currentTask"
+              :loading="downloading"
+              @update="updateTask"
+              @remove="removeTask"
+            />
           </div>
 
           <!-- 作者信息 -->
@@ -182,9 +195,10 @@ import artworkService from '@/services/artwork';
 import artistService from '@/services/artist';
 import downloadService from '@/services/download';
 import { useRepositoryStore } from '@/stores/repository';
-import type { Artwork } from '@/types';
+import type { Artwork, DownloadTask } from '@/types';
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
 import ErrorMessage from '@/components/common/ErrorMessage.vue';
+import DownloadProgress from '@/components/download/DownloadProgress.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -201,6 +215,10 @@ const imageError = ref(false);
 const downloading = ref(false);
 const isDownloaded = ref(false);
 const checkingDownloadStatus = ref(false);
+
+// 下载任务状态
+const currentTask = ref<DownloadTask | null>(null);
+const sseConnection = ref<(() => void) | null>(null);
 
 // 导航相关状态
 const artistArtworks = ref<Artwork[]>([]);
@@ -255,6 +273,10 @@ const fetchArtworkDetail = async () => {
     imageError.value = false;
     currentPage.value = 0;
     
+    // 清理之前的任务状态
+    currentTask.value = null;
+    stopTaskStreaming();
+    
     const response = await artworkService.getArtworkDetail(artworkId);
     
     if (response.success && response.data) {
@@ -299,15 +321,40 @@ const handleDownload = async () => {
 
   try {
     downloading.value = true;
-    const response = await downloadService.downloadArtwork(artwork.value.id);
+    // 如果已经下载过，则强制重新下载（跳过现有文件检查）
+    const skipExisting = !isDownloaded.value;
+    const response = await downloadService.downloadArtwork(artwork.value.id, {
+      skipExisting
+    });
     
     if (response.success) {
-      // 可以显示下载成功提示
-      console.log('下载任务已创建:', response.data);
-      // 下载完成后重新检查下载状态
-      setTimeout(() => {
-        checkDownloadStatus(artwork.value!.id);
-      }, 2000); // 等待2秒让下载完成
+      console.log('下载响应:', response.data);
+      
+      // 检查是否跳过下载
+      if (response.data.skipped) {
+        console.log('作品已存在，跳过下载');
+        // 重新检查下载状态
+        await checkDownloadStatus(artwork.value.id);
+        return;
+      }
+      
+      // 如果是新任务，开始监听进度
+      if (response.data.task_id) {
+        currentTask.value = {
+          id: response.data.task_id,
+          type: 'artwork',
+          status: 'downloading',
+          progress: 0,
+          total_files: 0,
+          completed_files: 0,
+          failed_files: 0,
+          artwork_id: artwork.value.id,
+          start_time: new Date().toISOString()
+        };
+        
+        // 开始SSE监听任务进度
+        startTaskStreaming(response.data.task_id);
+      }
     } else {
       throw new Error(response.error || '下载失败');
     }
@@ -316,6 +363,72 @@ const handleDownload = async () => {
     console.error('下载失败:', err);
   } finally {
     downloading.value = false;
+  }
+};
+
+// 开始SSE监听任务进度
+const startTaskStreaming = (taskId: string) => {
+  // 清除之前的连接
+  if (sseConnection.value) {
+    sseConnection.value();
+  }
+  
+  console.log('开始SSE监听任务进度:', taskId);
+  
+  // 建立SSE连接
+  sseConnection.value = downloadService.streamTaskProgress(
+    taskId,
+    (task) => {
+      console.log('收到SSE进度更新:', {
+        taskId,
+        status: task.status,
+        progress: task.progress,
+        completed: task.completed_files,
+        total: task.total_files
+      });
+      
+      currentTask.value = task;
+      
+      // 如果任务完成，清理连接并检查下载状态
+      if (['completed', 'failed', 'cancelled', 'partial'].includes(task.status)) {
+        console.log('任务完成，关闭SSE连接');
+        stopTaskStreaming();
+        
+        // 延迟检查下载状态，确保文件写入完成
+        setTimeout(async () => {
+          await checkDownloadStatus(artwork.value!.id);
+          // 清理任务状态，显示下载完成状态
+          currentTask.value = null;
+        }, 1000);
+      }
+    },
+    () => {
+      console.log('SSE连接完成');
+      stopTaskStreaming();
+    }
+  );
+};
+
+
+
+// 停止SSE监听
+const stopTaskStreaming = () => {
+  if (sseConnection.value) {
+    sseConnection.value();
+    sseConnection.value = null;
+  }
+};
+
+// 更新任务状态
+const updateTask = (task: DownloadTask) => {
+  currentTask.value = task;
+};
+
+// 移除任务
+const removeTask = (taskId: string) => {
+  if (currentTask.value?.id === taskId) {
+    currentTask.value = null;
+    stopTaskStreaming();
   }
 };
 
@@ -423,6 +536,10 @@ const goBackToArtist = () => {
 
 // 监听路由变化，重新获取作品详情和导航数据
 watch(() => route.params.id, () => {
+  // 清理之前的任务状态
+  currentTask.value = null;
+  stopTaskStreaming();
+  
   // 重新获取作品详情
   fetchArtworkDetail();
   
@@ -458,9 +575,10 @@ onMounted(() => {
   document.addEventListener('keydown', handleKeydown);
 });
 
-// 组件卸载时移除事件监听
+// 组件卸载时移除事件监听和清理SSE连接
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown);
+  stopTaskStreaming();
 });
 </script>
 
@@ -578,6 +696,10 @@ onUnmounted(() => {
 }
 
 .artwork-header {
+  margin-bottom: 1.5rem;
+}
+
+.download-section {
   margin-bottom: 2rem;
 }
 
@@ -649,7 +771,7 @@ onUnmounted(() => {
   padding: 1.5rem;
   background: #f8fafc;
   border-radius: 0.75rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 .artist-avatar {
@@ -814,11 +936,10 @@ onUnmounted(() => {
 }
 
 .download-status {
-  margin-top: 1rem;
-  padding: 0.75rem 1rem;
+  padding: 1rem 1.25rem;
   background: #f0f9ff;
   border: 1px solid #bae6fd;
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;

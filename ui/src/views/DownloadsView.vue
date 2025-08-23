@@ -92,7 +92,7 @@
                 ></div>
               </div>
               <div class="progress-text">
-                {{ task.completed }}/{{ task.total }} ({{ task.progress }}%)
+                {{ task.completed_files }}/{{ task.total_files }} ({{ task.progress }}%)
               </div>
             </div>
 
@@ -271,9 +271,9 @@ const getTaskTitle = (task: DownloadTask) => {
   if (task.type === 'artwork') {
     return `作品 ${task.artwork_id}`;
   } else if (task.type === 'artist') {
-    return `作者 ${task.artist_id} 的作品`;
+    return `作者作品`;
   } else if (task.type === 'batch') {
-    return `批量下载 ${task.total} 个作品`;
+    return `批量下载 ${task.total_files} 个作品`;
   }
   return '未知任务';
 };
@@ -521,6 +521,7 @@ onUnmounted(() => {
   border-radius: 0.5rem;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  margin-top: 1rem;
 }
 
 .loading-section,
@@ -559,17 +560,26 @@ onUnmounted(() => {
 .tasks-list,
 .history-list,
 .files-list {
-  padding: 1rem;
+  padding: 1.5rem;
 }
 
 .task-card,
 .history-card,
 .file-card {
   border: 1px solid #e5e7eb;
-  border-radius: 0.5rem;
-  padding: 1rem;
-  margin-bottom: 1rem;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
   background: white;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.task-card:hover,
+.history-card:hover,
+.file-card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border-color: #d1d5db;
 }
 
 .task-header,

@@ -8,12 +8,16 @@ const DownloadService = require('../services/download');
  */
 router.post('/artwork/:id', async (req, res) => {
   try {
+    console.log(`收到下载请求: 作品ID ${req.params.id}`);
     const { id } = req.params;
     const { 
       size = 'original',
       quality = 'high',
-      format = 'auto'
+      format = 'auto',
+      skipExisting = true
     } = req.body;
+    
+    console.log(`下载参数: size=${size}, quality=${quality}, format=${format}, skipExisting=${skipExisting}`);
     
     if (!id || isNaN(parseInt(id))) {
       return res.status(400).json({
@@ -23,11 +27,15 @@ router.post('/artwork/:id', async (req, res) => {
     }
     
     const downloadService = req.backend.getDownloadService();
+    console.log('开始调用下载服务...');
     const result = await downloadService.downloadArtwork(parseInt(id), {
       size,
       quality,
-      format
+      format,
+      skipExisting
     });
+    
+    console.log('下载服务返回结果:', result);
     
     if (result.success) {
       res.json({
@@ -41,6 +49,7 @@ router.post('/artwork/:id', async (req, res) => {
       });
     }
   } catch (error) {
+    console.error('下载路由错误:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -161,20 +170,27 @@ router.get('/progress/:taskId', async (req, res) => {
   try {
     const { taskId } = req.params;
     
-    const downloadService = req.backend.getDownloadService();
-    const progress = downloadService.getTaskProgress(taskId);
-    
-    if (!progress) {
-      return res.status(404).json({
+    if (!taskId) {
+      return res.status(400).json({
         success: false,
-        error: 'Task not found'
+        error: 'Task ID is required'
       });
     }
     
-    res.json({
-      success: true,
-      data: progress
-    });
+    const downloadService = req.backend.getDownloadService();
+    const result = await downloadService.getTaskProgress(taskId);
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        data: result.data
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        error: result.error
+      });
+    }
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -190,11 +206,11 @@ router.get('/progress/:taskId', async (req, res) => {
 router.get('/tasks', async (req, res) => {
   try {
     const downloadService = req.backend.getDownloadService();
-    const tasks = downloadService.getAllTasks();
+    const result = await downloadService.getAllTasks();
     
     res.json({
       success: true,
-      data: tasks
+      data: result.data
     });
   } catch (error) {
     res.status(500).json({
@@ -205,12 +221,94 @@ router.get('/tasks', async (req, res) => {
 });
 
 /**
- * 取消下载任务
- * POST /api/download/cancel/:taskId
+ * 暂停任务
+ * POST /api/download/pause/:taskId
  */
-router.post('/cancel/:taskId', async (req, res) => {
+router.post('/pause/:taskId', async (req, res) => {
   try {
     const { taskId } = req.params;
+    
+    if (!taskId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Task ID is required'
+      });
+    }
+    
+    const downloadService = req.backend.getDownloadService();
+    const result = await downloadService.pauseTask(taskId);
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        message: '任务已暂停'
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.error
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 恢复任务
+ * POST /api/download/resume/:taskId
+ */
+router.post('/resume/:taskId', async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    
+    if (!taskId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Task ID is required'
+      });
+    }
+    
+    const downloadService = req.backend.getDownloadService();
+    const result = await downloadService.resumeTask(taskId);
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        data: result.data,
+        message: '任务已恢复'
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.error
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 取消任务
+ * DELETE /api/download/cancel/:taskId
+ */
+router.delete('/cancel/:taskId', async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    
+    if (!taskId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Task ID is required'
+      });
+    }
     
     const downloadService = req.backend.getDownloadService();
     const result = await downloadService.cancelTask(taskId);
@@ -218,7 +316,7 @@ router.post('/cancel/:taskId', async (req, res) => {
     if (result.success) {
       res.json({
         success: true,
-        message: 'Task cancelled successfully'
+        message: '任务已取消'
       });
     } else {
       res.status(400).json({
@@ -240,14 +338,14 @@ router.post('/cancel/:taskId', async (req, res) => {
  */
 router.get('/history', async (req, res) => {
   try {
-    const { limit = 50, offset = 0 } = req.query;
+    const { offset = 0, limit = 50 } = req.query;
     
     const downloadService = req.backend.getDownloadService();
-    const history = downloadService.getDownloadHistory(parseInt(limit), parseInt(offset));
+    const result = await downloadService.getDownloadHistory(parseInt(offset), parseInt(limit));
     
     res.json({
       success: true,
-      data: history
+      data: result.data
     });
   } catch (error) {
     res.status(500).json({
@@ -367,6 +465,69 @@ router.delete('/files', async (req, res) => {
       error: error.message
     });
   }
+});
+
+/**
+ * SSE端点 - 实时推送下载进度
+ * GET /api/download/stream/:taskId
+ */
+router.get('/stream/:taskId', async (req, res) => {
+  const { taskId } = req.params;
+  
+  if (!taskId) {
+    return res.status(400).json({
+      success: false,
+      error: 'Task ID is required'
+    });
+  }
+
+  // 设置SSE头部
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Cache-Control'
+  });
+
+  const downloadService = req.backend.getDownloadService();
+  
+  // 创建进度监听器
+  const progressListener = (task) => {
+    if (task.id === taskId) {
+      res.write(`data: ${JSON.stringify({
+        type: 'progress',
+        data: task
+      })}\n\n`);
+      
+      // 如果任务完成，关闭连接
+      if (['completed', 'failed', 'cancelled', 'partial'].includes(task.status)) {
+        res.write(`data: ${JSON.stringify({
+          type: 'complete',
+          data: task
+        })}\n\n`);
+        res.end();
+        downloadService.removeProgressListener(taskId, progressListener);
+      }
+    }
+  };
+
+  // 注册监听器
+  downloadService.addProgressListener(taskId, progressListener);
+
+  // 立即发送当前状态
+  const currentTask = downloadService.getTask(taskId);
+  if (currentTask) {
+    res.write(`data: ${JSON.stringify({
+      type: 'progress',
+      data: currentTask
+    })}\n\n`);
+  }
+
+  // 客户端断开连接时清理
+  req.on('close', () => {
+    downloadService.removeProgressListener(taskId, progressListener);
+  });
 });
 
 module.exports = router; 

@@ -20,9 +20,15 @@ Pixiv 下载浏览管理器是一个基于 Web 的应用程序，提供以下功
 ### 便携版下载（如果不想自义定或者是懒）
 
 如果懒得配置环境，可以直接下载便携版（日，我自己用怎么还被当成木马了，算了忽略一下，不放心就自己打包）：
-- **下载链接**: https://pan.baidu.com/s/1pIdl8eqQSA8jc2RM7HoZfg?pwd=j18v 
-- **提取码**: j18v
-- **使用说明**: 下载后解压，记事本打开start.bat配置代理（看readme有介绍），双击 `start.bat` 即可启动，打开网站，按照教程登录即可
+
+**方式一：百度网盘下载（更新不勤，版本可能比较落后）**
+- **下载链接**: https://pan.baidu.com/s/1SNsiDRzrNoHp4BhUBNvr9w?pwd=2yyn 提取码: 2yyn 
+- **提取码**: 2yyn
+
+**方式二：直接下载（可能比较慢，服务器带宽有限辣）**
+- **下载链接**: https://sywb.top/Staticfiles/p%E4%B8%8B%E8%BD%BD%E5%99%A8.rar
+
+**使用说明**: 下载后解压，记事本打开start.bat配置代理（看readme有介绍），双击 `start.bat` 即可启动，打开网站，按照教程登录即可
 
 ### 环境要求
 

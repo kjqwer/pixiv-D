@@ -331,7 +331,7 @@ class ArtworkService {
         method,
         url: `${this.baseURL}${endpoint}`,
         headers,
-        timeout: 30000
+        timeout: 60000 // 增加到60秒
       };
 
       if (data) {
