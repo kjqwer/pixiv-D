@@ -611,6 +611,167 @@ class DownloadService {
       };
     }
   }
+
+  /**
+   * 下载排行榜作品
+   */
+  async downloadRankingArtworks(options = {}) {
+    const { 
+      mode = 'day',
+      type = 'art', 
+      limit = 50, 
+      size = 'original', 
+      quality = 'high', 
+      format = 'auto',
+      skipExisting = true,
+      maxConcurrent = 3,
+      pageSize = 30
+    } = options;
+    
+    try {
+      // 创建任务记录
+      const task = this.taskManager.createTask('ranking', {
+        mode: mode,
+        type: type,
+        total: 0,
+        completed: 0,
+        failed: 0,
+        skipped: 0,
+        results: []
+      });
+      
+      await this.taskManager.saveTasks();
+
+      // 获取已下载的作品ID
+      const downloadedIds = skipExisting ? await this.getDownloadedArtworkIds() : [];
+      const downloadedSet = new Set(downloadedIds);
+
+      // 分页获取排行榜作品列表
+      let allArtworks = [];
+      let offset = 0;
+      let hasMore = true;
+      
+      while (hasMore && allArtworks.length < limit) {
+        const rankingResult = await this.getRankingArtworks(mode, type, {
+          offset: offset,
+          limit: Math.min(pageSize, limit - allArtworks.length)
+        });
+
+        if (!rankingResult.success) {
+          throw new Error(`获取排行榜作品失败: ${rankingResult.error}`);
+        }
+
+        const artworks = rankingResult.data.artworks;
+        if (artworks.length === 0) {
+          hasMore = false;
+        } else {
+          allArtworks.push(...artworks);
+          offset += artworks.length;
+          
+          // 基于 next_url 判断是否还有更多页面
+          hasMore = !!rankingResult.data.next_url;
+          
+          // 添加延迟避免请求过于频繁
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      // 过滤已下载的作品
+      const newArtworks = skipExisting 
+        ? allArtworks.filter(artwork => !downloadedSet.has(artwork.id))
+        : allArtworks;
+      
+      const skippedCount = allArtworks.length - newArtworks.length;
+      
+      await this.taskManager.updateTask(task.id, {
+        skipped: skippedCount,
+        total: newArtworks.length
+      });
+
+      console.log(`排行榜作品下载: 总共 ${allArtworks.length} 个作品，跳过 ${skippedCount} 个已下载的作品，需要下载 ${newArtworks.length} 个作品`);
+
+      // 如果没有需要下载的作品，直接返回
+      if (newArtworks.length === 0) {
+        await this.taskManager.updateTask(task.id, {
+          status: 'completed',
+          end_time: new Date()
+        });
+        
+        return {
+          success: true,
+          data: {
+            task_id: task.id,
+            mode: mode,
+            type: type,
+            total_artworks: allArtworks.length,
+            completed_artworks: 0,
+            failed_artworks: 0,
+            skipped_artworks: skippedCount,
+            message: '所有作品都已下载完成'
+          }
+        };
+      }
+
+      // 异步执行排行榜作品下载
+      this.downloadExecutor.executeRankingDownload(task, newArtworks, options);
+      
+      return {
+        success: true,
+        data: {
+          task_id: task.id,
+          mode: mode,
+          type: type,
+          total_artworks: task.total,
+          completed_artworks: task.completed,
+          failed_artworks: task.failed,
+          message: '排行榜作品下载任务已创建，正在后台执行'
+        }
+      };
+
+    } catch (error) {
+      console.error('排行榜作品下载失败:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * 获取排行榜作品列表
+   */
+  async getRankingArtworks(mode, type, options = {}) {
+    const { offset = 0, limit = 30 } = options;
+    
+    try {
+      // 使用作品服务来获取排行榜数据
+      const artworkService = new (require('./artwork'))(this.auth);
+      
+      const result = await artworkService.getRankingArtworks({
+        mode,
+        content: type,
+        offset,
+        limit
+      });
+      
+      return {
+        success: true,
+        data: {
+          artworks: result.artworks,
+          next_url: result.next_url || null
+        }
+      };
+      
+    } catch (error) {
+      console.error('获取排行榜失败:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+
 }
 
 module.exports = DownloadService; 

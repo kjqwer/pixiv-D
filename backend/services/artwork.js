@@ -276,14 +276,18 @@ class ArtworkService {
     try {
       const {
         mode = 'day',
+        content = 'illust',
         filter = 'for_ios',
-        offset = 0
+        offset = 0,
+        limit = 30
       } = options;
 
       const params = {
         mode,
+        content,
         filter,
-        offset
+        offset,
+        limit
       };
 
       const response = await this.makeRequest(

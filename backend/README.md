@@ -20,11 +20,13 @@ backend/
 │   ├── artwork.js       # 作品路由
 │   ├── artist.js        # 作者路由
 │   ├── download.js      # 下载路由
+│   ├── ranking.js       # 排行榜路由
 │   └── repository.js    # 仓库管理路由
 ├── services/            # 服务层
 │   ├── artwork.js       # 作品服务
 │   ├── artist.js        # 作者服务
 │   ├── download.js      # 下载服务
+│   ├── ranking.js       # 排行榜服务
 │   └── repository.js    # 仓库管理服务
 └── utils/               # 工具类
     └── response.js      # 响应工具
@@ -50,6 +52,11 @@ backend/
 - `GET /api/artwork/:id/images` - 获取作品图片URL
   - 参数: `size` (small/medium/large/original)
 
+### 排行榜相关
+
+- `GET /api/ranking` - 获取排行榜数据
+  - 参数: `mode` (day/week/month), `type` (art/manga/novel), `offset`, `limit`
+
 ### 作者相关
 
 - `GET /api/artist/following` - 获取当前用户关注的作者列表
@@ -71,6 +78,8 @@ backend/
   - 参数: `artworkIds`, `size`, `quality`, `format`, `concurrent`
 - `POST /api/download/artist/:id` - 下载作者作品
   - 参数: `type`, `filter`, `size`, `quality`, `format`, `concurrent`
+- `POST /api/download/ranking` - 下载排行榜作品
+  - 参数: `mode`, `type`, `limit`, `size`, `quality`, `format`
 - `GET /api/download/progress/:taskId` - 获取下载进度
 - `DELETE /api/download/cancel/:taskId` - 取消下载任务
 - `GET /api/download/history` - 获取下载历史
@@ -168,19 +177,25 @@ backend/
 - 获取作者关注/粉丝列表
 - 关注/取消关注作者
 
-### 3. 文件下载
+### 3. 排行榜功能
+- 获取日/周/月排行榜数据
+- 支持插画、漫画、小说类型筛选
+- 分页浏览排行榜作品
+- 批量下载排行榜作品
+
+### 4. 文件下载
 - 下载单个作品
 - 批量下载作品
 - 下载作者作品
 - 下载进度跟踪
 - 下载历史记录
 
-### 4. 认证管理
+### 5. 认证管理
 - OAuth2.0 登录流程
 - 自动刷新令牌
 - 登录状态管理
 
-### 5. 仓库管理
+### 6. 仓库管理
 - 文件存储配置管理
 - 作品文件浏览和搜索
 - 按作者分类浏览

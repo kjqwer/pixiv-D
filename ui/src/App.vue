@@ -30,6 +30,7 @@ onMounted(async () => {
         <div class="nav-menu">
           <RouterLink to="/" class="nav-link">首页</RouterLink>
           <RouterLink to="/search" class="nav-link" v-if="isLoggedIn">搜索</RouterLink>
+          <RouterLink to="/ranking" class="nav-link" v-if="isLoggedIn">排行榜</RouterLink>
           <RouterLink to="/downloads" class="nav-link" v-if="isLoggedIn">下载管理</RouterLink>
           <RouterLink to="/artists" class="nav-link" v-if="isLoggedIn">作者管理</RouterLink>
           <RouterLink to="/repository" class="nav-link" v-if="isLoggedIn">仓库管理</RouterLink>

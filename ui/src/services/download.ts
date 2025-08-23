@@ -92,6 +92,20 @@ class DownloadService {
   }
 
   /**
+   * 下载排行榜作品
+   */
+  async downloadRankingArtworks(options: {
+    mode: 'day' | 'week' | 'month';
+    type: 'art' | 'manga' | 'novel';
+    limit?: number;
+    size?: string;
+    quality?: string;
+    format?: string;
+  }) {
+    return apiService.post('/api/download/ranking', options);
+  }
+
+  /**
    * 获取已下载的文件列表
    */
   async getDownloadedFiles() {

@@ -163,6 +163,65 @@ router.post('/artist/:id', async (req, res) => {
 });
 
 /**
+ * 下载排行榜作品
+ * POST /api/download/ranking
+ */
+router.post('/ranking', async (req, res) => {
+  try {
+    const { 
+      mode = 'day',
+      type = 'art',
+      limit = 50,
+      size = 'original',
+      quality = 'high',
+      format = 'auto'
+    } = req.body;
+    
+    // 验证参数
+    if (!['day', 'week', 'month'].includes(mode)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid mode. Must be day, week, or month'
+      });
+    }
+    
+    if (!['art', 'manga', 'novel'].includes(type)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid type. Must be art, manga, or novel'
+      });
+    }
+    
+    const downloadService = req.backend.getDownloadService();
+    const result = await downloadService.downloadRankingArtworks({
+      mode,
+      type,
+      limit: parseInt(limit),
+      size,
+      quality,
+      format
+    });
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        data: result.data
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.error
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
  * 获取任务进度
  * GET /api/download/progress/:taskId
  */
