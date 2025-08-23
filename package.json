@@ -9,8 +9,7 @@
     "outputPath": "dist",
     "assets": [
       "backend/**/*",
-      "ui/**/*",
-      "data/**/*",
+      "ui/dist/**/*",
       "node_modules/**/*"
     ]
   },
