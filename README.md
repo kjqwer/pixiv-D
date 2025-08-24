@@ -31,11 +31,12 @@ Pixiv 下载浏览管理器是一个基于 Web 的应用程序，提供以下功
 如果懒得配置环境，可以直接下载便携版（日，我自己用怎么还被当成木马了，算了忽略一下，不放心就自己打包）：
 
 **方式一：百度网盘下载（更新不勤，版本可能比较落后）**
-- **下载链接**: https://pan.baidu.com/s/1YAHkfXSDX6GxoxE89uspYg?pwd=ejbs
-- **提取码**: ejbs
+- **下载链接**: [度盘链接](https://pan.baidu.com/s/1o9eQ5Bgto67k0X390D0mgA?pwd=yxmd)
+- **提取码**: yxmd
 
 **方式二：直接下载（可能比较慢，服务器带宽有限辣）**
-- **下载链接**: https://sywb.top/Staticfiles/p%E4%B8%8B%E8%BD%BD%E5%99%A8.rar
+- **下载链接**: [点我下载](https://sywb.top/Staticfiles/p%E4%B8%BD%E8%BD%BD%E5%99%A8.rar)
+- **发行版**: [点我跳转](https://github.com/kjqwer/pixiv-D/releases)
 
 **使用说明**: 下载后解压，记事本打开start.bat配置代理（看readme有介绍），双击 `start.bat` 即可启动，打开网站，按照教程登录即可
 
@@ -49,7 +50,8 @@ Pixiv 下载浏览管理器是一个基于 Web 的应用程序，提供以下功
 1. **安装 Node.js**
    - 访问 [Node.js 官网](https://nodejs.org/) 下载并安装
 
-2. **解压前端文件**
+2. **获取并解压前端文件**
+   - 从[发行版](https://github.com/kjqwer/pixiv-D/releases)获取dist.zip，（或者自己在ui目录下载依赖build一下）
    - 进入 `ui` 目录
    - 解压 `dist.zip` 文件到 `ui/dist` 目录
 
