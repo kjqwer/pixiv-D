@@ -143,6 +143,7 @@ interface Emits {
   (e: 'reset-config'): void
   (e: 'select-download-dir'): void
   (e: 'test-download-dir'): void
+  (e: 'config-saved'): void
 }
 
 const props = defineProps<Props>()
@@ -165,6 +166,8 @@ const saveConfig = async () => {
   saving.value = true
   try {
     emit('save-config')
+    // 保存成功后触发刷新事件
+    emit('config-saved')
   } finally {
     saving.value = false
   }
@@ -173,6 +176,8 @@ const saveConfig = async () => {
 // 重置配置
 const resetConfig = () => {
   emit('reset-config')
+  // 重置后也触发刷新事件
+  emit('config-saved')
 }
 </script>
 

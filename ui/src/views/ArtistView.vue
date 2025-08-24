@@ -13,7 +13,7 @@
       <div v-if="downloadSuccess" class="success-message">
         <div class="success-content">
           <svg viewBox="0 0 24 24" fill="currentColor" class="success-icon">
-            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
           </svg>
           <span>{{ downloadSuccess }}</span>
         </div>
@@ -23,19 +23,15 @@
         <!-- 作者信息卡片 -->
         <div class="artist-header">
           <div class="artist-profile">
-            <img 
-              :src="getImageUrl(artist.profile_image_urls.medium)" 
-              :alt="artist.name"
-              class="artist-avatar"
-              crossorigin="anonymous"
-            />
+            <img :src="getImageUrl(artist.profile_image_urls.medium)" :alt="artist.name" class="artist-avatar"
+              crossorigin="anonymous" />
             <div class="artist-info">
               <h1 class="artist-name">{{ artist.name }}</h1>
               <p class="artist-account">@{{ artist.account }}</p>
               <p v-if="artist.comment" class="artist-comment">{{ artist.comment }}</p>
             </div>
           </div>
-          
+
           <div class="artist-actions">
             <button @click="handleFollow" class="btn btn-primary">
               {{ artist.is_followed ? '取消关注' : '关注' }}
@@ -60,29 +56,7 @@
           </div>
         </div>
 
-        <!-- 作者统计 -->
-        <div class="artist-stats">
-          <div class="stat-card">
-            <div class="stat-number">{{ artist.total_illusts }}</div>
-            <div class="stat-label">插画</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-number">{{ artist.total_manga }}</div>
-            <div class="stat-label">漫画</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-number">{{ artist.total_novels }}</div>
-            <div class="stat-label">小说</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-number">{{ artist.total_followers }}</div>
-            <div class="stat-label">粉丝</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-number">{{ artist.total_following }}</div>
-            <div class="stat-label">关注</div>
-          </div>
-        </div>
+
 
         <!-- 作品列表 -->
         <div class="artworks-section">
@@ -102,12 +76,7 @@
           </div>
 
           <div v-else-if="artworks.length > 0" class="artworks-grid">
-            <ArtworkCard
-              v-for="artwork in artworks"
-              :key="artwork.id"
-              :artwork="artwork"
-              @click="handleArtworkClick"
-            />
+            <ArtworkCard v-for="artwork in artworks" :key="artwork.id" :artwork="artwork" @click="handleArtworkClick" />
           </div>
 
           <div v-else class="empty-section">
@@ -116,37 +85,24 @@
 
           <!-- 分页导航 -->
           <div v-if="totalPages > 1 && artworks.length > 0" class="pagination">
-            <button 
-              @click="goToPage(currentPage - 1)" 
-              class="page-btn"
-              :disabled="currentPage <= 1"
-            >
+            <button @click="goToPage(currentPage - 1)" class="page-btn" :disabled="currentPage <= 1">
               <svg viewBox="0 0 24 24" fill="currentColor" class="page-icon">
-                <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+                <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
               </svg>
               上一页
             </button>
-            
+
             <div class="page-numbers">
-              <button 
-                v-for="page in visiblePages" 
-                :key="page"
-                @click="goToPage(page)"
-                class="page-number"
-                :class="{ active: page === currentPage }"
-              >
+              <button v-for="page in visiblePages" :key="page" @click="goToPage(page)" class="page-number"
+                :class="{ active: page === currentPage }">
                 {{ page }}
               </button>
             </div>
-            
-            <button 
-              @click="goToPage(currentPage + 1)" 
-              class="page-btn"
-              :disabled="currentPage >= totalPages"
-            >
+
+            <button @click="goToPage(currentPage + 1)" class="page-btn" :disabled="currentPage >= totalPages">
               下一页
               <svg viewBox="0 0 24 24" fill="currentColor" class="page-icon">
-                <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/>
+                <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z" />
               </svg>
             </button>
           </div>
@@ -207,15 +163,15 @@ const visiblePages = computed(() => {
   const maxVisible = 5;
   let start = Math.max(1, currentPage.value - Math.floor(maxVisible / 2));
   let end = Math.min(totalPages.value, start + maxVisible - 1);
-  
+
   if (end - start + 1 < maxVisible) {
     start = Math.max(1, end - maxVisible + 1);
   }
-  
+
   for (let i = start; i <= end; i++) {
     pages.push(i);
   }
-  
+
   return pages;
 });
 
@@ -228,17 +184,17 @@ const getCacheKey = (type: string, page: number) => {
 const getCache = (key: string) => {
   const cached = cache.value.get(key);
   const timeout = cacheTimeout.value.get(key);
-  
+
   if (cached && timeout && Date.now() < timeout) {
     return cached;
   }
-  
+
   // 清除过期缓存
   if (cached) {
     cache.value.delete(key);
     cacheTimeout.value.delete(key);
   }
-  
+
   return null;
 };
 
@@ -273,9 +229,9 @@ const fetchArtistInfo = async () => {
   try {
     loading.value = true;
     error.value = null;
-    
+
     const response = await artistService.getArtistInfo(artistId);
-    
+
     if (response.success && response.data) {
       artist.value = response.data;
       setCache(cacheKey, response.data);
@@ -296,7 +252,7 @@ const fetchArtworks = async (page = 1) => {
 
   const cacheKey = getCacheKey(artworkType.value, page);
   const cached = getCache(cacheKey);
-  
+
   if (cached) {
     artworks.value = cached.artworks;
     totalCount.value = cached.totalCount;
@@ -307,20 +263,20 @@ const fetchArtworks = async (page = 1) => {
 
   try {
     artworksLoading.value = true;
-    
+
     const offset = (page - 1) * pageSize.value;
     const response = await artistService.getArtistArtworks(artist.value.id, {
       type: artworkType.value,
       offset: offset,
       limit: pageSize.value
     });
-    
+
     if (response.success && response.data) {
       artworks.value = response.data.artworks;
-      
+
       // 基于 next_url 来判断是否还有更多页面
       const hasMore = !!response.data.next_url;
-      
+
       if (page === 1) {
         // 第一页，基于是否有下一页来判断总数
         if (hasMore) {
@@ -344,9 +300,9 @@ const fetchArtworks = async (page = 1) => {
           totalPages.value = Math.max(totalPages.value, page);
         }
       }
-      
+
       currentPage.value = page;
-      
+
       // 缓存结果
       setCache(cacheKey, {
         artworks: response.data.artworks,
@@ -383,7 +339,7 @@ const handleFollow = async () => {
   try {
     const action = artist.value.is_followed ? 'unfollow' : 'follow';
     const response = await artistService.followArtist(artist.value.id, action);
-    
+
     if (response.success) {
       artist.value.is_followed = !artist.value.is_followed;
       // 更新缓存
@@ -408,12 +364,12 @@ const handleDownloadAll = async () => {
       type: artworkType.value,
       limit: parseInt(downloadLimit.value)
     });
-    
+
     if (response.success) {
       console.log('下载任务已创建:', response.data);
       const limitText = downloadLimit.value === '9999' ? '全部' : downloadLimit.value;
       downloadSuccess.value = `下载任务已创建，将下载 ${limitText} 个作品`;
-      
+
       // 3秒后清除成功提示
       setTimeout(() => {
         downloadSuccess.value = null;
@@ -432,13 +388,13 @@ const handleDownloadAll = async () => {
 // 处理图片URL，通过后端代理
 const getImageUrl = (originalUrl: string) => {
   if (!originalUrl) return '';
-  
+
   // 如果是Pixiv的图片URL，通过后端代理
   if (originalUrl.includes('i.pximg.net')) {
     const encodedUrl = encodeURIComponent(originalUrl);
     return `http://localhost:3000/api/proxy/image?url=${encodedUrl}`;
   }
-  
+
   return originalUrl;
 };
 
@@ -466,7 +422,7 @@ watch(() => route.params.id, () => {
   // 清除缓存并重新加载
   clearCache();
   fetchArtistInfo();
-  
+
   // 检查是否有返回的页面信息
   const returnPage = parseInt(route.query.page as string);
   if (returnPage && returnPage > 0) {
@@ -484,7 +440,7 @@ onUnmounted(() => {
 
 onMounted(async () => {
   await fetchArtistInfo();
-  
+
   // 检查是否有返回的页面信息
   const returnPage = parseInt(route.query.page as string);
   if (returnPage && returnPage > 0) {
@@ -547,6 +503,7 @@ onMounted(async () => {
     transform: translateX(100%);
     opacity: 0;
   }
+
   to {
     transform: translateX(0);
     opacity: 1;
@@ -675,33 +632,7 @@ onMounted(async () => {
   background: #e5e7eb;
 }
 
-.artist-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
-}
 
-.stat-card {
-  background: white;
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  text-align: center;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
-
-.stat-number {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #3b82f6;
-  margin-bottom: 0.5rem;
-}
-
-.stat-label {
-  color: #6b7280;
-  font-size: 0.875rem;
-  font-weight: 500;
-}
 
 .artworks-section {
   background: white;
@@ -832,58 +763,58 @@ onMounted(async () => {
   .container {
     padding: 0 1rem;
   }
-  
+
   .artist-header {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .artist-profile {
     flex-direction: column;
     text-align: center;
   }
-  
+
   .artist-actions {
     flex-direction: row;
   }
-  
+
   .download-section {
     flex-direction: row;
     align-items: center;
     gap: 1rem;
   }
-  
+
   .download-input-group {
     flex-shrink: 0;
   }
-  
+
   .btn {
     flex: 1;
   }
-  
+
   .section-header {
     flex-direction: column;
     gap: 1rem;
     align-items: stretch;
   }
-  
+
   .artworks-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .pagination {
     flex-direction: column;
     gap: 1rem;
   }
-  
+
   .page-numbers {
     order: -1;
   }
-  
+
   .page-info {
     flex-direction: column;
     gap: 0.5rem;
     text-align: center;
   }
 }
-</style> 
+</style>

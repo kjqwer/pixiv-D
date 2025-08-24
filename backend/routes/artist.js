@@ -31,9 +31,6 @@ router.get('/search', async (req, res) => {
         name: user.user.name,
         account: user.user.account,
         profile_image_urls: user.user.profile_image_urls,
-        total_illusts: 0,
-        total_manga: 0,
-        total_followers: 0,
         is_followed: user.user.is_followed || false
       }));
 

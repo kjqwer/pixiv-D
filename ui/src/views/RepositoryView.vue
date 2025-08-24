@@ -12,61 +12,33 @@
 
       <!-- 功能选项卡 -->
       <div class="tabs">
-        <button 
-          class="tab-button" 
-          :class="{ active: activeTab === 'config' }"
-          @click="activeTab = 'config'"
-        >
+        <button class="tab-button" :class="{ active: activeTab === 'config' }" @click="activeTab = 'config'">
           配置管理
         </button>
-        <button 
-          class="tab-button" 
-          :class="{ active: activeTab === 'browse' }"
-          @click="activeTab = 'browse'"
-        >
+        <button class="tab-button" :class="{ active: activeTab === 'browse' }" @click="activeTab = 'browse'">
           文件浏览
         </button>
       </div>
 
       <!-- 配置管理 -->
       <div v-if="activeTab === 'config'" class="tab-content">
-        <RepositoryConfigComponent
-          :config="config"
-          :migrating="migrating"
-          :migration-progress="migrationProgress"
-          :migration-percent="migrationPercent"
-          :migration-result="migrationResult"
-          @save-config="saveConfig"
-          @reset-config="resetConfig"
-          @select-download-dir="selectDownloadDir"
-          @test-download-dir="testDownloadDir"
-        />
+        <RepositoryConfigComponent :config="config" :migrating="migrating" :migration-progress="migrationProgress"
+          :migration-percent="migrationPercent" :migration-result="migrationResult" @save-config="saveConfig"
+          @reset-config="resetConfig" @select-download-dir="selectDownloadDir" @test-download-dir="testDownloadDir"
+          @config-saved="handleConfigSaved" />
       </div>
 
       <!-- 文件浏览 -->
       <div v-if="activeTab === 'browse'" class="tab-content">
-        <RepositoryBrowse
-          :artists="artists"
-          :artworks="artworks"
-          :current-page="currentPage"
-          :page-size="pageSize"
-          :total-items="totalItems"
-          :view-mode="viewMode"
-          @update:search-query="handleSearchQuery"
-          @update:view-mode="handleViewMode"
-          @select-artist="selectArtist"
-          @view-artwork="viewArtwork"
-          @change-page="changePage"
-        />
+        <RepositoryBrowse :artists="artists" :artworks="artworks" :current-page="currentPage" :page-size="pageSize"
+          :total-items="totalItems" :view-mode="viewMode" @update:search-query="handleSearchQuery"
+          @update:view-mode="handleViewMode" @select-artist="selectArtist" @view-artwork="viewArtwork"
+          @change-page="changePage" />
       </div>
     </div>
 
     <!-- 作品详情模态框 -->
-    <ArtworkModal
-      :artwork="selectedArtwork"
-      @close="closeArtworkModal"
-      @delete-artwork="deleteArtwork"
-    />
+    <ArtworkModal :artwork="selectedArtwork" @close="closeArtworkModal" @delete-artwork="deleteArtwork" />
   </div>
 </template>
 
@@ -150,19 +122,19 @@ const saveConfig = async () => {
         .map((ext: string) => ext.trim())
         .filter((ext: string) => ext)
     }
-    
+
     // 获取当前配置（旧配置）
     const oldConfig = await repositoryStore.getConfig()
     const oldDownloadDir = oldConfig.downloadDir
-    
+
     // 保存新配置
     await repositoryStore.updateConfig(config.value)
-    
+
     // 如果启用了自动迁移，且下载目录发生了变化，执行迁移
     if (config.value.autoMigration && oldDownloadDir !== config.value.downloadDir) {
       await performAutoMigration(oldDownloadDir)
     }
-    
+
     alert('配置保存成功')
   } catch (error: any) {
     console.error('保存配置失败:', error)
@@ -175,7 +147,7 @@ const resetConfig = async () => {
   if (!confirm('确定要重置配置为默认值吗？此操作不可恢复。')) {
     return
   }
-  
+
   try {
     await repositoryStore.resetConfig()
     // 重新加载配置
@@ -193,26 +165,26 @@ const performAutoMigration = async (oldDownloadDir: string) => {
     migrating.value = true
     migrationProgress.value = '正在准备迁移...'
     migrationPercent.value = 10
-    
+
     console.log('开始自动迁移:', { oldDir: oldDownloadDir, newDir: config.value.downloadDir })
-    
+
     migrationProgress.value = `正在从 ${oldDownloadDir} 迁移到 ${config.value.downloadDir}...`
     migrationPercent.value = 30
-    
+
     // 执行迁移：从旧目录到新目录
     const result = await repositoryStore.migrateFromOldToNew(oldDownloadDir, config.value.downloadDir)
     migrationResult.value = result
     migrationPercent.value = 100
-    
+
     console.log('迁移完成:', result)
-    
+
     // 显示迁移结果
     if (result.totalMigrated > 0) {
       alert(`迁移完成！成功移动 ${result.totalMigrated} 个目录`)
     } else {
       alert('迁移完成，但没有找到需要迁移的文件')
     }
-    
+
   } catch (error: any) {
     console.error('自动迁移失败:', error)
     migrationProgress.value = '迁移失败: ' + error.message
@@ -253,12 +225,12 @@ const selectArtist = async (artistName: string) => {
     searchQuery.value = ''
     currentPage.value = 1
     currentArtist.value = artistName // 设置当前查看的作者
-    
+
     // 获取作者作品
     const result = await repositoryStore.getArtworksByArtist(artistName, 0, pageSize)
     artworks.value = result.artworks
     totalItems.value = result.total || result.artworks.length
-    
+
     // 切换到作品视图
     viewMode.value = 'artworks'
     activeTab.value = 'browse'
@@ -271,17 +243,17 @@ const selectArtist = async (artistName: string) => {
 const handleSearchQuery = async (query: string) => {
   searchQuery.value = query
   currentArtist.value = '' // 搜索时清除当前作者
-  
+
   // 重置分页
   currentPage.value = 1
-  
+
   if (query.trim()) {
     try {
       // 搜索作品
       const result = await repositoryStore.searchArtworks(query, 0, pageSize)
       artworks.value = result.artworks
       totalItems.value = result.total
-      
+
       // 切换到作品视图
       viewMode.value = 'artworks'
       activeTab.value = 'browse'
@@ -297,7 +269,7 @@ const handleSearchQuery = async (query: string) => {
 // 处理视图模式
 const handleViewMode = (mode: string) => {
   viewMode.value = mode
-  
+
   // 根据视图模式加载相应数据
   if (mode === 'artists') {
     // 作者模式，确保作者数据已加载
@@ -328,7 +300,7 @@ const deleteArtwork = async (artworkId: string) => {
   if (!confirm('确定要删除这个作品吗？此操作不可恢复。')) {
     return
   }
-  
+
   try {
     await repositoryStore.deleteArtwork(artworkId)
     alert('作品删除成功')
@@ -345,12 +317,12 @@ const deleteArtwork = async (artworkId: string) => {
 // 分页处理
 const changePage = async (page: number, options?: { artist?: string }) => {
   currentPage.value = page
-  
+
   // 如果传入了作者信息，使用作者特定的分页
   if (options?.artist) {
     currentArtist.value = options.artist
   }
-  
+
   if (searchQuery.value.trim()) {
     // 如果有搜索查询，重新搜索
     try {
@@ -399,13 +371,13 @@ const validateDirectory = async (path: string) => {
     if (!path || path.trim() === '') {
       return { valid: false, message: '路径不能为空' }
     }
-    
+
     // 检查路径格式
     const trimmedPath = path.trim()
     if (trimmedPath.includes('..') || trimmedPath.includes('//')) {
       return { valid: false, message: '路径格式不正确' }
     }
-    
+
     return { valid: true, message: '路径格式正确' }
   } catch (error: any) {
     return { valid: false, message: '验证失败: ' + error.message }
@@ -419,6 +391,21 @@ const testDownloadDir = async () => {
     alert('路径格式正确！保存配置后系统会验证目录是否存在。')
   } else {
     alert('路径验证失败: ' + validation.message)
+  }
+}
+
+// 处理配置保存后的刷新
+const handleConfigSaved = async () => {
+  try {
+    // 重新加载所有数据
+    await loadStats()
+    await loadConfig()
+    await loadArtists()
+    await loadAllArtworks(1)
+
+    console.log('配置保存后数据刷新完成')
+  } catch (error: any) {
+    console.error('配置保存后刷新数据失败:', error)
   }
 }
 </script>
@@ -489,4 +476,4 @@ const testDownloadDir = async () => {
     padding: 0 1rem;
   }
 }
-</style> 
+</style>

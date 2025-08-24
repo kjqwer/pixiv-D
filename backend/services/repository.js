@@ -222,18 +222,80 @@ class RepositoryService {
   async getDiskUsage() {
     try {
       const currentBaseDir = this.getCurrentBaseDir()
-      const stats = await fs.statfs(currentBaseDir)
-      const total = stats.blocks * stats.bsize
-      const free = stats.bavail * stats.bsize
-      const used = total - free
       
-      return {
-        total,
-        used,
-        free,
-        usagePercent: Math.round((used / total) * 100)
+      // 尝试使用 fs.statfs (Node.js 内置方法)
+      try {
+        const stats = await fs.statfs(currentBaseDir)
+        const total = stats.blocks * stats.bsize
+        const free = stats.bavail * stats.bsize
+        const used = total - free
+        
+        return {
+          total,
+          used,
+          free,
+          usagePercent: Math.round((used / total) * 100)
+        }
+      } catch (statfsError) {
+        console.log('fs.statfs 不可用，尝试使用系统命令:', statfsError.message)
+        
+        // 如果 fs.statfs 不可用，尝试使用系统命令
+        if (process.platform === 'win32') {
+          // Windows 系统
+          try {
+            const { stdout } = await execAsync('wmic logicaldisk get size,freespace,caption')
+            const lines = stdout.trim().split('\n').slice(1) // 跳过标题行
+            
+            for (const line of lines) {
+              const parts = line.trim().split(/\s+/)
+              if (parts.length >= 3) {
+                const caption = parts[0]
+                const freeSpace = parseInt(parts[1])
+                const totalSize = parseInt(parts[2])
+                
+                // 检查当前目录是否在这个磁盘上
+                if (currentBaseDir.toUpperCase().startsWith(caption.toUpperCase())) {
+                  const used = totalSize - freeSpace
+                  return {
+                    total: totalSize,
+                    used,
+                    free: freeSpace,
+                    usagePercent: Math.round((used / totalSize) * 100)
+                  }
+                }
+              }
+            }
+          } catch (wmicError) {
+            console.log('wmic 命令失败:', wmicError.message)
+          }
+        } else {
+          // Unix/Linux 系统
+          try {
+            const { stdout } = await execAsync(`df -B1 "${currentBaseDir}" | tail -1`)
+            const parts = stdout.trim().split(/\s+/)
+            if (parts.length >= 4) {
+              const total = parseInt(parts[1])
+              const used = parseInt(parts[2])
+              const free = parseInt(parts[3])
+              
+              return {
+                total,
+                used,
+                free,
+                usagePercent: Math.round((used / total) * 100)
+              }
+            }
+          } catch (dfError) {
+            console.log('df 命令失败:', dfError.message)
+          }
+        }
+        
+        // 如果所有方法都失败，返回默认值
+        console.log('无法获取磁盘使用情况，返回默认值')
+        return { total: 0, used: 0, free: 0, usagePercent: 0 }
       }
     } catch (error) {
+      console.error('获取磁盘使用情况失败:', error)
       return { total: 0, used: 0, free: 0, usagePercent: 0 }
     }
   }

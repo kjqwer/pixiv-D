@@ -36,32 +36,22 @@
           <!-- 标签搜索 -->
           <div v-if="searchMode === 'tags'" class="tags-search-section">
             <div class="tags-input-group">
-              <input 
-                v-model="tagInput" 
-                type="text" 
-                placeholder="输入标签，按回车或逗号分隔..." 
-                class="search-input"
-                @keyup.enter="addTag"
-                @keyup.space="addTag"
-                @keyup.comma="addTag"
-              />
+              <input v-model="tagInput" type="text" placeholder="输入标签，按回车或逗号分隔..." class="search-input"
+                @keyup.enter="addTag" @keyup.space="addTag" @keyup.comma="addTag" />
               <button @click="addTag" class="search-btn" :disabled="loading">
                 添加标签
               </button>
             </div>
-            
+
             <!-- 已添加的标签 -->
             <div v-if="searchTags.length > 0" class="tags-display">
               <div class="tags-list">
-                <span 
-                  v-for="(tag, index) in searchTags" 
-                  :key="index" 
-                  class="tag-item"
-                >
+                <span v-for="(tag, index) in searchTags" :key="index" class="tag-item">
                   {{ tag }}
                   <button @click="removeTag(index)" class="tag-remove" title="移除标签">
                     <svg viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                      <path
+                        d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
                     </svg>
                   </button>
                 </span>
@@ -121,41 +111,49 @@
           <ErrorMessage :error="error" @dismiss="clearError" />
         </div>
 
-        <div v-if="loading" class="loading-section">
-          <LoadingSpinner text="搜索中..." />
+        <!-- 作者搜索模式 -->
+        <div v-if="searchMode === 'artist'" class="artist-search-section">
+          <ArtistSearch ref="artistSearchRef" @download="handleArtistDownload" />
         </div>
 
-        <div v-else-if="searchResults.length > 0" class="results-section">
-          <div class="results-header">
-            <h2>搜索结果 ({{ totalResults }})</h2>
-            <div class="results-actions">
-              <button @click="loadMore" class="btn btn-secondary" :disabled="loadingMore">
-                {{ loadingMore ? '加载中...' : '加载更多' }}
-              </button>
+        <!-- 作品搜索模式 -->
+        <div v-else>
+          <div v-if="loading" class="loading-section">
+            <LoadingSpinner text="搜索中..." />
+          </div>
+
+          <div v-else-if="searchResults.length > 0" class="results-section">
+            <div class="results-header">
+              <h2>搜索结果 ({{ totalResults }})</h2>
+              <div class="results-actions">
+                <button @click="loadMore" class="btn btn-secondary" :disabled="loadingMore">
+                  {{ loadingMore ? '加载中...' : '加载更多' }}
+                </button>
+              </div>
+            </div>
+
+            <div class="artworks-grid">
+              <ArtworkCard v-for="artwork in searchResults" :key="artwork.id" :artwork="artwork"
+                @click="handleArtworkClick" />
             </div>
           </div>
 
-          <div class="artworks-grid">
-            <ArtworkCard v-for="artwork in searchResults" :key="artwork.id" :artwork="artwork"
-              @click="handleArtworkClick" />
+          <div v-else-if="hasSearched" class="empty-section">
+            <div class="empty-content">
+              <svg viewBox="0 0 24 24" fill="currentColor" class="empty-icon">
+                <path
+                  d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+              </svg>
+              <h3>未找到相关作品</h3>
+              <p>尝试使用不同的关键词或调整搜索条件</p>
+            </div>
           </div>
-        </div>
 
-        <div v-else-if="hasSearched" class="empty-section">
-          <div class="empty-content">
-            <svg viewBox="0 0 24 24" fill="currentColor" class="empty-icon">
-              <path
-                d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-            </svg>
-            <h3>未找到相关作品</h3>
-            <p>尝试使用不同的关键词或调整搜索条件</p>
-          </div>
-        </div>
-
-        <div v-else class="welcome-section">
-          <div class="welcome-content">
-            <h2>开始搜索</h2>
-            <p>输入关键词来搜索你喜欢的作品</p>
+          <div v-else class="welcome-section">
+            <div class="welcome-content">
+              <h2>开始搜索</h2>
+              <p>输入关键词来搜索你喜欢的作品</p>
+            </div>
           </div>
         </div>
       </div>
@@ -172,6 +170,7 @@ import type { Artwork, SearchParams } from '@/types';
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
 import ErrorMessage from '@/components/common/ErrorMessage.vue';
 import ArtworkCard from '@/components/artwork/ArtworkCard.vue';
+import ArtistSearch from '@/components/search/ArtistSearch.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -198,6 +197,7 @@ const loadingMore = ref(false);
 const error = ref<string | null>(null);
 const hasSearched = ref(false);
 const offset = ref(0);
+const artistSearchRef = ref();
 
 const handleSearch = async () => {
   if (!searchKeyword.value.trim()) {
@@ -243,7 +243,7 @@ const loadMore = async () => {
   // 检查是否有搜索条件
   const hasKeyword = searchKeyword.value.trim();
   const hasTags = searchTags.value.length > 0;
-  
+
   if (!hasKeyword && !hasTags) {
     return;
   }
@@ -317,6 +317,8 @@ const handleArtistSearch = () => {
     return;
   }
 
+  // 切换到作者搜索模式并跳转
+  searchMode.value = 'artist';
   router.push(`/artist/${id}`);
 };
 
@@ -373,16 +375,23 @@ const clearError = () => {
   error.value = null;
 };
 
+// 处理作者下载
+const handleArtistDownload = (artist: any) => {
+  // 这里可以添加下载作者的逻辑
+  // 暂时跳转到作者页面
+  router.push(`/artist/${artist.id}`);
+};
+
 // 监听路由变化，处理URL参数
 watch(() => route.query, () => {
   const urlMode = route.query.mode as string;
   const urlTag = route.query.tag as string;
   const urlTags = route.query.tags;
-  
+
   if (urlMode === 'tags') {
     // 自动设置标签搜索模式
     searchMode.value = 'tags';
-    
+
     if (urlTags) {
       // 处理多个标签
       if (Array.isArray(urlTags)) {
@@ -398,7 +407,7 @@ watch(() => route.query, () => {
       // 清除sessionStorage中的多标签选择
       sessionStorage.removeItem('currentSearchTags');
     }
-    
+
     // 如果有标签，自动执行搜索
     if (searchTags.value.length > 0) {
       handleTagSearch();
@@ -586,6 +595,13 @@ watch(() => route.query, () => {
 
 .search-content {
   padding: 2rem 0;
+}
+
+.artist-search-section {
+  background: white;
+  border-radius: 0.5rem;
+  padding: 2rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .error-section,

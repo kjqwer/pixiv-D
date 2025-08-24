@@ -4,23 +4,10 @@
       <div class="page-header">
         <h1 class="page-title">作者管理</h1>
         <div class="header-actions">
-          <div class="search-box">
-            <input
-              v-model="searchKeyword"
-              type="text"
-              placeholder="搜索作者..."
-              class="search-input"
-              @keyup.enter="handleSearch"
-            />
-            <button @click="handleSearch" class="search-btn">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-              </svg>
-            </button>
-          </div>
           <button @click="handleRefresh" class="btn btn-secondary" :disabled="artistStore.loading">
             <svg viewBox="0 0 24 24" fill="currentColor" class="refresh-icon">
-              <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+              <path
+                d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
             </svg>
             刷新
           </button>
@@ -43,73 +30,31 @@
             <div v-if="artistStore.hasFollowingArtists" class="cache-indicator">
               <span v-if="artistStore.isDataStale" class="cache-status stale">
                 <svg viewBox="0 0 24 24" fill="currentColor" class="cache-icon">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  <path
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
                 </svg>
                 数据已过期
               </span>
               <span v-else class="cache-status fresh">
                 <svg viewBox="0 0 24 24" fill="currentColor" class="cache-icon">
-                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
                 </svg>
                 数据已缓存
               </span>
             </div>
           </div>
-          
+
           <div v-if="artistStore.followingArtists.length > 0" class="artists-grid">
-            <div 
-              v-for="artist in artistStore.followingArtists" 
-              :key="artist.id"
-              class="artist-card"
-            >
-              <div class="artist-header">
-                <img 
-                  :src="getImageUrl(artist.profile_image_urls.medium)" 
-                  :alt="artist.name"
-                  class="artist-avatar"
-                  crossorigin="anonymous"
-                />
-                <div class="artist-info">
-                  <h3 class="artist-name">{{ artist.name }}</h3>
-                  <p class="artist-account">@{{ artist.account }}</p>
-                </div>
-                <div class="artist-actions">
-                  <button @click="handleUnfollow(artist.id)" class="btn btn-danger btn-small">
-                    取消关注
-                  </button>
-                </div>
-              </div>
-              
-              <div class="artist-stats">
-                <div class="stat">
-                  <span class="stat-number">{{ artist.total_illusts }}</span>
-                  <span class="stat-label">插画</span>
-                </div>
-                <div class="stat">
-                  <span class="stat-number">{{ artist.total_manga }}</span>
-                  <span class="stat-label">漫画</span>
-                </div>
-                <div class="stat">
-                  <span class="stat-number">{{ artist.total_followers }}</span>
-                  <span class="stat-label">粉丝</span>
-                </div>
-              </div>
-              
-              <div class="artist-actions-bottom">
-                <router-link :to="`/artist/${artist.id}`" class="btn btn-primary btn-small">
-                  查看作品
-                </router-link>
-                <button @click="handleDownloadArtist(artist.id)" class="btn btn-secondary btn-small">
-                  下载作品
-                </button>
-              </div>
-            </div>
+            <ArtistCard v-for="artist in artistStore.followingArtists" :key="artist.id" :artist="artist"
+              :show-follow-button="false" :show-unfollow-button="true" @unfollow="handleUnfollow"
+              @download="openDownloadDialog" />
           </div>
-          
+
           <div v-else class="empty-section">
             <div class="empty-content">
               <svg viewBox="0 0 24 24" fill="currentColor" class="empty-icon">
-                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                <path
+                  d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
               </svg>
               <h3>暂无关注的作者</h3>
               <p>关注喜欢的作者，在这里管理他们</p>
@@ -119,84 +64,91 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
 
-        <!-- 搜索建议 -->
-        <div v-if="artistStore.searchResults.length > 0" class="section">
-          <h2 class="section-title">搜索结果</h2>
-          <div class="artists-grid">
-            <div 
-              v-for="artist in artistStore.searchResults" 
-              :key="artist.id"
-              class="artist-card"
-            >
-              <div class="artist-header">
-                <img 
-                  :src="getImageUrl(artist.profile_image_urls.medium)" 
-                  :alt="artist.name"
-                  class="artist-avatar"
-                  crossorigin="anonymous"
-                />
-                <div class="artist-info">
-                  <h3 class="artist-name">{{ artist.name }}</h3>
-                  <p class="artist-account">@{{ artist.account }}</p>
-                </div>
-                <div class="artist-actions">
-                  <button 
-                    @click="handleFollow(artist.id)" 
-                    class="btn btn-primary btn-small"
-                    :disabled="artist.is_followed"
-                  >
-                    {{ artist.is_followed ? '已关注' : '关注' }}
-                  </button>
-                </div>
-              </div>
-              
-              <div class="artist-stats">
-                <div class="stat">
-                  <span class="stat-number">{{ artist.total_illusts }}</span>
-                  <span class="stat-label">插画</span>
-                </div>
-                <div class="stat">
-                  <span class="stat-number">{{ artist.total_manga }}</span>
-                  <span class="stat-label">漫画</span>
-                </div>
-                <div class="stat">
-                  <span class="stat-number">{{ artist.total_followers }}</span>
-                  <span class="stat-label">粉丝</span>
-                </div>
-              </div>
-              
-              <div class="artist-actions-bottom">
-                <router-link :to="`/artist/${artist.id}`" class="btn btn-primary btn-small">
-                  查看作品
-                </router-link>
-                <button @click="handleDownloadArtist(artist.id)" class="btn btn-secondary btn-small">
-                  下载作品
-                </button>
-              </div>
+    <!-- 下载弹出框 -->
+    <div v-if="showDownloadDialog" class="modal-overlay" @click="closeDownloadDialog">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>下载作品</h3>
+          <button @click="closeDownloadDialog" class="modal-close">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <div class="artist-info-modal">
+            <img :src="selectedArtist?.profile_image_urls.medium" :alt="selectedArtist?.name"
+              class="artist-avatar-modal" crossorigin="anonymous" />
+            <div>
+              <h4>{{ selectedArtist?.name }}</h4>
+              <p>@{{ selectedArtist?.account }}</p>
+            </div>
+          </div>
+
+          <div class="download-options">
+            <div class="download-input-group">
+              <label for="downloadLimit">下载数量:</label>
+              <select v-model="downloadLimit" id="downloadLimit" class="download-select">
+                <option value="10">10个</option>
+                <option value="30">30个</option>
+                <option value="50">50个</option>
+                <option value="100">100个</option>
+                <option value="200">200个</option>
+                <option value="500">500个</option>
+                <option value="9999">全部</option>
+              </select>
             </div>
           </div>
         </div>
+
+        <div class="modal-footer">
+          <button @click="closeDownloadDialog" class="btn btn-secondary">
+            取消
+          </button>
+          <button @click="handleDownloadArtist" class="btn btn-primary" :disabled="downloading">
+            {{ downloading ? '下载中...' : '开始下载' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 下载成功提示 -->
+    <div v-if="downloadSuccess" class="success-message">
+      <div class="success-content">
+        <svg viewBox="0 0 24 24" fill="currentColor" class="success-icon">
+          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+        </svg>
+        <span>{{ downloadSuccess }}</span>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useArtistStore } from '@/stores/artist';
 import downloadService from '@/services/download';
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
 import ErrorMessage from '@/components/common/ErrorMessage.vue';
+import ArtistCard from '@/components/artist/ArtistCard.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();
 const artistStore = useArtistStore();
 
-// 本地状态
-const searchKeyword = ref('');
+// 下载弹出框相关
+const showDownloadDialog = ref(false);
+const selectedArtist = ref<any>(null);
+const downloadLimit = ref('50');
+const downloading = ref(false);
+const downloadSuccess = ref<string | null>(null);
 
 // 获取关注的作者
 const fetchFollowingArtists = async () => {
@@ -204,20 +156,6 @@ const fetchFollowingArtists = async () => {
     await artistStore.fetchFollowingArtists();
   } catch (err) {
     console.error('获取关注列表失败:', err);
-  }
-};
-
-// 搜索作者
-const handleSearch = async () => {
-  if (!searchKeyword.value.trim()) {
-    artistStore.clearSearchResults();
-    return;
-  }
-
-  try {
-    await artistStore.searchArtists(searchKeyword.value);
-  } catch (err) {
-    console.error('搜索失败:', err);
   }
 };
 
@@ -239,15 +177,43 @@ const handleUnfollow = async (artistId: number) => {
   }
 };
 
-// 下载作者作品
-const handleDownloadArtist = async (artistId: number) => {
+// 打开下载弹出框
+const openDownloadDialog = (artist: any) => {
+  selectedArtist.value = artist;
+  showDownloadDialog.value = true;
+};
+
+// 关闭下载弹出框
+const closeDownloadDialog = () => {
+  showDownloadDialog.value = false;
+  selectedArtist.value = null;
+  downloadLimit.value = '50';
+  downloading.value = false;
+};
+
+// 处理下载
+const handleDownloadArtist = async () => {
+  if (!selectedArtist.value) return;
+
   try {
-    const response = await downloadService.downloadArtistArtworks(artistId, {
-      limit: 50
+    downloading.value = true;
+    const response = await downloadService.downloadArtistArtworks(selectedArtist.value.id, {
+      limit: parseInt(downloadLimit.value)
     });
-    
+
     if (response.success) {
       console.log('下载任务已创建:', response.data);
+      const limitText = downloadLimit.value === '9999' ? '全部' : downloadLimit.value;
+      downloadSuccess.value = `下载任务已创建，将下载 ${limitText} 个作品`;
+
+      // 关闭弹出框
+      closeDownloadDialog();
+
+      // 3秒后清除成功提示
+      setTimeout(() => {
+        downloadSuccess.value = null;
+      }, 3000);
+
       router.push('/downloads');
     } else {
       throw new Error(response.error || '下载失败');
@@ -255,6 +221,8 @@ const handleDownloadArtist = async (artistId: number) => {
   } catch (err) {
     artistStore.error = err instanceof Error ? err.message : '下载失败';
     console.error('下载失败:', err);
+  } finally {
+    downloading.value = false;
   }
 };
 
@@ -267,18 +235,7 @@ const handleRefresh = async () => {
   }
 };
 
-// 处理图片URL，通过后端代理
-const getImageUrl = (originalUrl: string) => {
-  if (!originalUrl) return '';
-  
-  // 如果是Pixiv的图片URL，通过后端代理
-  if (originalUrl.includes('i.pximg.net')) {
-    const encodedUrl = encodeURIComponent(originalUrl);
-    return `http://localhost:3000/api/proxy/image?url=${encodedUrl}`;
-  }
-  
-  return originalUrl;
-};
+
 
 // 监听数据过期状态，自动刷新
 watch(() => artistStore.isDataStale, (isStale) => {
@@ -323,41 +280,6 @@ onMounted(() => {
 .header-actions {
   display: flex;
   gap: 1rem;
-}
-
-.search-box {
-  display: flex;
-  align-items: center;
-  background: white;
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  overflow: hidden;
-}
-
-.search-input {
-  padding: 0.75rem 1rem;
-  border: none;
-  outline: none;
-  font-size: 1rem;
-  min-width: 300px;
-}
-
-.search-btn {
-  padding: 0.75rem;
-  background: #3b82f6;
-  color: white;
-  border: none;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.search-btn:hover {
-  background: #2563eb;
-}
-
-.search-btn svg {
-  width: 1.25rem;
-  height: 1.25rem;
 }
 
 .refresh-icon {
@@ -429,143 +351,11 @@ onMounted(() => {
 
 .artists-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1.5rem;
 }
 
-.artist-card {
-  background: white;
-  border-radius: 1rem;
-  padding: 1.5rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s, box-shadow 0.2s;
-}
 
-.artist-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-}
-
-.artist-header {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.artist-avatar {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.artist-info {
-  flex: 1;
-}
-
-.artist-name {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin: 0 0 0.25rem 0;
-}
-
-.artist-account {
-  color: #6b7280;
-  font-size: 0.875rem;
-  margin: 0;
-}
-
-.artist-actions {
-  flex-shrink: 0;
-}
-
-.artist-stats {
-  display: flex;
-  justify-content: space-around;
-  margin-bottom: 1rem;
-  padding: 1rem 0;
-  border-top: 1px solid #e5e7eb;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.stat-number {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #3b82f6;
-}
-
-.stat-label {
-  font-size: 0.75rem;
-  color: #6b7280;
-  text-transform: uppercase;
-}
-
-.artist-actions-bottom {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.5rem 1rem;
-  border-radius: 0.375rem;
-  font-weight: 600;
-  text-decoration: none;
-  transition: all 0.2s;
-  border: none;
-  cursor: pointer;
-  font-size: 0.875rem;
-  flex: 1;
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  background: #3b82f6;
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: #2563eb;
-}
-
-.btn-secondary {
-  background: #f3f4f6;
-  color: #374151;
-  border: 1px solid #d1d5db;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: #e5e7eb;
-}
-
-.btn-danger {
-  background: #ef4444;
-  color: white;
-}
-
-.btn-danger:hover {
-  background: #dc2626;
-}
-
-.btn-small {
-  padding: 0.375rem 0.75rem;
-  font-size: 0.75rem;
-}
 
 .empty-section {
   text-align: center;
@@ -609,33 +399,184 @@ onMounted(() => {
   font-size: 0.75rem;
 }
 
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  color: #6b7280;
+  transition: color 0.2s;
+}
+
+.modal-close:hover {
+  color: #374151;
+}
+
+.modal-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex-grow: 1;
+}
+
+.artist-info-modal {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.artist-avatar-modal {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.artist-info-modal h4 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.artist-info-modal p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.download-options {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.download-input-group {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.download-input-group label {
+  font-size: 0.875rem;
+  color: #374151;
+  font-weight: 500;
+}
+
+.download-select {
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  color: #1f2937;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.download-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.success-message {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: #d1fae5;
+  color: #065f46;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  z-index: 999;
+}
+
+.success-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.success-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.success-message span {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
 @media (max-width: 768px) {
   .container {
     padding: 0 1rem;
   }
-  
+
   .page-header {
     flex-direction: column;
     gap: 1rem;
     align-items: stretch;
   }
-  
-  .search-input {
-    min-width: auto;
-    flex: 1;
-  }
-  
+
   .artists-grid {
     grid-template-columns: 1fr;
   }
-  
-  .artist-header {
-    flex-direction: column;
-    text-align: center;
-  }
-  
-  .artist-actions-bottom {
-    flex-direction: column;
-  }
 }
-</style> 
+</style>
