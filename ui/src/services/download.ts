@@ -1,4 +1,4 @@
-import apiService from './api';
+import apiService, { getApiBaseUrl } from './api';
 import type { DownloadTask } from '@/types';
 
 class DownloadService {
@@ -132,7 +132,7 @@ class DownloadService {
    * 使用SSE监听下载进度
    */
   streamTaskProgress(taskId: string, onProgress: (task: DownloadTask) => void, onComplete?: () => void) {
-    const eventSource = new EventSource(`http://localhost:3000/api/download/stream/${taskId}`);
+    const eventSource = new EventSource(`${getApiBaseUrl()}/api/download/stream/${taskId}`);
     
     eventSource.onmessage = (event) => {
       try {

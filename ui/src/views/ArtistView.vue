@@ -124,6 +124,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import artistService from '@/services/artist';
 import downloadService from '@/services/download';
+import { getImageProxyUrl } from '@/services/api';
 import type { Artist, Artwork } from '@/types';
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
 import ErrorMessage from '@/components/common/ErrorMessage.vue';
@@ -385,18 +386,8 @@ const handleDownloadAll = async () => {
   }
 };
 
-// 处理图片URL，通过后端代理
-const getImageUrl = (originalUrl: string) => {
-  if (!originalUrl) return '';
-
-  // 如果是Pixiv的图片URL，通过后端代理
-  if (originalUrl.includes('i.pximg.net')) {
-    const encodedUrl = encodeURIComponent(originalUrl);
-    return `http://localhost:3000/api/proxy/image?url=${encodedUrl}`;
-  }
-
-  return originalUrl;
-};
+// 使用统一的图片代理函数
+const getImageUrl = getImageProxyUrl;
 
 // 点击作品
 const handleArtworkClick = (artwork: Artwork) => {

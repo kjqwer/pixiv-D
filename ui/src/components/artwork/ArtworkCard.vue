@@ -1,14 +1,8 @@
 <template>
   <div class="artwork-card" @click="handleClick">
     <div class="artwork-image">
-      <img 
-        :src="getImageUrl(artwork.image_urls.medium)" 
-        :alt="artwork.title"
-        @load="imageLoaded = true"
-        @error="imageError = true"
-        :class="{ loaded: imageLoaded, error: imageError }"
-        crossorigin="anonymous"
-      />
+      <img :src="getImageUrl(artwork.image_urls.medium)" :alt="artwork.title" @load="imageLoaded = true"
+        @error="imageError = true" :class="{ loaded: imageLoaded, error: imageError }" crossorigin="anonymous" />
       <div v-if="!imageLoaded && !imageError" class="image-placeholder">
         <LoadingSpinner text="加载中..." />
       </div>
@@ -16,45 +10,39 @@
         <span>图片加载失败</span>
       </div>
     </div>
-    
+
     <div class="artwork-info">
       <h3 class="artwork-title" :title="artwork.title">
         {{ artwork.title }}
       </h3>
-      
+
       <div class="artwork-meta">
         <div class="artist-info">
-          <img 
-            :src="getImageUrl(artwork.user.profile_image_urls.medium)" 
-            :alt="artwork.user.name"
-            class="artist-avatar"
-            crossorigin="anonymous"
-          />
+          <img :src="getImageUrl(artwork.user.profile_image_urls.medium)" :alt="artwork.user.name" class="artist-avatar"
+            crossorigin="anonymous" />
           <span class="artist-name">{{ artwork.user.name }}</span>
         </div>
-        
+
         <div class="artwork-stats">
           <span class="stat">
             <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+              <path
+                d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
             </svg>
             {{ artwork.total_bookmarks }}
           </span>
           <span class="stat">
             <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+              <path
+                d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
             </svg>
             {{ artwork.total_view }}
           </span>
         </div>
       </div>
-      
+
       <div class="artwork-tags">
-        <span 
-          v-for="tag in artwork.tags.slice(0, 3)" 
-          :key="tag.name"
-          class="tag"
-        >
+        <span v-for="tag in artwork.tags.slice(0, 3)" :key="tag.name" class="tag">
           {{ tag.name }}
         </span>
         <span v-if="artwork.tags.length > 3" class="tag-more">
@@ -68,6 +56,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
+import { getImageProxyUrl } from '@/services/api';
 import type { Artwork } from '@/types';
 
 interface Props {
@@ -88,18 +77,8 @@ const handleClick = () => {
   emit('click', props.artwork);
 };
 
-// 处理图片URL，通过后端代理
-const getImageUrl = (originalUrl: string) => {
-  if (!originalUrl) return '';
-  
-  // 如果是Pixiv的图片URL，通过后端代理
-  if (originalUrl.includes('i.pximg.net')) {
-    const encodedUrl = encodeURIComponent(originalUrl);
-    return `http://localhost:3000/api/proxy/image?url=${encodedUrl}`;
-  }
-  
-  return originalUrl;
-};
+// 使用统一的图片代理函数
+const getImageUrl = getImageProxyUrl;
 </script>
 
 <style scoped>
@@ -239,4 +218,4 @@ const getImageUrl = (originalUrl: string) => {
   font-size: 0.75rem;
   line-height: 1;
 }
-</style> 
+</style>

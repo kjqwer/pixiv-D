@@ -19,14 +19,11 @@ async function createPortable() {
     
     // 创建启动脚本
     const startScript = `@echo off
-chcp 65001 >nul
+
 title Pixiv Manager
 
-:: ========================================
-:: 代理配置 - 请根据你的代理软件修改端口号
-:: 常见端口: Clash=7890, V2Ray=10809, Shadowsocks=1080
-:: ========================================
 set PROXY_PORT=7890
+set SERVER_PORT=3000
 
 echo.
 echo ========================================
@@ -37,17 +34,19 @@ echo.
 cd /d "%~dp0"
 
 echo Current proxy port: %PROXY_PORT%
-echo To change proxy port, edit this file and modify line 6
+echo Current server port: %SERVER_PORT%
+echo To change proxy port, edit PROXY_PORT=xxxx in this file
+echo To change server port, edit SERVER_PORT=xxxx in this file
 echo.
 
 echo Starting backend server...
-echo Access URL: http://localhost:3000
+echo Access URL: http://localhost:%SERVER_PORT%
 echo.
 echo Tip: Press Ctrl+C to stop server
 echo.
 
-:: Start server and pass proxy port
-pixiv-backend.exe --proxy-port=%PROXY_PORT%
+:: Start server and pass proxy port and server port
+pixiv-backend.exe --proxy-port=%PROXY_PORT% --server-port=%SERVER_PORT%
 
 echo.
 echo Server stopped
@@ -65,12 +64,18 @@ pause
 2. 在浏览器中访问 http://localhost:3000
 3. 按 Ctrl+C 停止服务器
 
-## 代理设置（重要）
+## 配置设置
 
-如需使用代理，请用记事本编辑 \`start.bat\` 文件，修改（PROXY_PORT=xxxx）的端口号：
+如需修改配置，请用记事本编辑 \`start.bat\` 文件：
+
+### 代理设置（重要）
+修改（PROXY_PORT=xxxx）的端口号：
 - Clash: 7890
 - V2Ray: 10809  
 - Shadowsocks: 1080
+
+### 服务器端口设置
+修改（SERVER_PORT=xxxx）的端口号，默认为3000
 
 ## 注意事项
 

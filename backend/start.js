@@ -10,15 +10,38 @@ const PixivServer = require('./server');
 function parseArguments() {
   const args = process.argv.slice(2);
   const options = {};
-  
+
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    if (arg === '--proxy-port' && i + 1 < args.length) {
-      options.proxyPort = parseInt(args[i + 1]);
+
+    // 处理 --key=value 格式
+    if (arg.startsWith('--proxy-port=')) {
+      const port = parseInt(arg.split('=')[1]);
+      if (!isNaN(port)) {
+        options.proxyPort = port;
+      }
+    } else if (arg.startsWith('--server-port=')) {
+      const port = parseInt(arg.split('=')[1]);
+      if (!isNaN(port)) {
+        options.serverPort = port;
+      }
+    }
+    // 处理 --key value 格式（向后兼容）
+    else if (arg === '--proxy-port' && i + 1 < args.length) {
+      const port = parseInt(args[i + 1]);
+      if (!isNaN(port)) {
+        options.proxyPort = port;
+      }
+      i++; // 跳过下一个参数
+    } else if (arg === '--server-port' && i + 1 < args.length) {
+      const port = parseInt(args[i + 1]);
+      if (!isNaN(port)) {
+        options.serverPort = port;
+      }
       i++; // 跳过下一个参数
     }
   }
-  
+
   return options;
 }
 
@@ -32,6 +55,12 @@ process.env.NODE_ENV = process.env.NODE_ENV || 'development';
 if (cliOptions.proxyPort) {
   process.env.PROXY_PORT = cliOptions.proxyPort.toString();
   console.log(`\x1b[36m📡 代理端口已设置为: ${cliOptions.proxyPort}\x1b[0m`);
+}
+
+// 如果提供了服务器端口，设置环境变量
+if (cliOptions.serverPort) {
+  process.env.PORT = cliOptions.serverPort.toString();
+  console.log(`\x1b[36m🌐 服务器端口已设置为: ${cliOptions.serverPort}\x1b[0m`);
 }
 
 console.log('\x1b[35m🚀 启动 Pixiv 后端服务器...\x1b[0m');
@@ -51,7 +80,7 @@ process.on('SIGTERM', async () => {
 });
 
 // 处理未捕获的异常
-process.on('uncaughtException', (error) => {
+process.on('uncaughtException', error => {
   console.error('\x1b[31m❌ 未捕获的异常:\x1b[0m', error);
   process.exit(1);
 });
@@ -62,9 +91,10 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // 启动服务器
-server.init()
+server
+  .init()
   .then(() => server.start())
-  .catch((error) => {
+  .catch(error => {
     console.error('\x1b[31m❌ 服务器启动失败:\x1b[0m', error);
     process.exit(1);
-  }); 
+  });

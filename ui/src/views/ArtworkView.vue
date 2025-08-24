@@ -13,14 +13,8 @@
         <!-- 作品图片 -->
         <div class="artwork-gallery">
           <div class="main-image">
-            <img 
-              :src="getImageUrl(currentImageUrl)" 
-              :alt="artwork.title"
-              @load="imageLoaded = true"
-              @error="imageError = true"
-              :class="{ loaded: imageLoaded, error: imageError }"
-              crossorigin="anonymous"
-            />
+            <img :src="getImageUrl(currentImageUrl)" :alt="artwork.title" @load="imageLoaded = true"
+              @error="imageError = true" :class="{ loaded: imageLoaded, error: imageError }" crossorigin="anonymous" />
             <div v-if="!imageLoaded && !imageError" class="image-placeholder">
               <LoadingSpinner text="加载中..." />
             </div>
@@ -31,14 +25,10 @@
 
           <!-- 多页作品缩略图 -->
           <div v-if="artwork.page_count > 1" class="thumbnails">
-            <button
-              v-for="(page, index) in artwork.meta_pages"
-              :key="index"
-              @click="currentPage = index"
-              class="thumbnail"
-              :class="{ active: currentPage === index }"
-            >
-              <img :src="getImageUrl(page.image_urls.square_medium)" :alt="`第 ${index + 1} 页`" crossorigin="anonymous" />
+            <button v-for="(page, index) in artwork.meta_pages" :key="index" @click="currentPage = index"
+              class="thumbnail" :class="{ active: currentPage === index }">
+              <img :src="getImageUrl(page.image_urls.square_medium)" :alt="`第 ${index + 1} 页`"
+                crossorigin="anonymous" />
             </button>
           </div>
         </div>
@@ -63,30 +53,21 @@
             <div v-if="isDownloaded && !currentTask" class="download-status">
               <div class="status-indicator">
                 <svg viewBox="0 0 24 24" fill="currentColor" class="status-icon">
-                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
                 </svg>
                 <span>已下载到本地</span>
               </div>
             </div>
 
             <!-- 下载进度 -->
-            <DownloadProgress 
-              v-if="currentTask"
-              :task="currentTask"
-              :loading="downloading"
-              @update="updateTask"
-              @remove="removeTask"
-            />
+            <DownloadProgress v-if="currentTask" :task="currentTask" :loading="downloading" @update="updateTask"
+              @remove="removeTask" />
           </div>
 
           <!-- 作者信息 -->
           <div class="artist-info">
-            <img 
-              :src="getImageUrl(artwork.user.profile_image_urls.medium)" 
-              :alt="artwork.user.name"
-              class="artist-avatar"
-              crossorigin="anonymous"
-            />
+            <img :src="getImageUrl(artwork.user.profile_image_urls.medium)" :alt="artwork.user.name"
+              class="artist-avatar" crossorigin="anonymous" />
             <div class="artist-details">
               <h3 class="artist-name">{{ artwork.user.name }}</h3>
               <p class="artist-account">@{{ artwork.user.account }}</p>
@@ -98,36 +79,24 @@
 
           <!-- 作品导航 -->
           <div v-if="showNavigation" class="artwork-navigation">
-            <button 
-              @click="goBackToArtist" 
-              class="nav-btn nav-back"
-              title="返回作者页面"
-            >
+            <button @click="goBackToArtist" class="nav-btn nav-back" title="返回作者页面">
               <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
               </svg>
               <span>返回</span>
             </button>
-            <button 
-              @click="navigateToPrevious" 
-              class="nav-btn nav-prev" 
-              :disabled="!previousArtwork"
-              :title="previousArtwork ? `上一个: ${previousArtwork.title}` : '没有上一个作品'"
-            >
+            <button @click="navigateToPrevious" class="nav-btn nav-prev" :disabled="!previousArtwork"
+              :title="previousArtwork ? `上一个: ${previousArtwork.title}` : '没有上一个作品'">
               <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+                <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
               </svg>
               <span>上一个</span>
             </button>
-            <button 
-              @click="navigateToNext" 
-              class="nav-btn nav-next" 
-              :disabled="!nextArtwork"
-              :title="nextArtwork ? `下一个: ${nextArtwork.title}` : '没有下一个作品'"
-            >
+            <button @click="navigateToNext" class="nav-btn nav-next" :disabled="!nextArtwork"
+              :title="nextArtwork ? `下一个: ${nextArtwork.title}` : '没有下一个作品'">
               <span>下一个</span>
               <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/>
+                <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z" />
               </svg>
             </button>
           </div>
@@ -136,19 +105,22 @@
           <div class="artwork-stats">
             <div class="stat">
               <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                <path
+                  d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
               </svg>
               <span>{{ artwork.total_bookmarks }}</span>
             </div>
             <div class="stat">
               <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                <path
+                  d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
               </svg>
               <span>{{ artwork.total_view }}</span>
             </div>
             <div class="stat">
               <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+                <path
+                  d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z" />
               </svg>
               <span>{{ artwork.width }} × {{ artwork.height }}</span>
             </div>
@@ -158,14 +130,9 @@
           <div class="artwork-tags">
             <h3>标签</h3>
             <div class="tags-list">
-              <button 
-                v-for="tag in artwork.tags" 
-                :key="tag.name"
-                @click="handleTagClick($event, tag.name)"
-                class="tag tag-clickable"
-                :class="{ 'tag-selected': selectedTags.includes(tag.name) }"
-                :title="`搜索标签: ${tag.name} (按住Ctrl键点击选择多个标签，松开Ctrl键搜索)`"
-              >
+              <button v-for="tag in artwork.tags" :key="tag.name" @click="handleTagClick($event, tag.name)"
+                class="tag tag-clickable" :class="{ 'tag-selected': selectedTags.includes(tag.name) }"
+                :title="`搜索标签: ${tag.name} (按住Ctrl键点击选择多个标签，松开Ctrl键搜索)`">
                 {{ tag.name }}
               </button>
             </div>
@@ -198,6 +165,7 @@ import artworkService from '@/services/artwork';
 import artistService from '@/services/artist';
 import downloadService from '@/services/download';
 import { useRepositoryStore } from '@/stores/repository';
+import { getImageProxyUrl } from '@/services/api';
 import type { Artwork, DownloadTask } from '@/types';
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
 import ErrorMessage from '@/components/common/ErrorMessage.vue';
@@ -231,13 +199,13 @@ const navigationLoading = ref(false);
 // 计算属性
 const currentImageUrl = computed(() => {
   if (!artwork.value) return '';
-  
+
   if (artwork.value.page_count === 1) {
     return artwork.value.image_urls.large;
   } else if (artwork.value.meta_pages && artwork.value.meta_pages[currentPage.value]) {
     return artwork.value.meta_pages[currentPage.value].image_urls.large;
   }
-  
+
   return artwork.value.image_urls.large;
 });
 
@@ -275,13 +243,13 @@ const fetchArtworkDetail = async () => {
     imageLoaded.value = false;
     imageError.value = false;
     currentPage.value = 0;
-    
+
     // 清理之前的任务状态
     currentTask.value = null;
     stopTaskStreaming();
-    
+
     const response = await artworkService.getArtworkDetail(artworkId);
-    
+
     if (response.success && response.data) {
       artwork.value = response.data;
       // 检查下载状态
@@ -302,9 +270,9 @@ const checkDownloadStatus = async (artworkId: number) => {
   try {
     checkingDownloadStatus.value = true;
     const response = await repositoryStore.checkArtworkDownloaded(artworkId);
-    
+
     console.log('下载状态检查响应:', response);
-    
+
     // repository store的apiCall返回的是data.data，所以response直接是数据对象
     if (response && typeof response === 'object') {
       isDownloaded.value = response.is_downloaded || false;
@@ -329,10 +297,10 @@ const handleDownload = async () => {
     const response = await downloadService.downloadArtwork(artwork.value.id, {
       skipExisting
     });
-    
+
     if (response.success) {
       console.log('下载响应:', response.data);
-      
+
       // 检查是否跳过下载
       if (response.data.skipped) {
         console.log('作品已存在，跳过下载');
@@ -340,7 +308,7 @@ const handleDownload = async () => {
         await checkDownloadStatus(artwork.value.id);
         return;
       }
-      
+
       // 如果是新任务，开始监听进度
       if (response.data.task_id) {
         currentTask.value = {
@@ -354,7 +322,7 @@ const handleDownload = async () => {
           artwork_id: artwork.value.id,
           start_time: new Date().toISOString()
         };
-        
+
         // 开始SSE监听任务进度
         startTaskStreaming(response.data.task_id);
       }
@@ -375,9 +343,9 @@ const startTaskStreaming = (taskId: string) => {
   if (sseConnection.value) {
     sseConnection.value();
   }
-  
+
   console.log('开始SSE监听任务进度:', taskId);
-  
+
   // 建立SSE连接
   sseConnection.value = downloadService.streamTaskProgress(
     taskId,
@@ -389,14 +357,14 @@ const startTaskStreaming = (taskId: string) => {
         completed: task.completed_files,
         total: task.total_files
       });
-      
+
       currentTask.value = task;
-      
+
       // 如果任务完成，清理连接并检查下载状态
       if (['completed', 'failed', 'cancelled', 'partial'].includes(task.status)) {
         console.log('任务完成，关闭SSE连接');
         stopTaskStreaming();
-        
+
         // 延迟检查下载状态，确保文件写入完成
         setTimeout(async () => {
           await checkDownloadStatus(artwork.value!.id);
@@ -446,18 +414,8 @@ const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString('zh-CN');
 };
 
-// 处理图片URL，通过后端代理
-const getImageUrl = (originalUrl: string) => {
-  if (!originalUrl) return '';
-  
-  // 如果是Pixiv的图片URL，通过后端代理
-  if (originalUrl.includes('i.pximg.net')) {
-    const encodedUrl = encodeURIComponent(originalUrl);
-    return `http://localhost:3000/api/proxy/image?url=${encodedUrl}`;
-  }
-  
-  return originalUrl;
-};
+// 使用统一的图片代理函数
+const getImageUrl = getImageProxyUrl;
 
 // 清除错误
 const clearError = () => {
@@ -468,23 +426,23 @@ const clearError = () => {
 const fetchArtistArtworks = async () => {
   const artistId = route.query.artistId;
   const artworkType = route.query.artworkType;
-  
+
   if (!artistId || !artworkType) return;
 
   try {
     navigationLoading.value = true;
-    
+
     // 获取当前页面信息
     const currentPage = parseInt(route.query.page as string) || 1;
     const pageSize = 30;
     const offset = (currentPage - 1) * pageSize;
-    
+
     const response = await artistService.getArtistArtworks(parseInt(artistId as string), {
       type: artworkType as 'art' | 'manga' | 'novel',
       offset: offset,
       limit: pageSize
     });
-    
+
     if (response.success && response.data) {
       artistArtworks.value = response.data.artworks;
       // 找到当前作品在列表中的位置
@@ -545,18 +503,18 @@ const isCtrlPressed = ref(false);
 const handleTagClick = (event: MouseEvent, tagName: string) => {
   // 阻止默认行为
   event.preventDefault();
-  
+
   console.log('标签点击事件:', {
     tagName,
     ctrlKey: event.ctrlKey,
     metaKey: event.metaKey,
     isCtrlPressed: isCtrlPressed.value
   });
-  
+
   // 如果按住Ctrl键，则添加到选中状态（不跳转）
   if (event.ctrlKey || event.metaKey || isCtrlPressed.value) {
     console.log('检测到Ctrl键，添加到选中状态');
-    
+
     // 切换标签的选中状态
     const index = selectedTags.value.indexOf(tagName);
     if (index > -1) {
@@ -566,19 +524,19 @@ const handleTagClick = (event: MouseEvent, tagName: string) => {
       // 如果未选中，则添加到选中列表
       selectedTags.value.push(tagName);
     }
-    
+
     console.log('当前选中的标签:', selectedTags.value);
-    
+
     // 保存到sessionStorage
     sessionStorage.setItem('currentSearchTags', JSON.stringify(selectedTags.value));
-    
+
     // 不跳转，只是更新选中状态
   } else {
     console.log('普通点击，执行单标签搜索');
     // 普通点击，只搜索当前标签，清除之前的多标签选择
     selectedTags.value = [];
     sessionStorage.removeItem('currentSearchTags');
-    
+
     router.push({
       path: '/search',
       query: {
@@ -599,11 +557,11 @@ const handleKeyDown = (event: KeyboardEvent) => {
 const handleKeyUp = (event: KeyboardEvent) => {
   if (event.key === 'Control' || event.key === 'Meta') {
     isCtrlPressed.value = false;
-    
+
     // 当松开Ctrl键时，如果有选中的标签，则跳转到搜索页面
     if (selectedTags.value.length > 0) {
       console.log('松开Ctrl键，跳转到搜索页面，标签:', selectedTags.value);
-      
+
       router.push({
         path: '/search',
         query: {
@@ -611,7 +569,7 @@ const handleKeyUp = (event: KeyboardEvent) => {
           tags: selectedTags.value
         }
       });
-      
+
       // 清空选中状态
       selectedTags.value = [];
       sessionStorage.removeItem('currentSearchTags');
@@ -624,10 +582,10 @@ watch(() => route.params.id, () => {
   // 清理之前的任务状态
   currentTask.value = null;
   stopTaskStreaming();
-  
+
   // 重新获取作品详情
   fetchArtworkDetail();
-  
+
   // 如果是从作者页面来的，重新获取导航数据
   if (showNavigation.value) {
     fetchArtistArtworks();
@@ -637,7 +595,7 @@ watch(() => route.params.id, () => {
 // 键盘快捷键支持
 const handleKeydown = (event: KeyboardEvent) => {
   if (!showNavigation.value) return;
-  
+
   if (event.key === 'ArrowLeft' && previousArtwork.value) {
     event.preventDefault();
     navigateToPrevious();
@@ -655,7 +613,7 @@ onMounted(() => {
   if (showNavigation.value) {
     fetchArtistArtworks();
   }
-  
+
   // 添加键盘事件监听
   document.addEventListener('keydown', handleKeydown);
   document.addEventListener('keydown', handleKeyDown);
@@ -1089,43 +1047,43 @@ onUnmounted(() => {
   .container {
     padding: 0 1rem;
   }
-  
+
   .artwork-actions {
     flex-direction: column;
   }
-  
+
   .btn {
     width: 100%;
   }
-  
+
   .artwork-stats {
     flex-direction: column;
     gap: 1rem;
   }
-  
+
   .thumbnails {
     padding: 0.5rem;
   }
-  
+
   .thumbnail {
     width: 50px;
     height: 50px;
   }
-  
+
   .artwork-navigation {
     flex-direction: column;
     gap: 0.75rem;
   }
-  
+
   .nav-back {
     order: -1;
     align-self: flex-start;
     min-width: 80px;
   }
-  
+
   .nav-prev,
   .nav-next {
     min-width: auto;
   }
 }
-</style> 
+</style>

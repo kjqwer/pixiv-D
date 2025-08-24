@@ -120,6 +120,8 @@ pnpm lint
 VITE_API_BASE_URL=http://localhost:3000
 ```
 
+> **注意**: 在生产环境中，前端会自动使用当前域名和端口，无需手动设置此环境变量。
+
 ### 构建部署
 
 ```bash

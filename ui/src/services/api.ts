@@ -1,15 +1,31 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios';
 import type { ApiResponse } from '@/types';
 
-// API配置
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+// API配置 - 使用相对路径，这样就不需要硬编码端口
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+
+// 导出API基础URL，供其他组件使用
+export const getApiBaseUrl = () => API_BASE_URL || window.location.origin;
+
+// 获取图片代理URL的工具函数
+export const getImageProxyUrl = (originalUrl: string) => {
+  if (!originalUrl) return '';
+  
+  // 如果是Pixiv的图片URL，通过后端代理
+  if (originalUrl.includes('i.pximg.net')) {
+    const encodedUrl = encodeURIComponent(originalUrl);
+    return `${getApiBaseUrl()}/api/proxy/image?url=${encodedUrl}`;
+  }
+  
+  return originalUrl;
+};
 
 class ApiService {
   private client: AxiosInstance;
 
   constructor() {
     this.client = axios.create({
-      baseURL: API_BASE_URL,
+      baseURL: API_BASE_URL || window.location.origin,
       timeout: 60000, // 增加到60秒
       headers: {
         'Content-Type': 'application/json',

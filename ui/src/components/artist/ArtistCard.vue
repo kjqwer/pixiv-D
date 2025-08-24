@@ -1,35 +1,23 @@
 <template>
   <div class="artist-card">
     <div class="artist-header">
-      <img 
-        :src="getImageUrl(artist.profile_image_urls.medium)" 
-        :alt="artist.name"
-        class="artist-avatar"
-        crossorigin="anonymous"
-      />
+      <img :src="getImageUrl(artist.profile_image_urls.medium)" :alt="artist.name" class="artist-avatar"
+        crossorigin="anonymous" />
       <div class="artist-info">
         <h3 class="artist-name">{{ artist.name }}</h3>
         <p class="artist-account">@{{ artist.account }}</p>
       </div>
       <div class="artist-actions">
-        <button 
-          v-if="showFollowButton"
-          @click="handleFollowClick" 
-          class="btn btn-primary btn-small"
-          :disabled="artist.is_followed"
-        >
+        <button v-if="showFollowButton" @click="handleFollowClick" class="btn btn-primary btn-small"
+          :disabled="artist.is_followed">
           {{ artist.is_followed ? '已关注' : '关注' }}
         </button>
-        <button 
-          v-if="showUnfollowButton"
-          @click="handleUnfollowClick" 
-          class="btn btn-danger btn-small"
-        >
+        <button v-if="showUnfollowButton" @click="handleUnfollowClick" class="btn btn-danger btn-small">
           取消关注
         </button>
       </div>
     </div>
-    
+
     <div class="artist-actions-bottom">
       <router-link :to="`/artist/${artist.id}`" class="btn btn-primary btn-small">
         查看作品
@@ -42,6 +30,8 @@
 </template>
 
 <script setup lang="ts">
+import { getImageProxyUrl } from '@/services/api';
+
 interface Artist {
   id: number
   name: string
@@ -86,18 +76,8 @@ const handleDownloadClick = () => {
   emit('download', props.artist)
 }
 
-// 处理图片URL，通过后端代理
-const getImageUrl = (originalUrl: string) => {
-  if (!originalUrl) return ''
-  
-  // 如果是Pixiv的图片URL，通过后端代理
-  if (originalUrl.includes('i.pximg.net')) {
-    const encodedUrl = encodeURIComponent(originalUrl)
-    return `http://localhost:3000/api/proxy/image?url=${encodedUrl}`
-  }
-  
-  return originalUrl
-}
+// 使用统一的图片代理函数
+const getImageUrl = getImageProxyUrl
 </script>
 
 <style scoped>
@@ -135,7 +115,8 @@ const getImageUrl = (originalUrl: string) => {
 
 .artist-info {
   flex: 1;
-  min-width: 0; /* 防止文本溢出 */
+  min-width: 0;
+  /* 防止文本溢出 */
 }
 
 .artist-name {
@@ -228,14 +209,14 @@ const getImageUrl = (originalUrl: string) => {
     text-align: center;
     gap: 1rem;
   }
-  
+
   .artist-actions-bottom {
     flex-direction: column;
   }
-  
+
   .artist-avatar {
     width: 5rem;
     height: 5rem;
   }
 }
-</style> 
+</style>
