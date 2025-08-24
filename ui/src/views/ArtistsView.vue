@@ -135,8 +135,7 @@ import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useArtistStore } from '@/stores/artist';
 import downloadService from '@/services/download';
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
-import ErrorMessage from '@/components/common/ErrorMessage.vue';
+
 import ArtistCard from '@/components/artist/ArtistCard.vue';
 
 const router = useRouter();

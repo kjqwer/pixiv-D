@@ -6,7 +6,8 @@
         <div class="header-actions">
           <button @click="refreshData" class="btn btn-secondary" :disabled="loading">
             <svg viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
-              <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+              <path
+                d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
             </svg>
             刷新
           </button>
@@ -19,25 +20,13 @@
 
       <!-- 标签页 -->
       <div class="tabs">
-        <button 
-          @click="activeTab = 'tasks'" 
-          class="tab-btn"
-          :class="{ active: activeTab === 'tasks' }"
-        >
+        <button @click="activeTab = 'tasks'" class="tab-btn" :class="{ active: activeTab === 'tasks' }">
           下载任务
         </button>
-        <button 
-          @click="activeTab = 'history'" 
-          class="tab-btn"
-          :class="{ active: activeTab === 'history' }"
-        >
+        <button @click="activeTab = 'history'" class="tab-btn" :class="{ active: activeTab === 'history' }">
           下载历史
         </button>
-        <button 
-          @click="activeTab = 'files'" 
-          class="tab-btn"
-          :class="{ active: activeTab === 'files' }"
-        >
+        <button @click="activeTab = 'files'" class="tab-btn" :class="{ active: activeTab === 'files' }">
           文件管理
         </button>
       </div>
@@ -51,7 +40,8 @@
         <div v-else-if="tasks.length === 0" class="empty-section">
           <div class="empty-content">
             <svg viewBox="0 0 24 24" fill="currentColor" class="empty-icon">
-              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+              <path
+                d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" />
             </svg>
             <h3>暂无下载任务</h3>
             <p>开始下载作品后，任务将显示在这里</p>
@@ -59,11 +49,7 @@
         </div>
 
         <div v-else class="tasks-list">
-          <div 
-            v-for="task in tasks" 
-            :key="task.id"
-            class="task-card"
-          >
+          <div v-for="task in tasks" :key="task.id" class="task-card">
             <div class="task-header">
               <div class="task-info">
                 <h3 class="task-title">
@@ -74,11 +60,7 @@
                 </span>
               </div>
               <div class="task-actions">
-                <button 
-                  v-if="task.status === 'downloading'"
-                  @click="cancelTask(task.id)"
-                  class="btn btn-danger btn-sm"
-                >
+                <button v-if="task.status === 'downloading'" @click="cancelTask(task.id)" class="btn btn-danger btn-sm">
                   取消
                 </button>
               </div>
@@ -86,10 +68,7 @@
 
             <div class="task-progress">
               <div class="progress-bar">
-                <div 
-                  class="progress-fill"
-                  :style="{ width: `${task.progress}%` }"
-                ></div>
+                <div class="progress-fill" :style="{ width: `${task.progress}%` }"></div>
               </div>
               <div class="progress-text">
                 {{ task.completed_files }}/{{ task.total_files }} ({{ task.progress }}%)
@@ -127,7 +106,8 @@
         <div v-else-if="history.length === 0" class="empty-section">
           <div class="empty-content">
             <svg viewBox="0 0 24 24" fill="currentColor" class="empty-icon">
-              <path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>
+              <path
+                d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
             </svg>
             <h3>暂无下载历史</h3>
             <p>下载完成后，历史记录将显示在这里</p>
@@ -135,11 +115,7 @@
         </div>
 
         <div v-else class="history-list">
-          <div 
-            v-for="item in history" 
-            :key="item.id"
-            class="history-card"
-          >
+          <div v-for="item in history" :key="item.id" class="history-card">
             <div class="history-header">
               <div class="history-info">
                 <h3 class="history-title">
@@ -150,10 +126,7 @@
                 </span>
               </div>
               <div class="history-actions">
-                <button 
-                  @click="openFolder(item.download_path)"
-                  class="btn btn-text btn-sm"
-                >
+                <button @click="openFolder(item.download_path)" class="btn btn-text btn-sm">
                   打开文件夹
                 </button>
               </div>
@@ -190,7 +163,8 @@
         <div v-else-if="files.length === 0" class="empty-section">
           <div class="empty-content">
             <svg viewBox="0 0 24 24" fill="currentColor" class="empty-icon">
-              <path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/>
+              <path
+                d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z" />
             </svg>
             <h3>暂无下载文件</h3>
             <p>下载完成后，文件将显示在这里</p>
@@ -198,27 +172,17 @@
         </div>
 
         <div v-else class="files-list">
-          <div 
-            v-for="file in files" 
-            :key="`${file.artist}_${file.artwork}`"
-            class="file-card"
-          >
+          <div v-for="file in files" :key="`${file.artist}_${file.artwork}`" class="file-card">
             <div class="file-header">
               <div class="file-info">
                 <h3 class="file-title">{{ file.artwork }}</h3>
                 <p class="file-artist">{{ file.artist }}</p>
               </div>
               <div class="file-actions">
-                <button 
-                  @click="openFolder(file.path)"
-                  class="btn btn-text btn-sm"
-                >
+                <button @click="openFolder(file.path)" class="btn btn-text btn-sm">
                   打开
                 </button>
-                <button 
-                  @click="deleteFile(file.artist, file.artwork)"
-                  class="btn btn-danger btn-sm"
-                >
+                <button @click="deleteFile(file.artist, file.artwork)" class="btn btn-danger btn-sm">
                   删除
                 </button>
               </div>
@@ -250,8 +214,7 @@ import { ref, onMounted, onUnmounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import downloadService from '@/services/download';
 import type { DownloadTask } from '@/types';
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
-import ErrorMessage from '@/components/common/ErrorMessage.vue';
+
 
 const authStore = useAuthStore();
 
@@ -732,4 +695,4 @@ onUnmounted(() => {
 .btn-text:hover {
   background: #f3f4f6;
 }
-</style> 
+</style>

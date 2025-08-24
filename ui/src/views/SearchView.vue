@@ -167,8 +167,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import artworkService from '@/services/artwork';
 import type { Artwork, SearchParams } from '@/types';
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
-import ErrorMessage from '@/components/common/ErrorMessage.vue';
+
 import ArtworkCard from '@/components/artwork/ArtworkCard.vue';
 import ArtistSearch from '@/components/search/ArtistSearch.vue';
 

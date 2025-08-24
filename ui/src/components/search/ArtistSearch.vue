@@ -3,28 +3,20 @@
     <!-- 搜索表单 -->
     <div class="search-form">
       <div class="search-input-group">
-        <input 
-          v-model="searchKeyword" 
-          type="text" 
-          placeholder="输入作者名称或账号搜索..." 
-          class="search-input"
-          @keyup.enter="handleSearch"
-        />
+        <input v-model="searchKeyword" type="text" placeholder="输入作者名称或账号搜索..." class="search-input"
+          @keyup.enter="handleSearch" />
         <button @click="handleSearch" class="search-btn" :disabled="loading">
           <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+            <path
+              d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
           </svg>
         </button>
       </div>
-      
+
       <!-- 搜索选项 -->
       <div class="search-options">
         <label class="checkbox-label">
-          <input 
-            v-model="hideFollowedArtists" 
-            type="checkbox" 
-            class="form-checkbox"
-          />
+          <input v-model="hideFollowedArtists" type="checkbox" class="form-checkbox" />
           <span>隐藏已关注的作者</span>
         </label>
       </div>
@@ -46,24 +38,18 @@
           已隐藏 {{ searchResults.length - filteredResults.length }} 个已关注的作者
         </div>
       </div>
-      
+
       <div class="artists-grid">
-        <ArtistCard
-          v-for="artist in filteredResults" 
-          :key="artist.id"
-          :artist="artist"
-          :show-follow-button="true"
-          :show-unfollow-button="false"
-          @follow="handleFollow"
-          @download="handleDownload"
-        />
+        <ArtistCard v-for="artist in filteredResults" :key="artist.id" :artist="artist" :show-follow-button="true"
+          :show-unfollow-button="false" @follow="handleFollow" @download="handleDownload" />
       </div>
     </div>
 
     <div v-else-if="hasSearched" class="empty-section">
       <div class="empty-content">
         <svg viewBox="0 0 24 24" fill="currentColor" class="empty-icon">
-          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+          <path
+            d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
         </svg>
         <h3>未找到相关作者</h3>
         <p>尝试使用不同的关键词搜索</p>
@@ -83,8 +69,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useArtistStore } from '@/stores/artist'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
-import ErrorMessage from '@/components/common/ErrorMessage.vue'
+
 import ArtistCard from '@/components/artist/ArtistCard.vue'
 
 const router = useRouter()
@@ -103,10 +88,10 @@ const filteredResults = computed(() => {
   if (!hideFollowedArtists.value) {
     return searchResults.value
   }
-  
+
   // 获取已关注作者的ID列表
   const followedIds = new Set(artistStore.followingArtists.map(artist => artist.id))
-  
+
   // 过滤掉已关注的作者
   return searchResults.value.filter(artist => !followedIds.has(artist.id))
 })
@@ -332,13 +317,13 @@ defineExpose({
   .search-input-group {
     flex-direction: column;
   }
-  
+
   .artists-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .search-options {
     justify-content: flex-start;
   }
 }
-</style> 
+</style>

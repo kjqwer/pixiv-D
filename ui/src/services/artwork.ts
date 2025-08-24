@@ -77,6 +77,26 @@ class ArtworkService {
 
     return apiService.get<{ artworks: Artwork[]; next_url?: string; total: number }>(`/api/artwork/search?${queryParams.toString()}`);
   }
+
+  /**
+   * 收藏/取消收藏作品
+   */
+  async toggleBookmark(artworkId: number, action: 'add' | 'remove'): Promise<ApiResponse<{ artwork_id: number; is_bookmarked: boolean; message: string }>> {
+    return apiService.post<{ artwork_id: number; is_bookmarked: boolean; message: string }>(`/api/artwork/${artworkId}/bookmark`, { action });
+  }
+
+  /**
+   * 获取用户收藏的作品列表
+   */
+  async getBookmarks(params: { type?: string; offset?: number; limit?: number } = {}): Promise<ApiResponse<{ artworks: Artwork[]; next_url?: string; total: number }>> {
+    const queryParams = new URLSearchParams();
+    
+    if (params.type) queryParams.append('type', params.type);
+    if (params.offset !== undefined) queryParams.append('offset', params.offset.toString());
+    if (params.limit !== undefined) queryParams.append('limit', params.limit.toString());
+
+    return apiService.get<{ artworks: Artwork[]; next_url?: string; total: number }>(`/api/artwork/bookmarks?${queryParams.toString()}`);
+  }
 }
 
 export const artworkService = new ArtworkService();

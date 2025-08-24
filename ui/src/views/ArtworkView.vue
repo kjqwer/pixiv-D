@@ -9,6 +9,11 @@
         <ErrorMessage :error="error" @dismiss="clearError" />
       </div>
 
+      <!-- 收藏错误提示 -->
+      <div v-if="bookmarkError" class="error-section">
+        <ErrorMessage :error="bookmarkError" title="警告" type="warning" dismissible @dismiss="clearBookmarkError" />
+      </div>
+
       <div v-else-if="artwork" class="artwork-content">
         <!-- 作品图片 -->
         <div class="artwork-gallery">
@@ -167,8 +172,7 @@ import downloadService from '@/services/download';
 import { useRepositoryStore } from '@/stores/repository';
 import { getImageProxyUrl } from '@/services/api';
 import type { Artwork, DownloadTask } from '@/types';
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
-import ErrorMessage from '@/components/common/ErrorMessage.vue';
+
 import DownloadProgress from '@/components/download/DownloadProgress.vue';
 
 const route = useRoute();
@@ -190,6 +194,9 @@ const checkingDownloadStatus = ref(false);
 // 下载任务状态
 const currentTask = ref<DownloadTask | null>(null);
 const sseConnection = ref<(() => void) | null>(null);
+
+// 收藏错误状态
+const bookmarkError = ref<string | null>(null);
 
 // 导航相关状态
 const artistArtworks = ref<Artwork[]>([]);
@@ -404,9 +411,30 @@ const removeTask = (taskId: string) => {
 };
 
 // 收藏/取消收藏
-const handleBookmark = () => {
-  // 这里可以添加收藏功能
-  console.log('收藏功能待实现');
+const handleBookmark = async () => {
+  if (!artwork.value) return;
+
+  try {
+    const action = artwork.value.is_bookmarked ? 'remove' : 'add';
+    const response = await artworkService.toggleBookmark(artwork.value.id, action);
+
+    if (response.success && response.data) {
+      // 更新作品状态
+      artwork.value.is_bookmarked = response.data.is_bookmarked;
+      artwork.value.total_bookmarks += artwork.value.is_bookmarked ? 1 : -1;
+
+      // 显示成功消息
+      console.log(response.data.message);
+    } else {
+      // 显示错误提示给用户
+      bookmarkError.value = response.error || '收藏操作失败';
+      console.error('收藏操作失败:', response.error);
+    }
+  } catch (err) {
+    // 显示错误提示给用户
+    bookmarkError.value = '藏暂时不可用，请去官方收藏或者取消收藏';
+    console.error('收藏操作失败:', err);
+  }
 };
 
 // 格式化日期
@@ -420,6 +448,11 @@ const getImageUrl = getImageProxyUrl;
 // 清除错误
 const clearError = () => {
   error.value = null;
+};
+
+// 清除收藏错误
+const clearBookmarkError = () => {
+  bookmarkError.value = null;
 };
 
 // 获取作者作品列表用于导航

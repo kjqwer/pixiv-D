@@ -19,27 +19,16 @@ onMounted(async () => {
         <p class="hero-subtitle">
           发现、收藏、下载你喜欢的 Pixiv 作品
         </p>
-        
+
         <div class="hero-actions">
-          <router-link 
-            v-if="!isLoggedIn" 
-            to="/login" 
-            class="btn btn-primary"
-          >
+          <router-link v-if="!isLoggedIn" to="/login" class="btn btn-primary">
             立即登录
           </router-link>
-          <router-link 
-            v-else 
-            to="/search" 
-            class="btn btn-primary"
-          >
+          <router-link v-else to="/search" class="btn btn-primary">
             开始搜索
           </router-link>
-          
-          <router-link 
-            to="/downloads" 
-            class="btn btn-secondary"
-          >
+
+          <router-link to="/downloads" class="btn btn-secondary">
             下载管理
           </router-link>
         </div>
@@ -49,12 +38,13 @@ onMounted(async () => {
     <div class="features-section">
       <div class="container">
         <h2 class="section-title">主要功能</h2>
-        
+
         <div class="features-grid">
           <div class="feature-card">
             <div class="feature-icon">
               <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                <path
+                  d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
               </svg>
             </div>
             <h3 class="feature-title">作品搜索</h3>
@@ -66,7 +56,21 @@ onMounted(async () => {
           <div class="feature-card">
             <div class="feature-icon">
               <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                <path
+                  d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" />
+              </svg>
+            </div>
+            <h3 class="feature-title">热门榜单</h3>
+            <p class="feature-description">
+              查看日榜、周榜、月榜热门作品，一键批量下载
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
               </svg>
             </div>
             <h3 class="feature-title">一键下载</h3>
@@ -78,7 +82,8 @@ onMounted(async () => {
           <div class="feature-card">
             <div class="feature-icon">
               <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                <path
+                  d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
               </svg>
             </div>
             <h3 class="feature-title">作者管理</h3>
@@ -90,8 +95,9 @@ onMounted(async () => {
           <div class="feature-card">
             <div class="feature-icon">
               <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
-                <path d="M7 12h2v5H7zm4-3h2v8h-2zm4-3h2v11h-2z"/>
+                <path
+                  d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z" />
+                <path d="M7 12h2v5H7zm4-3h2v8h-2zm4-3h2v11h-2z" />
               </svg>
             </div>
             <h3 class="feature-title">下载管理</h3>
@@ -103,7 +109,8 @@ onMounted(async () => {
           <div class="feature-card">
             <div class="feature-icon">
               <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/>
+                <path
+                  d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z" />
               </svg>
             </div>
             <h3 class="feature-title">仓库管理</h3>
@@ -111,53 +118,12 @@ onMounted(async () => {
               管理本地作品仓库，分类整理和快速检索
             </p>
           </div>
+
         </div>
       </div>
     </div>
 
-    <div v-if="isLoggedIn" class="quick-actions">
-      <div class="container">
-        <h2 class="section-title">快速操作</h2>
-        
-        <div class="quick-actions-grid">
-          <router-link to="/search" class="quick-action-card">
-            <div class="quick-action-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-              </svg>
-            </div>
-            <span>搜索作品</span>
-          </router-link>
 
-          <router-link to="/downloads" class="quick-action-card">
-            <div class="quick-action-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
-              </svg>
-            </div>
-            <span>下载管理</span>
-          </router-link>
-
-          <router-link to="/artists" class="quick-action-card">
-            <div class="quick-action-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-              </svg>
-            </div>
-            <span>作者管理</span>
-          </router-link>
-
-          <router-link to="/repository" class="quick-action-card">
-            <div class="quick-action-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/>
-              </svg>
-            </div>
-            <span>仓库管理</span>
-          </router-link>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -302,85 +268,31 @@ onMounted(async () => {
   line-height: 1.6;
 }
 
-.quick-actions {
-  padding: 4rem 0;
-}
 
-.quick-actions-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.5rem;
-  max-width: 600px;
-  margin: 0 auto;
-}
-
-.quick-action-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-  padding: 2rem;
-  background: white;
-  border-radius: 1rem;
-  text-decoration: none;
-  color: #374151;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  transition: all 0.2s;
-}
-
-.quick-action-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  color: #3b82f6;
-}
-
-.quick-action-icon {
-  width: 3rem;
-  height: 3rem;
-  background: #f3f4f6;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #6b7280;
-  transition: all 0.2s;
-}
-
-.quick-action-card:hover .quick-action-icon {
-  background: #3b82f6;
-  color: white;
-}
-
-.quick-action-icon svg {
-  width: 1.5rem;
-  height: 1.5rem;
-}
 
 @media (max-width: 768px) {
   .hero-title {
     font-size: 2rem;
   }
-  
+
   .hero-subtitle {
     font-size: 1rem;
   }
-  
+
   .hero-actions {
     flex-direction: column;
     align-items: center;
   }
-  
+
   .btn {
     width: 100%;
     max-width: 300px;
   }
-  
+
   .features-grid {
     grid-template-columns: 1fr;
   }
-  
-  .quick-actions-grid {
-    grid-template-columns: 1fr;
-  }
+
+
 }
 </style>

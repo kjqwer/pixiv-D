@@ -13,7 +13,7 @@
       <div v-if="downloadSuccess" class="success-message">
         <div class="success-content">
           <svg viewBox="0 0 24 24" fill="currentColor" class="success-icon">
-            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
           </svg>
           <span>{{ downloadSuccess }}</span>
         </div>
@@ -21,21 +21,12 @@
 
       <div v-else class="ranking-content">
         <!-- 排行榜头部信息 -->
-        <RankingHeader 
-          :currentMode="currentMode"
-          :currentType="currentType"
-          @mode-change="handleModeChange"
-          @type-change="handleTypeChange"
-          @download-success="handleDownloadSuccess"
-          @download-error="handleDownloadError"
-        />
+        <RankingHeader :currentMode="currentMode" :currentType="currentType" @mode-change="handleModeChange"
+          @type-change="handleTypeChange" @download-success="handleDownloadSuccess"
+          @download-error="handleDownloadError" />
 
         <!-- 排行榜统计信息 -->
-        <RankingStats 
-          :totalCount="totalCount"
-          :currentPage="currentPage"
-          :totalPages="totalPages"
-        />
+        <RankingStats :totalCount="totalCount" :currentPage="currentPage" :totalPages="totalPages" />
 
         <!-- 作品列表 -->
         <div class="artworks-section">
@@ -44,12 +35,7 @@
           </div>
 
           <div v-else-if="artworks && artworks.length > 0" class="artworks-grid">
-            <ArtworkCard
-              v-for="artwork in artworks"
-              :key="artwork.id"
-              :artwork="artwork"
-              @click="handleArtworkClick"
-            />
+            <ArtworkCard v-for="artwork in artworks" :key="artwork.id" :artwork="artwork" @click="handleArtworkClick" />
           </div>
 
           <div v-else class="empty-section">
@@ -57,13 +43,8 @@
           </div>
 
           <!-- 分页导航 -->
-          <RankingPagination
-            v-if="totalPages > 1 && artworks && artworks.length > 0"
-            :currentPage="currentPage"
-            :totalPages="totalPages"
-            :visiblePages="visiblePages"
-            @page-change="goToPage"
-          />
+          <RankingPagination v-if="totalPages > 1 && artworks && artworks.length > 0" :currentPage="currentPage"
+            :totalPages="totalPages" :visiblePages="visiblePages" @page-change="goToPage" />
 
           <!-- 页面信息 -->
           <div v-if="totalPages > 1 && artworks && artworks.length > 0" class="page-info">
@@ -83,8 +64,7 @@ import { useAuthStore } from '@/stores/auth';
 import rankingService from '@/services/ranking';
 import downloadService from '@/services/download';
 import type { Artwork } from '@/types';
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
-import ErrorMessage from '@/components/common/ErrorMessage.vue';
+
 import ArtworkCard from '@/components/artwork/ArtworkCard.vue';
 import RankingHeader from '@/components/ranking/RankingHeader.vue';
 import RankingStats from '@/components/ranking/RankingStats.vue';
@@ -120,15 +100,15 @@ const visiblePages = computed(() => {
   const maxVisible = 5;
   let start = Math.max(1, currentPage.value - Math.floor(maxVisible / 2));
   let end = Math.min(totalPages.value, start + maxVisible - 1);
-  
+
   if (end - start + 1 < maxVisible) {
     start = Math.max(1, end - maxVisible + 1);
   }
-  
+
   for (let i = start; i <= end; i++) {
     pages.push(i);
   }
-  
+
   return pages;
 });
 
@@ -141,17 +121,17 @@ const getCacheKey = (mode: string, type: string, page: number) => {
 const getCache = (key: string) => {
   const cached = cache.value.get(key);
   const timeout = cacheTimeout.value.get(key);
-  
+
   if (cached && timeout && Date.now() < timeout) {
     return cached;
   }
-  
+
   // 清除过期缓存
   if (cached) {
     cache.value.delete(key);
     cacheTimeout.value.delete(key);
   }
-  
+
   return null;
 };
 
@@ -171,7 +151,7 @@ const clearCache = () => {
 const fetchRankingData = async (page = 1) => {
   const cacheKey = getCacheKey(currentMode.value, currentType.value, page);
   const cached = getCache(cacheKey);
-  
+
   if (cached) {
     artworks.value = cached.artworks;
     totalCount.value = cached.totalCount;
@@ -183,7 +163,7 @@ const fetchRankingData = async (page = 1) => {
   try {
     artworksLoading.value = true;
     error.value = null;
-    
+
     const offset = (page - 1) * pageSize.value;
     const response = await rankingService.getRanking({
       mode: currentMode.value,
@@ -191,15 +171,15 @@ const fetchRankingData = async (page = 1) => {
       offset: offset,
       limit: pageSize.value
     });
-    
+
     if (response.success && response.data) {
       // 根据后端返回的数据结构，artworks在 response.data.data.artworks
       const rankingData = response.data.data || response.data;
       artworks.value = rankingData.artworks || [];
-      
+
       // 基于 next_url 来判断是否还有更多页面
       const hasMore = !!rankingData.next_url;
-      
+
       if (page === 1) {
         // 第一页，基于是否有下一页来判断总数
         if (hasMore) {
@@ -223,9 +203,9 @@ const fetchRankingData = async (page = 1) => {
           totalPages.value = Math.max(totalPages.value, page);
         }
       }
-      
+
       currentPage.value = page;
-      
+
       // 缓存结果
       setCache(cacheKey, {
         artworks: rankingData.artworks || [],
@@ -366,6 +346,7 @@ onMounted(async () => {
     transform: translateX(100%);
     opacity: 0;
   }
+
   to {
     transform: translateX(0);
     opacity: 1;
@@ -410,15 +391,15 @@ onMounted(async () => {
   .container {
     padding: 0 1rem;
   }
-  
+
   .artworks-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .page-info {
     flex-direction: column;
     gap: 0.5rem;
     text-align: center;
   }
 }
-</style> 
+</style>

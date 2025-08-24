@@ -126,8 +126,7 @@ import artistService from '@/services/artist';
 import downloadService from '@/services/download';
 import { getImageProxyUrl } from '@/services/api';
 import type { Artist, Artwork } from '@/types';
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
-import ErrorMessage from '@/components/common/ErrorMessage.vue';
+
 import ArtworkCard from '@/components/artwork/ArtworkCard.vue';
 
 const route = useRoute();

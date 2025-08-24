@@ -56,6 +56,12 @@ const router = createRouter({
       name: 'repository',
       component: () => import('@/views/RepositoryView.vue'),
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/bookmarks',
+      name: 'bookmarks',
+      component: () => import('@/views/BookmarksView.vue'),
+      meta: { requiresAuth: true }
     }
   ]
 })

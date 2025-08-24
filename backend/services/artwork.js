@@ -278,6 +278,86 @@ class ArtworkService {
   }
 
   /**
+   * 收藏/取消收藏作品
+   */
+  /**
+   * 收藏/取消收藏作品
+   * TODO: Pixiv API 端点已更改，需要研究新的端点
+   * 当前端点 /v1/illust/bookmark/add 和 /v1/illust/bookmark/delete 已不可用
+   */
+  async toggleBookmark(artworkId, action = 'add') {
+    try {
+      // TODO: 需要研究新的 Pixiv API 端点
+      // 当前所有收藏相关的 API 端点都返回 404 错误
+      console.log(`尝试${action === 'add' ? '添加' : '删除'}收藏 ${artworkId}，但API端点不可用`);
+      
+      return {
+        success: false,
+        error: `收藏功能暂时不可用。请前往 Pixiv 官方网站进行${action === 'add' ? '收藏' : '取消收藏'}操作。`
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+    /**
+   * 获取用户收藏的作品列表
+   */
+  async getBookmarks(options = {}) {
+    try {
+      const { type = 'all', offset = 0, limit = 30 } = options;
+
+      // 从认证状态获取用户ID
+      const status = this.auth.getStatus();
+      if (!status.isLoggedIn || !this.auth.user || !this.auth.user.id) {
+        throw new Error('用户未登录或无法获取用户ID');
+      }
+
+      const userId = this.auth.user.id;
+
+      // 根据类型选择不同的API端点
+      let endpoint = '/v1/user/bookmarks/illust';
+      if (type === 'manga') {
+        endpoint = '/v1/user/bookmarks/novel';
+      } else if (type === 'novel') {
+        endpoint = '/v1/user/bookmarks/novel';
+      }
+
+      const params = {
+        user_id: userId,
+        restrict: 'public',
+        offset,
+        limit,
+      };
+
+      const response = await this.makeRequest('GET', `${endpoint}?${stringify(params)}`);
+
+      return {
+        success: true,
+        data: {
+          artworks: response.illusts || [],
+          next_url: response.next_url,
+          total: response.total || 0,
+        },
+      };
+    } catch (error) {
+      console.error('获取收藏列表失败:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        config: error.config
+      });
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
    * 发送API请求
    */
   async makeRequest(method, endpoint, data = null) {

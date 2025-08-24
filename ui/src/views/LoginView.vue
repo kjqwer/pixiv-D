@@ -10,25 +10,21 @@
         </div>
 
         <div v-if="error" class="error-section">
-          <ErrorMessage 
-            :error="error" 
-            title="登录失败"
-            dismissible
-            @dismiss="clearError"
-          />
+          <ErrorMessage :error="error" title="登录失败" dismissible @dismiss="clearError" />
         </div>
 
         <div class="login-status" v-if="isLoggedIn">
           <div class="status-success">
             <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              <path
+                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
             </svg>
             <div class="status-content">
               <h3>已登录</h3>
               <p>欢迎回来，{{ username }}！</p>
             </div>
           </div>
-          
+
           <div class="login-actions">
             <router-link to="/" class="btn btn-primary">
               返回首页
@@ -58,37 +54,24 @@
           <div class="code-input-section">
             <div class="input-group">
               <label for="authCode" class="input-label">授权码</label>
-              <input
-                id="authCode"
-                v-model="authCode"
-                type="text"
-                placeholder="粘贴授权码..."
-                class="code-input"
-                :disabled="loading"
-              />
+              <input id="authCode" v-model="authCode" type="text" placeholder="粘贴授权码..." class="code-input"
+                :disabled="loading" />
             </div>
-            
+
             <div class="login-actions">
-              <button 
-                @click="handleLogin" 
-                class="btn btn-secondary"
-                :disabled="loading"
-              >
+              <button @click="handleLogin" class="btn btn-secondary" :disabled="loading">
                 <LoadingSpinner v-if="loading" text="获取登录链接..." />
                 <span v-else>获取登录链接</span>
               </button>
-              
-              <button 
-                @click="handleManualLogin" 
-                class="btn btn-primary btn-large"
-                :disabled="!authCode.trim() || loading"
-              >
+
+              <button @click="handleManualLogin" class="btn btn-primary btn-large"
+                :disabled="!authCode.trim() || loading">
                 <LoadingSpinner v-if="loading" text="登录中..." />
                 <span v-else>完成登录</span>
               </button>
             </div>
           </div>
-          
+
           <div class="login-actions">
             <router-link to="/" class="btn btn-text">
               返回首页
@@ -113,8 +96,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
-import ErrorMessage from '@/components/common/ErrorMessage.vue';
+
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -447,17 +429,17 @@ const clearError = () => {
   .login-page {
     padding: 1rem;
   }
-  
+
   .login-card {
     padding: 2rem;
   }
-  
+
   .login-title {
     font-size: 1.75rem;
   }
-  
+
   .btn-large {
     min-width: 100%;
   }
 }
-</style> 
+</style>

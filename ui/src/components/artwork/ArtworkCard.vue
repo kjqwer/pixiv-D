@@ -55,7 +55,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
+
 import { getImageProxyUrl } from '@/services/api';
 import type { Artwork } from '@/types';
 
