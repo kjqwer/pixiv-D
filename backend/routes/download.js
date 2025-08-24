@@ -8,7 +8,6 @@ const DownloadService = require('../services/download');
  */
 router.post('/artwork/:id', async (req, res) => {
   try {
-    console.log(`收到下载请求: 作品ID ${req.params.id}`);
     const { id } = req.params;
     const { 
       size = 'original',
@@ -16,8 +15,6 @@ router.post('/artwork/:id', async (req, res) => {
       format = 'auto',
       skipExisting = true
     } = req.body;
-    
-    console.log(`下载参数: size=${size}, quality=${quality}, format=${format}, skipExisting=${skipExisting}`);
     
     if (!id || isNaN(parseInt(id))) {
       return res.status(400).json({
@@ -27,15 +24,12 @@ router.post('/artwork/:id', async (req, res) => {
     }
     
     const downloadService = req.backend.getDownloadService();
-    console.log('开始调用下载服务...');
     const result = await downloadService.downloadArtwork(parseInt(id), {
       size,
       quality,
       format,
       skipExisting
     });
-    
-    console.log('下载服务返回结果:', result);
     
     if (result.success) {
       res.json({

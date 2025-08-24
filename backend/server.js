@@ -22,7 +22,7 @@ const proxyConfig = require('./config');
 
 // 自定义日志中间件
 function customLogger(req, res, next) {
-  // 过滤掉静态资源请求
+  // 过滤掉静态资源请求和图片代理请求
   const isStaticResource = req.path.startsWith('/assets/') || 
                           req.path.startsWith('/downloads/') ||
                           req.path.includes('.js') ||
@@ -38,8 +38,11 @@ function customLogger(req, res, next) {
                           req.path.includes('.ttf') ||
                           req.path.includes('.eot');
 
-  // 只记录API请求和重要请求
-  if (!isStaticResource) {
+  // 过滤掉图片代理请求
+  const isImageProxy = req.path === '/api/proxy/image';
+
+  // 只记录API请求和重要请求，排除静态资源和图片代理
+  if (!isStaticResource && !isImageProxy) {
     const start = Date.now();
     
     // 原始响应结束方法

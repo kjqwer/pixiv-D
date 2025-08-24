@@ -13,27 +13,22 @@ class ArtworkService {
   async getArtworkDetail(artworkId, options = {}) {
     try {
       const { include_user = true, include_series = false } = options;
-      
+
       const params = {
         include_user,
-        include_series
+        include_series,
       };
 
-      const response = await this.makeRequest(
-        'GET',
-        `/v1/illust/detail?${stringify(params)}`,
-        { illust_id: artworkId }
-      );
+      const response = await this.makeRequest('GET', `/v1/illust/detail?${stringify(params)}`, { illust_id: artworkId });
 
       return {
         success: true,
-        data: response.illust
+        data: response.illust,
       };
-
     } catch (error) {
       return {
         success: false,
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -43,14 +38,10 @@ class ArtworkService {
    */
   async getArtworkPreview(artworkId) {
     try {
-      const response = await this.makeRequest(
-        'GET',
-        '/v1/illust/detail',
-        { illust_id: artworkId }
-      );
+      const response = await this.makeRequest('GET', '/v1/illust/detail', { illust_id: artworkId });
 
       const artwork = response.illust;
-      
+
       // 构建预览信息
       const preview = {
         id: artwork.id,
@@ -59,7 +50,7 @@ class ArtworkService {
         user: {
           id: artwork.user.id,
           name: artwork.user.name,
-          account: artwork.user.account
+          account: artwork.user.account,
         },
         image_urls: artwork.image_urls,
         tags: artwork.tags.map(tag => tag.name),
@@ -74,18 +65,17 @@ class ArtworkService {
         total_view: artwork.total_view,
         is_muted: artwork.is_muted,
         meta_single_page: artwork.meta_single_page,
-        meta_pages: artwork.meta_pages
+        meta_pages: artwork.meta_pages,
       };
 
       return {
         success: true,
-        data: preview
+        data: preview,
       };
-
     } catch (error) {
       return {
         success: false,
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -95,11 +85,7 @@ class ArtworkService {
    */
   async getArtworkImages(artworkId, size = 'medium') {
     try {
-      const response = await this.makeRequest(
-        'GET',
-        '/v1/illust/detail',
-        { illust_id: artworkId }
-      );
+      const response = await this.makeRequest('GET', '/v1/illust/detail', { illust_id: artworkId });
 
       const artwork = response.illust;
       const images = [];
@@ -111,7 +97,7 @@ class ArtworkService {
           original: artwork.meta_single_page.original_image_url,
           large: artwork.meta_single_page.large_image_url,
           medium: artwork.image_urls.medium,
-          square_medium: artwork.image_urls.square_medium
+          square_medium: artwork.image_urls.square_medium,
         });
       } else if (artwork.meta_pages && artwork.meta_pages.length > 0) {
         // 多页作品
@@ -121,7 +107,7 @@ class ArtworkService {
             original: page.image_urls.original,
             large: page.image_urls.large,
             medium: page.image_urls.medium,
-            square_medium: page.image_urls.square_medium
+            square_medium: page.image_urls.square_medium,
           });
         });
       }
@@ -132,14 +118,13 @@ class ArtworkService {
           artwork_id: artworkId,
           total_pages: artwork.page_count,
           images: images,
-          selected_size: size
-        }
+          selected_size: size,
+        },
       };
-
     } catch (error) {
       return {
         success: false,
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -149,43 +134,35 @@ class ArtworkService {
    */
   async searchArtworks(searchOptions) {
     try {
-      const {
-        keyword,
-        tags,
-        type = 'all',
-        sort = 'date_desc',
-        duration = 'all',
-        offset = 0,
-        limit = 30
-      } = searchOptions;
+      const { keyword, tags, type = 'all', sort = 'date_desc', duration = 'all', offset = 0, limit = 30 } = searchOptions;
 
       // 验证搜索参数
       if ((!keyword || keyword.trim() === '') && (!tags || tags.length === 0)) {
         return {
           success: false,
-          error: 'Search keyword or tags are required'
+          error: 'Search keyword or tags are required',
         };
       }
 
       // 映射搜索参数到Pixiv API格式
       const searchTargetMap = {
-        'all': 'partial_match_for_tags',
-        'art': 'partial_match_for_tags',
-        'manga': 'partial_match_for_tags',
-        'novel': 'partial_match_for_tags'
+        all: 'partial_match_for_tags',
+        art: 'partial_match_for_tags',
+        manga: 'partial_match_for_tags',
+        novel: 'partial_match_for_tags',
       };
 
       const sortMap = {
-        'date_desc': 'date_desc',
-        'date_asc': 'date_asc',
-        'popular_desc': 'popular_desc'
+        date_desc: 'date_desc',
+        date_asc: 'date_asc',
+        popular_desc: 'popular_desc',
       };
 
       const durationMap = {
-        'all': null, // 不传递duration参数表示全部时间
-        'within_last_day': 'within_last_day',
-        'within_last_week': 'within_last_week',
-        'within_last_month': 'within_last_month'
+        all: null, // 不传递duration参数表示全部时间
+        within_last_day: 'within_last_day',
+        within_last_week: 'within_last_week',
+        within_last_month: 'within_last_month',
       };
 
       // 构建搜索关键词
@@ -202,7 +179,7 @@ class ArtworkService {
         search_target: searchTargetMap[type] || 'partial_match_for_tags',
         sort: sortMap[sort] || 'date_desc',
         offset: parseInt(offset) || 0,
-        filter: 'for_ios'
+        filter: 'for_ios',
       };
 
       // 只有当duration不是'all'时才添加duration参数
@@ -210,12 +187,9 @@ class ArtworkService {
         params.duration = durationMap[duration];
       }
 
-      console.log('Search params:', params);
+      // 搜索参数已设置
 
-      const response = await this.makeRequest(
-        'GET',
-        `/v1/search/illust?${stringify(params)}`
-      );
+      const response = await this.makeRequest('GET', `/v1/search/illust?${stringify(params)}`);
 
       return {
         success: true,
@@ -223,17 +197,16 @@ class ArtworkService {
           artworks: response.illusts || [],
           next_url: response.next_url,
           search_span_limit: response.search_span_limit,
-          total: response.illusts ? response.illusts.length : 0
-        }
+          total: response.illusts ? response.illusts.length : 0,
+        },
       };
-
     } catch (error) {
       console.error('Search error:', error.message);
       console.error('Search error details:', error.response?.data);
-      
+
       return {
         success: false,
-        error: error.message || 'Search failed'
+        error: error.message || 'Search failed',
       };
     }
   }
@@ -243,38 +216,29 @@ class ArtworkService {
    */
   async getRecommendedArtworks(options = {}) {
     try {
-      const {
-        offset = 0,
-        limit = 30,
-        include_ranking_illusts = true,
-        include_privacy_policy = false
-      } = options;
+      const { offset = 0, limit = 30, include_ranking_illusts = true, include_privacy_policy = false } = options;
 
       const params = {
         offset,
         include_ranking_illusts,
         include_privacy_policy,
-        filter: 'for_ios'
+        filter: 'for_ios',
       };
 
-      const response = await this.makeRequest(
-        'GET',
-        `/v1/illust/recommended?${stringify(params)}`
-      );
+      const response = await this.makeRequest('GET', `/v1/illust/recommended?${stringify(params)}`);
 
       return {
         success: true,
         data: {
           artworks: response.illusts,
           next_url: response.next_url,
-          ranking_illusts: response.ranking_illusts || []
-        }
+          ranking_illusts: response.ranking_illusts || [],
+        },
       };
-
     } catch (error) {
       return {
         success: false,
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -284,26 +248,17 @@ class ArtworkService {
    */
   async getRankingArtworks(options = {}) {
     try {
-      const {
-        mode = 'day',
-        content = 'illust',
-        filter = 'for_ios',
-        offset = 0,
-        limit = 30
-      } = options;
+      const { mode = 'day', content = 'illust', filter = 'for_ios', offset = 0, limit = 30 } = options;
 
       const params = {
         mode,
         content,
         filter,
         offset,
-        limit
+        limit,
       };
 
-      const response = await this.makeRequest(
-        'GET',
-        `/v1/illust/ranking?${stringify(params)}`
-      );
+      const response = await this.makeRequest('GET', `/v1/illust/ranking?${stringify(params)}`);
 
       return {
         success: true,
@@ -311,14 +266,13 @@ class ArtworkService {
           artworks: response.illusts,
           next_url: response.next_url,
           mode,
-          date: response.date
-        }
+          date: response.date,
+        },
       };
-
     } catch (error) {
       return {
         success: false,
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -333,19 +287,19 @@ class ArtworkService {
       }
 
       const headers = {
-        'Authorization': `Bearer ${this.auth.accessToken}`,
+        Authorization: `Bearer ${this.auth.accessToken}`,
         'Accept-Language': 'en-us',
         'App-OS': 'android',
         'App-OS-Version': '9.0',
         'App-Version': '5.0.234',
-        'User-Agent': 'PixivAndroidApp/5.0.234 (Android 9.0; Pixel 3)'
+        'User-Agent': 'PixivAndroidApp/5.0.234 (Android 9.0; Pixel 3)',
       };
 
       const config = {
         method,
         url: `${this.baseURL}${endpoint}`,
         headers,
-        timeout: 60000 // 增加到60秒
+        timeout: 60000, // 增加到60秒
       };
 
       if (data) {
@@ -356,8 +310,7 @@ class ArtworkService {
         }
       }
 
-      console.log(`Making request to: ${config.url}`);
-      console.log('Request config:', { method, endpoint, data });
+      // 发送API请求
 
       const response = await axios(config);
       return response.data;
@@ -367,11 +320,11 @@ class ArtworkService {
         endpoint,
         error: error.message,
         status: error.response?.status,
-        data: error.response?.data
+        data: error.response?.data,
       });
       throw error;
     }
   }
 }
 
-module.exports = ArtworkService; 
+module.exports = ArtworkService;

@@ -3,6 +3,7 @@ const fs = require('fs-extra');
 const path = require('path');
 const crypto = require('crypto');
 const ConfigManager = require('../config/config-manager');
+const FileUtils = require('../utils/file-utils');
 
 /**
  * 文件管理器 - 负责文件下载、检查和目录管理
@@ -107,9 +108,13 @@ class FileManager {
 
     return new Promise((resolve, reject) => {
       writer.on('finish', resolve);
-      writer.on('error', (error) => {
+      writer.on('error', async (error) => {
         // 下载失败时删除文件
-        fs.unlink(filePath, () => {});
+        try {
+          await this.safeDeleteFile(filePath);
+        } catch (removeError) {
+          console.warn('清理失败文件时出错:', removeError.message);
+        }
         reject(error);
       });
     });
@@ -149,14 +154,35 @@ class FileManager {
    * 创建安全的目录名
    */
   createSafeDirectoryName(name) {
-    return name.replace(/[<>:"/\\|?*]/g, '_');
+    if (!name) return 'Untitled';
+    
+    // 移除或替换Windows文件系统不允许的字符
+    let safeName = name.replace(/[<>:"/\\|?*]/g, '_');
+    
+    // 移除前后空格和点
+    safeName = safeName.trim().replace(/^\.+|\.+$/g, '');
+    
+    // 如果处理后为空，使用默认名称
+    if (!safeName) {
+      safeName = 'Untitled';
+    }
+    
+    // 限制长度，避免路径过长
+    if (safeName.length > 100) {
+      safeName = safeName.substring(0, 100);
+    }
+    
+    return safeName;
   }
 
   /**
    * 确保目录存在
    */
   async ensureDirectory(dirPath) {
-    await fs.ensureDir(dirPath);
+    const success = await FileUtils.safeEnsureDir(dirPath);
+    if (!success) {
+      throw new Error(`目录创建失败: ${dirPath}`);
+    }
   }
 
   /**
@@ -204,9 +230,21 @@ class FileManager {
    * 删除文件
    */
   async deleteFile(filePath) {
-    if (await fs.pathExists(filePath)) {
-      await fs.unlink(filePath);
+    try {
+      if (await fs.pathExists(filePath)) {
+        await fs.unlink(filePath);
+      }
+    } catch (error) {
+      console.error(`文件删除失败: ${filePath}`, error.message);
+      // 不抛出错误，避免影响其他操作
     }
+  }
+
+  /**
+   * 安全删除文件（兼容 pkg 打包）
+   */
+  async safeDeleteFile(filePath) {
+    return await FileUtils.safeDeleteFile(filePath);
   }
 
   /**

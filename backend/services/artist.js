@@ -15,7 +15,6 @@ class ArtistService {
       const response = await this.makeRequest('GET', '/v1/user/detail', { user_id: artistId });
 
       return {
-        
         success: true,
         data: response.user,
       };
@@ -41,7 +40,7 @@ class ArtistService {
         account: response.user.account,
         profile_image_urls: response.user.profile_image_urls,
         comment: response.user.comment,
-        is_followed: response.user.is_followed || false
+        is_followed: response.user.is_followed || false,
       };
 
       return {
@@ -72,9 +71,7 @@ class ArtistService {
 
       const response = await this.makeRequest('GET', `/v1/user/illusts?${stringify(params)}`);
 
-      console.log('Artworks response keys:', Object.keys(response));
-      console.log('Artworks count:', response.illusts?.length || 0);
-      console.log('Next URL:', response.next_url);
+      // 获取作者作品列表
 
       return {
         success: true,
@@ -337,7 +334,7 @@ class ArtistService {
     }
 
     try {
-      console.log(`发送API请求: ${method} ${endpoint}`);
+      // 发送API请求
       const response = await axios(config);
       return response.data;
     } catch (error) {

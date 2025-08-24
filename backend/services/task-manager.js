@@ -21,7 +21,7 @@ class TaskManager {
       await fs.ensureDir(this.dataPath);
       await this.loadTasks();
       this.initialized = true;
-      console.log('任务管理器初始化完成');
+      // 任务管理器初始化完成
     } catch (error) {
       console.error('任务管理器初始化失败:', error);
       this.initialized = false;
@@ -36,7 +36,7 @@ class TaskManager {
       if (await fs.pathExists(this.tasksFile)) {
         const tasksData = await fs.readJson(this.tasksFile);
         this.tasks = new Map(Object.entries(tasksData));
-        
+
         // 恢复进行中的任务状态
         for (const [taskId, task] of this.tasks) {
           if (task.status === 'downloading' || task.status === 'paused') {
@@ -75,9 +75,9 @@ class TaskManager {
       start_time: new Date(),
       end_time: null,
       error: null,
-      ...data
+      ...data,
     };
-    
+
     this.tasks.set(taskId, task);
     return task;
   }
@@ -97,7 +97,7 @@ class TaskManager {
     if (!task) {
       return false;
     }
-    
+
     Object.assign(task, updates);
     await this.saveTasks();
     return true;
@@ -134,19 +134,19 @@ class TaskManager {
   async cleanupCompletedTasks() {
     const completedStatuses = ['completed', 'failed', 'cancelled', 'partial'];
     let cleanedCount = 0;
-    
+
     for (const [taskId, task] of this.tasks) {
       if (completedStatuses.includes(task.status)) {
         this.tasks.delete(taskId);
         cleanedCount++;
       }
     }
-    
+
     if (cleanedCount > 0) {
       await this.saveTasks();
-      console.log(`清理了 ${cleanedCount} 个已完成的任务`);
+      // 清理了已完成的任务
     }
-    
+
     return cleanedCount;
   }
 
@@ -161,17 +161,17 @@ class TaskManager {
       completed: 0,
       failed: 0,
       cancelled: 0,
-      partial: 0
+      partial: 0,
     };
-    
+
     for (const task of this.tasks.values()) {
       if (stats.hasOwnProperty(task.status)) {
         stats[task.status]++;
       }
     }
-    
+
     return stats;
   }
 }
 
-module.exports = TaskManager; 
+module.exports = TaskManager;

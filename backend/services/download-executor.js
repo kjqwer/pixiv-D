@@ -34,10 +34,12 @@ class DownloadExecutor {
         if (task.status === 'cancelled') {
           break;
         }
-        
+
         const image = images[index];
         const imageUrl = image[size] || image.original;
-        const fileName = `${artwork.title || 'Untitled'}_${artwork.id}_${index + 1}${this.fileManager.getFileExtension(imageUrl)}`;
+        // 使用安全处理的标题创建文件名
+        const safeTitle = this.fileManager.createSafeDirectoryName(artwork.title || 'Untitled');
+        const fileName = `${safeTitle}_${artwork.id}_${index + 1}${this.fileManager.getFileExtension(imageUrl)}`;
         const filePath = path.join(artworkDir, fileName);
 
         // 如果文件已存在，跳过下载
@@ -49,19 +51,22 @@ class DownloadExecutor {
           results.push({ success: true, file: fileName, skipped: true });
           continue;
         }
-        
+
         try {
+          // 确保目录存在
+          await this.fileManager.ensureDirectory(path.dirname(filePath));
+
           await this.fileManager.downloadFile(imageUrl, filePath);
-          
+
           task.completed_files++;
           task.progress = Math.round((task.completed_files / task.total_files) * 100);
           await this.taskManager.saveTasks();
           this.progressManager.notifyProgressUpdate(task.id, task);
-          
+
           results.push({ success: true, file: fileName });
         } catch (error) {
           task.failed_files++;
-          console.error(`下载图片失败 ${index + 1}:`, error.message);
+          console.error(`下载图片失败 ${index + 1}: ${error.message}`);
           this.progressManager.notifyProgressUpdate(task.id, task);
           results.push({ success: false, error: error.message });
         }
@@ -91,17 +96,10 @@ class DownloadExecutor {
         failed_files: task.failed_files,
         start_time: task.start_time,
         end_time: task.end_time,
-        status: task.status
+        status: task.status,
       };
-      
-      await this.historyManager.addHistoryItem(historyItem);
-      
-      console.log('下载完成，历史记录已保存:', {
-        taskId: task.id,
-        historyLength: this.historyManager.history.length,
-        tasksCount: this.taskManager.tasks.size
-      });
 
+      await this.historyManager.addHistoryItem(historyItem);
     } catch (error) {
       console.error('异步下载执行失败:', error);
       task.status = 'failed';
@@ -117,7 +115,7 @@ class DownloadExecutor {
    */
   async executeBatchDownload(task, artworkIds, options) {
     const { concurrent = 3, size = 'original', quality = 'high', format = 'auto' } = options;
-    
+
     try {
       const results = [];
 
@@ -126,9 +124,9 @@ class DownloadExecutor {
         if (task.status === 'cancelled') {
           break;
         }
-        
+
         const batch = task.filtered_ids.slice(i, i + concurrent);
-        const batchPromises = batch.map(async (artworkId) => {
+        const batchPromises = batch.map(async artworkId => {
           try {
             // 这里需要调用主下载服务的方法，暂时返回模拟结果
             task.completed++;
@@ -147,7 +145,7 @@ class DownloadExecutor {
         task.progress = Math.round((task.completed / task.total) * 100);
         await this.taskManager.saveTasks();
         this.progressManager.notifyProgressUpdate(task.id, task);
-        
+
         // 添加延迟避免请求过于频繁
         if (i + concurrent < task.filtered_ids.length) {
           await new Promise(resolve => setTimeout(resolve, 1000));
@@ -160,7 +158,6 @@ class DownloadExecutor {
       task.results = results;
       await this.taskManager.saveTasks();
       this.progressManager.notifyProgressUpdate(task.id, task);
-
     } catch (error) {
       task.status = 'failed';
       task.error = error.message;
@@ -175,7 +172,7 @@ class DownloadExecutor {
    */
   async executeArtistDownload(task, newArtworks, options) {
     const { maxConcurrent = 3, size = 'original', quality = 'high', format = 'auto' } = options;
-    
+
     try {
       const results = [];
 
@@ -184,9 +181,9 @@ class DownloadExecutor {
         if (task.status === 'cancelled') {
           break;
         }
-        
+
         const batch = newArtworks.slice(i, i + maxConcurrent);
-        const batchPromises = batch.map(async (artwork) => {
+        const batchPromises = batch.map(async artwork => {
           try {
             // 这里需要调用主下载服务的方法，暂时返回模拟结果
             task.completed++;
@@ -205,7 +202,7 @@ class DownloadExecutor {
         task.progress = Math.round((task.completed / task.total) * 100);
         await this.taskManager.saveTasks();
         this.progressManager.notifyProgressUpdate(task.id, task);
-        
+
         // 添加延迟避免请求过于频繁
         if (i + maxConcurrent < newArtworks.length) {
           await new Promise(resolve => setTimeout(resolve, 1000));
@@ -218,7 +215,6 @@ class DownloadExecutor {
       task.results = results;
       await this.taskManager.saveTasks();
       this.progressManager.notifyProgressUpdate(task.id, task);
-
     } catch (error) {
       task.status = 'failed';
       task.error = error.message;
@@ -233,7 +229,7 @@ class DownloadExecutor {
    */
   async executeRankingDownload(task, newArtworks, options) {
     const { maxConcurrent = 3, size = 'original', quality = 'high', format = 'auto' } = options;
-    
+
     try {
       const results = [];
 
@@ -242,9 +238,9 @@ class DownloadExecutor {
         if (task.status === 'cancelled') {
           break;
         }
-        
+
         const batch = newArtworks.slice(i, i + maxConcurrent);
-        const batchPromises = batch.map(async (artwork) => {
+        const batchPromises = batch.map(async artwork => {
           try {
             // 这里需要调用主下载服务的方法，暂时返回模拟结果
             task.completed++;
@@ -263,7 +259,7 @@ class DownloadExecutor {
         task.progress = Math.round((task.completed / task.total) * 100);
         await this.taskManager.saveTasks();
         this.progressManager.notifyProgressUpdate(task.id, task);
-        
+
         // 添加延迟避免请求过于频繁
         if (i + maxConcurrent < newArtworks.length) {
           await new Promise(resolve => setTimeout(resolve, 1000));
@@ -276,7 +272,6 @@ class DownloadExecutor {
       task.results = results;
       await this.taskManager.saveTasks();
       this.progressManager.notifyProgressUpdate(task.id, task);
-
     } catch (error) {
       task.status = 'failed';
       task.error = error.message;
@@ -287,4 +282,4 @@ class DownloadExecutor {
   }
 }
 
-module.exports = DownloadExecutor; 
+module.exports = DownloadExecutor;

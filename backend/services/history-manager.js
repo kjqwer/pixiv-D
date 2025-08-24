@@ -20,7 +20,7 @@ class HistoryManager {
       await fs.ensureDir(this.dataPath);
       await this.loadHistory();
       this.initialized = true;
-      console.log('历史记录管理器初始化完成');
+      // 历史记录管理器初始化完成
     } catch (error) {
       console.error('历史记录管理器初始化失败:', error);
       this.initialized = false;
