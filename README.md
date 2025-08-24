@@ -35,7 +35,7 @@ Pixiv 下载浏览管理器是一个基于 Web 的应用程序，提供以下功
 - **提取码**: yxmd
 
 **方式二：直接下载（可能比较慢，服务器带宽有限辣）**
-- **下载链接**: [点我下载](https://sywb.top/Staticfiles/p%E4%B8%BD%E8%BD%BD%E5%99%A8.rar)
+- **下载链接**: [点我下载](https://sywb.top/Staticfiles/p%E4%B8%8B%E8%BD%BD%E5%99%A8.rar)
 - **发行版**: [点我跳转](https://github.com/kjqwer/pixiv-D/releases)
 
 **使用说明**: 下载后解压，记事本打开start.bat配置代理（看readme有介绍），双击 `start.bat` 即可启动，打开网站，按照教程登录即可
