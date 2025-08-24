@@ -50,8 +50,19 @@ router.post('/config/reset', async (req, res) => {
 // 获取仓库统计信息
 router.get('/stats', async (req, res) => {
   try {
-    const stats = await repositoryService.getStats()
+    const { forceRefresh } = req.query
+    const stats = await repositoryService.getStats(forceRefresh === 'true')
     res.json(ResponseUtil.success(stats))
+  } catch (error) {
+    res.status(500).json(ResponseUtil.error(error.message))
+  }
+})
+
+// 清除磁盘使用情况缓存
+router.post('/stats/clear-cache', async (req, res) => {
+  try {
+    const result = await repositoryService.clearDiskUsageCache()
+    res.json(ResponseUtil.success(result))
   } catch (error) {
     res.status(500).json(ResponseUtil.error(error.message))
   }

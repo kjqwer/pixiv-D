@@ -20,6 +20,7 @@ export interface RepositoryStats {
     used: number
     free: number
     usagePercent: number
+    note?: string
   }
   lastScan: string
 }
@@ -126,8 +127,8 @@ export const useRepositoryStore = defineStore('repository', () => {
   }
 
   // 获取统计信息
-  const getStats = async (): Promise<RepositoryStats> => {
-    const result = await apiCall('/stats')
+  const getStats = async (forceRefresh = false): Promise<RepositoryStats> => {
+    const result = await apiCall(`/stats${forceRefresh ? '?forceRefresh=true' : ''}`)
     stats.value = result
     return result
   }

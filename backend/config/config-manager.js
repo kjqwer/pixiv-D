@@ -18,6 +18,9 @@ class ConfigManager {
       this.configDir = path.join(__dirname, 'user-config.json')
     }
     
+    // 确保配置目录存在
+    this.ensureConfigDir()
+    
     this.defaultConfig = {
       downloadDir: "./downloads",
       fileStructure: "artist/artwork",
@@ -27,6 +30,21 @@ class ConfigManager {
       autoMigration: false,
       migrationRules: [],
       lastUpdated: new Date().toISOString()
+    }
+  }
+
+  /**
+   * 确保配置目录存在
+   */
+  ensureConfigDir() {
+    try {
+      const configDirPath = path.dirname(this.configDir)
+      if (!require('fs').existsSync(configDirPath)) {
+        require('fs').mkdirSync(configDirPath, { recursive: true })
+        console.log('配置目录创建成功:', configDirPath)
+      }
+    } catch (error) {
+      console.error('创建配置目录失败:', error)
     }
   }
 
@@ -55,14 +73,27 @@ class ConfigManager {
       const configDirPath = path.dirname(this.configDir)
       await fs.mkdir(configDirPath, { recursive: true })
       
-      // 写入默认配置
-      await fs.writeFile(
-        this.configDir,
-        JSON.stringify(this.defaultConfig, null, 2),
-        'utf8'
-      )
+      // 检查目录是否创建成功
+      try {
+        await fs.access(configDirPath)
+        console.log('配置目录确认存在:', configDirPath)
+      } catch (accessError) {
+        console.error('配置目录访问失败:', accessError)
+        throw new Error(`无法访问配置目录: ${configDirPath}`)
+      }
       
-      console.log('默认配置文件创建成功:', this.configDir)
+      // 写入默认配置
+      const configContent = JSON.stringify(this.defaultConfig, null, 2)
+      await fs.writeFile(this.configDir, configContent, 'utf8')
+      
+      // 验证文件是否写入成功
+      try {
+        await fs.access(this.configDir)
+        console.log('默认配置文件创建成功:', this.configDir)
+      } catch (verifyError) {
+        console.error('配置文件验证失败:', verifyError)
+        throw new Error('配置文件创建后无法访问')
+      }
     } catch (error) {
       console.error('创建默认配置文件失败:', error)
       throw error
@@ -74,12 +105,30 @@ class ConfigManager {
    */
   async readConfig() {
     try {
+      // 首先检查文件是否存在
+      const exists = await this.configExists()
+      if (!exists) {
+        console.log('配置文件不存在，创建默认配置...')
+        await this.createDefaultConfig()
+      }
+      
       const configData = await fs.readFile(this.configDir, 'utf8')
-      return JSON.parse(configData)
+      const config = JSON.parse(configData)
+      
+      // 合并默认配置，确保所有必要的字段都存在
+      return { ...this.defaultConfig, ...config }
     } catch (error) {
       console.error('读取配置文件失败:', error)
-      // 如果读取失败，返回默认配置
-      return { ...this.defaultConfig }
+      console.log('使用默认配置...')
+      // 如果读取失败，尝试创建默认配置
+      try {
+        await this.createDefaultConfig()
+        return { ...this.defaultConfig }
+      } catch (createError) {
+        console.error('创建默认配置也失败:', createError)
+        // 最后返回内存中的默认配置
+        return { ...this.defaultConfig }
+      }
     }
   }
 

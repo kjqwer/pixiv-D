@@ -10,6 +10,16 @@ class RepositoryService {
     // 初始化配置管理器
     this.configManager = new ConfigManager()
     this.config = null
+    
+    // 磁盘使用情况缓存
+    this.diskUsageCache = {
+      data: null,
+      timestamp: 0,
+      cacheDuration: 5 * 60 * 1000 // 5分钟缓存
+    }
+    
+    // 缓存文件路径
+    this.cacheFilePath = null
   }
 
   // 获取当前工作目录（基于配置）
@@ -37,6 +47,12 @@ class RepositoryService {
       const currentBaseDir = this.getCurrentBaseDir()
       await fs.mkdir(currentBaseDir, { recursive: true })
       
+      // 初始化缓存文件路径
+      this.cacheFilePath = path.join(path.dirname(this.configManager.getConfigPath()), 'disk-usage-cache.json')
+      
+      // 加载持久化缓存
+      await this.loadPersistentCache()
+      
       return { success: true, message: '仓库初始化成功' }
     } catch (error) {
       throw new Error(`仓库初始化失败: ${error.message}`)
@@ -49,8 +65,17 @@ class RepositoryService {
       this.config = await this.configManager.readConfig()
     } catch (error) {
       console.error('加载配置失败:', error)
-      // 如果加载失败，使用默认配置
-      this.config = await this.configManager.readConfig()
+      // 如果加载失败，使用默认配置对象
+      this.config = {
+        downloadDir: "./downloads",
+        fileStructure: "artist/artwork",
+        namingPattern: "{artist_name}/{artwork_id}_{title}",
+        maxFileSize: 0,
+        allowedExtensions: [".jpg", ".png", ".gif", ".webp"],
+        autoMigration: false,
+        migrationRules: [],
+        lastUpdated: new Date().toISOString()
+      }
     }
   }
 
@@ -87,14 +112,14 @@ class RepositoryService {
   }
 
   // 获取仓库统计信息
-  async getStats() {
+  async getStats(forceRefresh = false) {
     try {
       const stats = await this.scanRepository()
       return {
         totalArtworks: stats.artworks.length,
         totalArtists: stats.artists.length,
         totalSize: stats.totalSize,
-        diskUsage: await this.getDiskUsage(),
+        diskUsage: await this.getDiskUsage(forceRefresh),
         lastScan: new Date().toISOString()
       }
     } catch (error) {
@@ -219,39 +244,54 @@ class RepositoryService {
   }
 
   // 获取磁盘使用情况
-  async getDiskUsage() {
+  async getDiskUsage(forceRefresh = false) {
     try {
       const currentBaseDir = this.getCurrentBaseDir()
       
-      // 尝试使用 fs.statfs (Node.js 内置方法)
-      try {
-        const stats = await fs.statfs(currentBaseDir)
-        const total = stats.blocks * stats.bsize
-        const free = stats.bavail * stats.bsize
-        const used = total - free
-        
-        return {
-          total,
-          used,
-          free,
-          usagePercent: Math.round((used / total) * 100)
+      // 检查是否在打包环境中
+      const isPkg = process.pkg !== undefined
+      
+      // 尝试使用 fs.statfs (Node.js 内置方法) - 最快的方法
+      if (!isPkg && typeof fs.statfs === 'function') {
+        try {
+          const stats = await fs.statfs(currentBaseDir)
+          const total = stats.blocks * stats.bsize
+          const free = stats.bavail * stats.bsize
+          const used = total - free
+          
+          return {
+            total,
+            used,
+            free,
+            usagePercent: Math.round((used / total) * 100)
+          }
+        } catch (statfsError) {
+          console.log('fs.statfs 调用失败:', statfsError.message)
         }
-      } catch (statfsError) {
-        console.log('fs.statfs 不可用，尝试使用系统命令:', statfsError.message)
-        
-        // 如果 fs.statfs 不可用，尝试使用系统命令
-        if (process.platform === 'win32') {
-          // Windows 系统
-          try {
-            const { stdout } = await execAsync('wmic logicaldisk get size,freespace,caption')
-            const lines = stdout.trim().split('\n').slice(1) // 跳过标题行
-            
-            for (const line of lines) {
-              const parts = line.trim().split(/\s+/)
-              if (parts.length >= 3) {
-                const caption = parts[0]
-                const freeSpace = parseInt(parts[1])
-                const totalSize = parseInt(parts[2])
+      } else {
+        console.log('fs.statfs 在打包环境中不可用，尝试使用系统命令')
+      }
+      
+      // 如果 fs.statfs 不可用，尝试使用系统命令
+      if (process.platform === 'win32') {
+        // Windows 系统 - 优先使用最快的命令
+        const methods = [
+          // 方法1: 使用 PowerShell (通常比 wmic 快)
+          async () => {
+            try {
+              // 设置超时，避免长时间等待
+              const { stdout } = await Promise.race([
+                execAsync('powershell "Get-WmiObject -Class Win32_LogicalDisk | Select-Object Size,FreeSpace,Caption | ConvertTo-Json"'),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('PowerShell 超时')), 3000))
+              ])
+              
+              const disks = JSON.parse(stdout)
+              const diskArray = Array.isArray(disks) ? disks : [disks]
+              
+              for (const disk of diskArray) {
+                const caption = disk.Caption
+                const freeSpace = parseInt(disk.FreeSpace)
+                const totalSize = parseInt(disk.Size)
                 
                 // 检查当前目录是否在这个磁盘上
                 if (currentBaseDir.toUpperCase().startsWith(caption.toUpperCase())) {
@@ -264,39 +304,101 @@ class RepositoryService {
                   }
                 }
               }
+            } catch (error) {
+              console.log('PowerShell 方法失败:', error.message)
+              throw error
             }
-          } catch (wmicError) {
-            console.log('wmic 命令失败:', wmicError.message)
-          }
-        } else {
-          // Unix/Linux 系统
-          try {
-            const { stdout } = await execAsync(`df -B1 "${currentBaseDir}" | tail -1`)
-            const parts = stdout.trim().split(/\s+/)
-            if (parts.length >= 4) {
-              const total = parseInt(parts[1])
-              const used = parseInt(parts[2])
-              const free = parseInt(parts[3])
+          },
+          
+          // 方法2: 使用 wmic (备用方案)
+          async () => {
+            try {
+              const { stdout } = await Promise.race([
+                execAsync('wmic logicaldisk get size,freespace,caption /format:csv'),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('wmic 超时')), 3000))
+              ])
               
-              return {
-                total,
-                used,
-                free,
-                usagePercent: Math.round((used / total) * 100)
+              const lines = stdout.trim().split('\n').slice(1) // 跳过标题行
+              
+              for (const line of lines) {
+                const parts = line.split(',')
+                if (parts.length >= 3) {
+                  const caption = parts[0].trim()
+                  const freeSpace = parseInt(parts[1])
+                  const totalSize = parseInt(parts[2])
+                  
+                  // 检查当前目录是否在这个磁盘上
+                  if (currentBaseDir.toUpperCase().startsWith(caption.toUpperCase())) {
+                    const used = totalSize - freeSpace
+                    return {
+                      total: totalSize,
+                      used,
+                      free: freeSpace,
+                      usagePercent: Math.round((used / totalSize) * 100)
+                    }
+                  }
+                }
               }
+            } catch (error) {
+              console.log('wmic 方法失败:', error.message)
+              throw error
             }
-          } catch (dfError) {
-            console.log('df 命令失败:', dfError.message)
+          }
+        ]
+        
+        // 尝试所有方法，但限制总时间
+        for (const method of methods) {
+          try {
+            const result = await Promise.race([
+              method(),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('磁盘信息获取超时')), 5000))
+            ])
+            if (result) {
+              return result
+            }
+          } catch (error) {
+            console.log(`磁盘使用情况获取方法失败:`, error.message)
+            continue
           }
         }
-        
-        // 如果所有方法都失败，返回默认值
-        console.log('无法获取磁盘使用情况，返回默认值')
-        return { total: 0, used: 0, free: 0, usagePercent: 0 }
+      } else {
+        // Unix/Linux 系统
+        try {
+          const { stdout } = await Promise.race([
+            execAsync(`df -B1 "${currentBaseDir}" | tail -1`),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('df 命令超时')), 3000))
+          ])
+          
+          const parts = stdout.trim().split(/\s+/)
+          if (parts.length >= 4) {
+            const total = parseInt(parts[1])
+            const used = parseInt(parts[2])
+            const free = parseInt(parts[3])
+            
+            return {
+              total,
+              used,
+              free,
+              usagePercent: Math.round((used / total) * 100)
+            }
+          }
+        } catch (dfError) {
+          console.log('df 命令失败:', dfError.message)
+        }
       }
+      
+      // 如果系统命令都失败，返回基于缓存的估算值
+      return await this.getCachedDiskUsage(currentBaseDir, forceRefresh)
+      
     } catch (error) {
       console.error('获取磁盘使用情况失败:', error)
-      return { total: 0, used: 0, free: 0, usagePercent: 0 }
+      return { 
+        total: 0, 
+        used: 0, 
+        free: 0, 
+        usagePercent: 0,
+        note: '获取失败'
+      }
     }
   }
 
@@ -622,6 +724,202 @@ class RepositoryService {
       return { success: true, message: '作品删除成功' }
     } catch (error) {
       throw new Error(`删除作品失败: ${error.message}`)
+    }
+  }
+
+  // 加载持久化缓存
+  async loadPersistentCache() {
+    try {
+      if (!this.cacheFilePath) {
+        return
+      }
+      
+      const cacheData = await fs.readFile(this.cacheFilePath, 'utf8')
+      const cache = JSON.parse(cacheData)
+      
+      // 检查缓存是否有效（24小时内）
+      const now = Date.now()
+      const cacheAge = now - cache.timestamp
+      const maxCacheAge = 24 * 60 * 60 * 1000 // 24小时
+      
+      if (cacheAge < maxCacheAge) {
+        this.diskUsageCache.data = cache.data
+        this.diskUsageCache.timestamp = cache.timestamp
+        console.log('已加载持久化缓存，缓存年龄:', Math.round(cacheAge / 1000 / 60), '分钟')
+      } else {
+        console.log('持久化缓存已过期，将重新计算')
+      }
+    } catch (error) {
+      console.log('加载持久化缓存失败，将使用内存缓存:', error.message)
+    }
+  }
+
+  // 保存持久化缓存
+  async savePersistentCache() {
+    try {
+      if (!this.cacheFilePath || !this.diskUsageCache.data) {
+        return
+      }
+      
+      const cacheData = {
+        data: this.diskUsageCache.data,
+        timestamp: this.diskUsageCache.timestamp,
+        savedAt: new Date().toISOString()
+      }
+      
+      await fs.writeFile(this.cacheFilePath, JSON.stringify(cacheData, null, 2), 'utf8')
+      console.log('持久化缓存已保存')
+    } catch (error) {
+      console.error('保存持久化缓存失败:', error.message)
+    }
+  }
+
+  // 清除磁盘使用情况缓存
+  async clearDiskUsageCache() {
+    try {
+      // 清除内存缓存
+      this.diskUsageCache.data = null
+      this.diskUsageCache.timestamp = 0
+      
+      // 删除持久化缓存文件
+      if (this.cacheFilePath) {
+        try {
+          await fs.unlink(this.cacheFilePath)
+          console.log('持久化缓存文件已删除')
+        } catch (error) {
+          console.log('删除持久化缓存文件失败:', error.message)
+        }
+      }
+      
+      return { success: true, message: '缓存已清除' }
+    } catch (error) {
+      throw new Error(`清除缓存失败: ${error.message}`)
+    }
+  }
+
+  // 获取缓存的磁盘使用情况
+  async getCachedDiskUsage(currentBaseDir, forceRefresh = false) {
+    const now = Date.now()
+    
+    // 检查内存缓存是否有效（除非强制刷新）
+    if (!forceRefresh && this.diskUsageCache.data && 
+        (now - this.diskUsageCache.timestamp) < this.diskUsageCache.cacheDuration) {
+      console.log('使用内存缓存的磁盘使用情况')
+      return this.diskUsageCache.data
+    }
+    
+    // 缓存过期或不存在，计算新的值
+    try {
+      // 快速估算：只计算前几层目录
+      const estimatedSize = await this.quickDirectorySizeEstimate(currentBaseDir)
+      
+      // 基于估算值创建磁盘使用情况
+      const estimatedTotal = Math.max(estimatedSize * 200, 100 * 1024 * 1024 * 1024) // 至少100GB
+      const estimatedUsed = estimatedSize
+      const estimatedFree = estimatedTotal - estimatedUsed
+      
+      const result = {
+        total: estimatedTotal,
+        used: estimatedUsed,
+        free: estimatedFree,
+        usagePercent: Math.round((estimatedUsed / estimatedTotal) * 100),
+        note: '基于目录估算（缓存5分钟）'
+      }
+      
+      // 更新内存缓存
+      this.diskUsageCache.data = result
+      this.diskUsageCache.timestamp = now
+      
+      // 保存到持久化缓存
+      await this.savePersistentCache()
+      
+      return result
+    } catch (error) {
+      console.log('快速估算失败，返回默认值:', error.message)
+      return { 
+        total: 0, 
+        used: 0, 
+        free: 0, 
+        usagePercent: 0,
+        note: '无法获取磁盘信息'
+      }
+    }
+  }
+
+  // 快速目录大小估算（只计算前几层）
+  async quickDirectorySizeEstimate(dirPath, maxDepth = 2, currentDepth = 0) {
+    try {
+      if (currentDepth >= maxDepth) {
+        return 0
+      }
+      
+      let totalSize = 0
+      const entries = await fs.readdir(dirPath, { withFileTypes: true })
+      
+      // 限制处理的文件数量，避免过长时间
+      const maxFiles = 1000
+      let processedFiles = 0
+      
+      for (const entry of entries) {
+        if (processedFiles >= maxFiles) {
+          break
+        }
+        
+        const fullPath = path.join(dirPath, entry.name)
+        
+        if (entry.isDirectory()) {
+          totalSize += await this.quickDirectorySizeEstimate(fullPath, maxDepth, currentDepth + 1)
+        } else {
+          try {
+            const stats = await fs.stat(fullPath)
+            totalSize += stats.size
+            processedFiles++
+          } catch (error) {
+            // 忽略无法访问的文件
+          }
+        }
+      }
+      
+      // 如果达到文件数量限制，进行估算
+      if (processedFiles >= maxFiles) {
+        const remainingEntries = entries.length - processedFiles
+        const avgFileSize = totalSize / processedFiles
+        totalSize += remainingEntries * avgFileSize
+      }
+      
+      return totalSize
+    } catch (error) {
+      console.error('快速目录大小估算失败:', error)
+      return 0
+    }
+  }
+
+  // 计算目录大小（完整版本，用于需要精确值时）
+  async calculateDirectorySize(dirPath) {
+    try {
+      let totalSize = 0
+      const entries = await fs.readdir(dirPath, { withFileTypes: true })
+      
+      for (const entry of entries) {
+        const fullPath = path.join(dirPath, entry.name)
+        
+        if (entry.isDirectory()) {
+          totalSize += await this.calculateDirectorySize(fullPath)
+        } else {
+          try {
+            const stats = await fs.stat(fullPath)
+            totalSize += stats.size
+          } catch (error) {
+            // 忽略无法访问的文件
+            console.log(`无法访问文件: ${fullPath}`)
+          }
+        }
+      }
+      
+      return totalSize
+    } catch (error) {
+      console.error('计算目录大小失败:', error)
+      return 0
     }
   }
 
