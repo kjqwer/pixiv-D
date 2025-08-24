@@ -223,7 +223,7 @@ class ArtistService {
   async followArtist(artistId, action = 'follow') {
     try {
       const data = {
-        user_id: artistId,
+        user_id: String(artistId),
         restrict: 'public',
       };
 
@@ -330,7 +330,9 @@ class ArtistService {
       if (method === 'GET') {
         config.params = data;
       } else {
-        config.data = data;
+        // 对于POST请求，使用form-urlencoded格式
+        headers['Content-Type'] = 'application/x-www-form-urlencoded';
+        config.data = stringify(data);
       }
     }
 
