@@ -1,30 +1,36 @@
 <template>
   <div class="artwork-page">
     <div class="container">
-      <div v-if="loading" class="loading-section">
-        <LoadingSpinner text="加载中..." />
-      </div>
-
-      <div v-else-if="error" class="error-section">
-        <ErrorMessage :error="error" @dismiss="clearError" />
-      </div>
-
       <!-- 收藏错误提示 -->
       <div v-if="bookmarkError" class="error-section">
         <ErrorMessage :error="bookmarkError" title="警告" type="warning" dismissible @dismiss="clearBookmarkError" />
       </div>
 
-      <div v-else-if="artwork" class="artwork-content">
+      <div v-if="error" class="error-section">
+        <ErrorMessage :error="error" @dismiss="clearError" />
+      </div>
+
+      <!-- 页面加载状态 -->
+      <div v-if="loading && !artwork" class="loading-section">
+        <LoadingSpinner text="加载中..." />
+      </div>
+
+      <!-- 作品内容 -->
+      <div v-if="artwork" class="artwork-content" :class="{ 'content-loading': loading }">
         <!-- 作品图片 -->
         <div class="artwork-gallery">
           <div class="main-image">
             <img :src="getImageUrl(currentImageUrl)" :alt="artwork.title" @load="imageLoaded = true"
               @error="imageError = true" :class="{ loaded: imageLoaded, error: imageError }" crossorigin="anonymous" />
             <div v-if="!imageLoaded && !imageError" class="image-placeholder">
-              <LoadingSpinner text="加载中..." />
+              <LoadingSpinner text="图片加载中..." />
             </div>
             <div v-if="imageError" class="image-error">
               <span>图片加载失败</span>
+            </div>
+            <!-- 页面切换时的遮罩层 -->
+            <div v-if="loading" class="image-overlay">
+              <LoadingSpinner text="切换中..." />
             </div>
           </div>
 
@@ -90,16 +96,16 @@
               </svg>
               <span>返回</span>
             </button>
-            <button @click="navigateToPrevious" class="nav-btn nav-prev" :disabled="!previousArtwork"
+            <button @click="navigateToPrevious" class="nav-btn nav-prev" :disabled="!previousArtwork || loading"
               :title="previousArtwork ? `上一个: ${previousArtwork.title}` : '没有上一个作品'">
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
               </svg>
-              <span>上一个</span>
+              <span>{{ loading ? '切换中...' : '上一个' }}</span>
             </button>
-            <button @click="navigateToNext" class="nav-btn nav-next" :disabled="!nextArtwork"
+            <button @click="navigateToNext" class="nav-btn nav-next" :disabled="!nextArtwork || loading"
               :title="nextArtwork ? `下一个: ${nextArtwork.title}` : '没有下一个作品'">
-              <span>下一个</span>
+              <span>{{ loading ? '切换中...' : '下一个' }}</span>
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z" />
               </svg>
@@ -246,10 +252,6 @@ const fetchArtworkDetail = async () => {
   try {
     loading.value = true;
     error.value = null;
-    // 重置图片加载状态
-    imageLoaded.value = false;
-    imageError.value = false;
-    currentPage.value = 0;
 
     // 清理之前的任务状态
     currentTask.value = null;
@@ -258,7 +260,14 @@ const fetchArtworkDetail = async () => {
     const response = await artworkService.getArtworkDetail(artworkId);
 
     if (response.success && response.data) {
+      // 重置图片加载状态
+      imageLoaded.value = false;
+      imageError.value = false;
+      currentPage.value = 0;
+
+      // 更新作品数据
       artwork.value = response.data;
+
       // 检查下载状态
       await checkDownloadStatus(artworkId);
     } else {
@@ -491,7 +500,10 @@ const fetchArtistArtworks = async () => {
 
 // 导航到上一个作品
 const navigateToPrevious = () => {
-  if (previousArtwork.value) {
+  if (previousArtwork.value && !loading.value) {
+    // 立即设置加载状态
+    loading.value = true;
+
     router.push({
       path: `/artwork/${previousArtwork.value.id}`,
       query: {
@@ -506,7 +518,10 @@ const navigateToPrevious = () => {
 
 // 导航到下一个作品
 const navigateToNext = () => {
-  if (nextArtwork.value) {
+  if (nextArtwork.value && !loading.value) {
+    // 立即设置加载状态
+    loading.value = true;
+
     router.push({
       path: `/artwork/${nextArtwork.value.id}`,
       query: {
@@ -611,7 +626,10 @@ const handleKeyUp = (event: KeyboardEvent) => {
 };
 
 // 监听路由变化，重新获取作品详情和导航数据
-watch(() => route.params.id, () => {
+watch(() => route.params.id, (newId, oldId) => {
+  // 如果是同一个ID，不重复加载
+  if (newId === oldId) return;
+
   // 清理之前的任务状态
   currentTask.value = null;
   stopTaskStreaming();
@@ -688,6 +706,12 @@ onUnmounted(() => {
   grid-template-columns: 1fr 460px;
   gap: 3rem;
   align-items: start;
+  transition: opacity 0.3s ease;
+}
+
+.content-loading {
+  opacity: 0.7;
+  pointer-events: none;
 }
 
 .artwork-gallery {
@@ -736,6 +760,20 @@ onUnmounted(() => {
 .image-error {
   color: #6b7280;
   font-size: 0.875rem;
+}
+
+.image-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(2px);
+  z-index: 10;
 }
 
 .thumbnails {
@@ -1011,6 +1049,19 @@ onUnmounted(() => {
 .nav-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  position: relative;
+}
+
+.nav-btn:disabled::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 0.5rem;
+  z-index: 1;
 }
 
 .nav-btn svg {
