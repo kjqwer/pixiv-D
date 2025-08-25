@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const axios = require('axios');
+const ImageCacheService = require('../services/image-cache');
+
+// 创建缓存服务实例
+const imageCache = new ImageCacheService();
 
 /**
  * 图片代理
@@ -17,28 +20,22 @@ router.get('/image', async (req, res) => {
       });
     }
 
-    const response = await axios({
-      method: 'GET',
-      url: decodeURIComponent(url),
-      responseType: 'stream',
-      headers: {
-        'Referer': 'https://www.pixiv.net/',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      },
-      timeout: 30000
-    });
-
+    const decodedUrl = decodeURIComponent(url);
+    
+    // 使用缓存服务获取图片
+    const imageData = await imageCache.getImage(decodedUrl);
+    
     // 设置响应头
     res.set({
-      'Content-Type': response.headers['content-type'],
-      'Cache-Control': 'public, max-age=3600', // 缓存1小时
+      'Content-Type': getContentType(decodedUrl),
+      'Cache-Control': 'public, max-age=3600', // 浏览器缓存1小时
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET',
       'Access-Control-Allow-Headers': 'Content-Type'
     });
 
-    // 流式传输图片数据
-    response.data.pipe(res);
+    // 发送图片数据
+    res.send(imageData);
 
   } catch (error) {
     console.error('Image proxy error:', error.message);
@@ -48,5 +45,142 @@ router.get('/image', async (req, res) => {
     });
   }
 });
+
+/**
+ * 缓存管理 - 获取缓存统计信息
+ * GET /api/proxy/cache/stats
+ */
+router.get('/cache/stats', async (req, res) => {
+  try {
+    const stats = await imageCache.getCacheStats();
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 缓存管理 - 清理所有缓存
+ * DELETE /api/proxy/cache
+ */
+router.delete('/cache', async (req, res) => {
+  try {
+    await imageCache.clearAllCache();
+    res.json({
+      success: true,
+      message: '所有缓存已清理'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 缓存管理 - 清理过期缓存
+ * DELETE /api/proxy/cache/expired
+ */
+router.delete('/cache/expired', async (req, res) => {
+  try {
+    await imageCache.cleanupExpiredCache();
+    res.json({
+      success: true,
+      message: '过期缓存已清理'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 缓存管理 - 获取缓存配置
+ * GET /api/proxy/cache/config
+ */
+router.get('/cache/config', async (req, res) => {
+  try {
+    const config = await imageCache.getConfig();
+    res.json({
+      success: true,
+      data: config
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 缓存管理 - 更新缓存配置
+ * PUT /api/proxy/cache/config
+ */
+router.put('/cache/config', async (req, res) => {
+  try {
+    const updates = req.body;
+    const config = await imageCache.updateConfig(updates);
+    res.json({
+      success: true,
+      data: config,
+      message: '缓存配置已更新'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 缓存管理 - 重置缓存配置
+ * POST /api/proxy/cache/config/reset
+ */
+router.post('/cache/config/reset', async (req, res) => {
+  try {
+    const config = await imageCache.resetConfig();
+    res.json({
+      success: true,
+      data: config,
+      message: '缓存配置已重置为默认值'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 获取文件内容类型
+ * @param {string} url 图片URL
+ * @returns {string} 内容类型
+ */
+function getContentType(url) {
+  const ext = url.split('.').pop()?.toLowerCase();
+  const contentTypeMap = {
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'gif': 'image/gif',
+    'webp': 'image/webp',
+    'bmp': 'image/bmp',
+    'svg': 'image/svg+xml'
+  };
+  
+  return contentTypeMap[ext] || 'image/jpeg';
+}
 
 module.exports = router; 

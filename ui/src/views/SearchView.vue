@@ -7,16 +7,19 @@
         <div class="search-form">
           <!-- 搜索类型选择 -->
           <div class="search-type-tabs">
-            <button @click="searchMode = 'keyword'" class="tab-btn" :class="{ active: searchMode === 'keyword' }">
+            <button @click="handleSearchModeChange('keyword')" class="tab-btn"
+              :class="{ active: searchMode === 'keyword' }">
               关键词搜索
             </button>
-            <button @click="searchMode = 'tags'" class="tab-btn" :class="{ active: searchMode === 'tags' }">
+            <button @click="handleSearchModeChange('tags')" class="tab-btn" :class="{ active: searchMode === 'tags' }">
               标签搜索
             </button>
-            <button @click="searchMode = 'artwork'" class="tab-btn" :class="{ active: searchMode === 'artwork' }">
+            <button @click="handleSearchModeChange('artwork')" class="tab-btn"
+              :class="{ active: searchMode === 'artwork' }">
               作品ID
             </button>
-            <button @click="searchMode = 'artist'" class="tab-btn" :class="{ active: searchMode === 'artist' }">
+            <button @click="handleSearchModeChange('artist')" class="tab-btn"
+              :class="{ active: searchMode === 'artist' }">
               作者ID
             </button>
           </div>
@@ -81,20 +84,20 @@
           </div>
 
           <div class="search-filters">
-            <select v-model="searchType" class="filter-select">
+            <select v-model="searchType" @change="updateFiltersInUrl" class="filter-select">
               <option value="all">全部类型</option>
               <option value="art">插画</option>
               <option value="manga">漫画</option>
               <option value="novel">小说</option>
             </select>
 
-            <select v-model="searchSort" class="filter-select">
+            <select v-model="searchSort" @change="updateFiltersInUrl" class="filter-select">
               <option value="date_desc">最新</option>
               <option value="date_asc">最旧</option>
               <option value="popular_desc">最受欢迎</option>
             </select>
 
-            <select v-model="searchDuration" class="filter-select">
+            <select v-model="searchDuration" @change="updateFiltersInUrl" class="filter-select">
               <option value="all">全部时间</option>
               <option value="within_last_day">最近一天</option>
               <option value="within_last_week">最近一周</option>
@@ -203,6 +206,14 @@ const handleSearch = async () => {
     return;
   }
 
+  // 更新URL参数
+  const query: any = { ...route.query };
+  query.keyword = searchKeyword.value.trim();
+  query.mode = 'keyword';
+  // 清除标签相关参数
+  delete query.tags;
+  router.push({ query });
+
   try {
     loading.value = true;
     error.value = null;
@@ -299,6 +310,15 @@ const handleArtworkSearch = () => {
     return;
   }
 
+  // 更新URL参数
+  const query: any = { ...route.query };
+  query.artworkId = idStr;
+  query.mode = 'artwork';
+  // 清除其他搜索参数
+  delete query.keyword;
+  delete query.tags;
+  router.push({ query });
+
   router.push(`/artwork/${id}`);
 };
 
@@ -316,6 +336,15 @@ const handleArtistSearch = () => {
     return;
   }
 
+  // 更新URL参数
+  const query: any = { ...route.query };
+  query.artistId = idStr;
+  query.mode = 'artist';
+  // 清除其他搜索参数
+  delete query.keyword;
+  delete query.tags;
+  router.push({ query });
+
   // 切换到作者搜索模式并跳转
   searchMode.value = 'artist';
   router.push(`/artist/${id}`);
@@ -327,17 +356,94 @@ const addTag = () => {
   if (tag && !searchTags.value.includes(tag)) {
     searchTags.value.push(tag);
     tagInput.value = '';
+
+    // 更新URL参数
+    updateSearchTagsInUrl();
   }
 };
 
 const removeTag = (index: number) => {
   searchTags.value.splice(index, 1);
+
+  // 更新URL参数
+  updateSearchTagsInUrl();
+};
+
+// 更新URL中的搜索标签参数
+const updateSearchTagsInUrl = () => {
+  const query: any = { ...route.query };
+
+  if (searchTags.value.length > 0) {
+    query.tags = searchTags.value;
+    query.mode = 'tags';
+  } else {
+    // 如果没有标签，清除相关参数
+    delete query.tags;
+    delete query.mode;
+  }
+
+  router.push({ query });
+};
+
+
+
+// 更新搜索过滤器到URL
+const updateFiltersInUrl = () => {
+  const query: any = { ...route.query };
+
+  if (searchType.value !== 'all') query.type = searchType.value;
+  else delete query.type;
+
+  if (searchSort.value !== 'date_desc') query.sort = searchSort.value;
+  else delete query.sort;
+
+  if (searchDuration.value !== 'all') query.duration = searchDuration.value;
+  else delete query.duration;
+
+  router.push({ query });
+};
+
+// 处理搜索模式切换
+const handleSearchModeChange = (mode: 'keyword' | 'tags' | 'artwork' | 'artist') => {
+  searchMode.value = mode;
+
+  // 清除其他模式的输入
+  if (mode !== 'keyword') searchKeyword.value = '';
+  if (mode !== 'tags') {
+    searchTags.value = [];
+    tagInput.value = '';
+  }
+  if (mode !== 'artwork') artworkId.value = '';
+  if (mode !== 'artist') artistId.value = '';
+
+  // 更新URL参数，清除不相关的参数
+  const query: any = { ...route.query };
+  query.mode = mode;
+
+  // 根据模式清除不相关的参数
+  if (mode !== 'keyword') delete query.keyword;
+  if (mode !== 'tags') {
+    delete query.tags;
+    delete query.tag;
+  }
+  if (mode !== 'artwork') delete query.artworkId;
+  if (mode !== 'artist') delete query.artistId;
+
+  router.push({ query });
 };
 
 const handleTagSearch = async () => {
   if (searchTags.value.length === 0) {
     return;
   }
+
+  // 更新URL参数
+  const query: any = { ...route.query };
+  query.tags = searchTags.value;
+  query.mode = 'tags';
+  // 清除关键词相关参数
+  delete query.keyword;
+  router.push({ query });
 
   try {
     loading.value = true;
@@ -384,13 +490,37 @@ const handleArtistDownload = (artist: any) => {
 // 监听路由变化，处理URL参数
 watch(() => route.query, () => {
   const urlMode = route.query.mode as string;
+  const urlKeyword = route.query.keyword as string;
   const urlTag = route.query.tag as string;
   const urlTags = route.query.tags;
+  const urlType = route.query.type as string;
+  const urlSort = route.query.sort as string;
+  const urlDuration = route.query.duration as string;
+  const urlArtworkId = route.query.artworkId as string;
+  const urlArtistId = route.query.artistId as string;
 
+  // 恢复搜索模式
+  if (urlMode) {
+    searchMode.value = urlMode as 'keyword' | 'tags' | 'artwork' | 'artist';
+  }
+
+  // 恢复关键词
+  if (urlKeyword) {
+    searchKeyword.value = urlKeyword;
+  }
+
+  // 恢复作品ID
+  if (urlArtworkId) {
+    artworkId.value = urlArtworkId;
+  }
+
+  // 恢复作者ID
+  if (urlArtistId) {
+    artistId.value = urlArtistId;
+  }
+
+  // 恢复标签
   if (urlMode === 'tags') {
-    // 自动设置标签搜索模式
-    searchMode.value = 'tags';
-
     if (urlTags) {
       // 处理多个标签
       if (Array.isArray(urlTags)) {
@@ -411,7 +541,15 @@ watch(() => route.query, () => {
     if (searchTags.value.length > 0) {
       handleTagSearch();
     }
+  } else if (urlMode === 'keyword' && urlKeyword) {
+    // 如果是关键词搜索模式且有关键词，自动执行搜索
+    handleSearch();
   }
+
+  // 恢复过滤器
+  if (urlType) searchType.value = urlType as 'all' | 'art' | 'manga' | 'novel';
+  if (urlSort) searchSort.value = urlSort as 'date_desc' | 'date_asc' | 'popular_desc';
+  if (urlDuration) searchDuration.value = urlDuration as 'all' | 'within_last_day' | 'within_last_week' | 'within_last_month';
 }, { immediate: true });
 </script>
 

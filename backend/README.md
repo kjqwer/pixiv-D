@@ -89,6 +89,12 @@ backend/
 
 - `GET /api/proxy/image` - 图片代理服务
   - 参数: `url` (图片URL)
+- `GET /api/proxy/cache/stats` - 获取图片缓存统计信息
+- `DELETE /api/proxy/cache` - 清理所有图片缓存
+- `DELETE /api/proxy/cache/expired` - 清理过期图片缓存
+- `GET /api/proxy/cache/config` - 获取缓存配置
+- `PUT /api/proxy/cache/config` - 更新缓存配置
+- `POST /api/proxy/cache/config/reset` - 重置缓存配置为默认值
 
 ### 仓库管理相关
 
@@ -158,6 +164,7 @@ backend/
 - **artist.js**: 作者服务，处理作者API调用
 - **download.js**: 下载服务，处理文件下载
 - **repository.js**: 仓库管理服务，处理文件管理和配置
+- **image-cache.js**: 图片缓存服务，管理图片代理缓存
 
 ### 工具类
 
@@ -203,6 +210,13 @@ backend/
 - 自动迁移旧项目
 - 磁盘使用情况监控
 - 作品删除管理
+
+### 7. 图片缓存管理
+- 图片代理缓存功能
+- 自动缓存过期清理
+- 缓存大小限制管理
+- 缓存统计信息查看
+- 手动缓存清理功能
 
 ## 🔒 安全特性
 

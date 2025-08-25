@@ -1,0 +1,21 @@
+{
+  "maxAge": 86400000,
+  "maxSize": 104857600,
+  "cleanupInterval": 3600000,
+  "enabled": true,
+  "proxy": {
+    "enabled": true,
+    "timeout": 30000,
+    "retryCount": 3,
+    "retryDelay": 1000
+  },
+  "allowedExtensions": [
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".webp",
+    ".bmp"
+  ],
+  "lastUpdated": "2025-08-25T06:14:10.559Z"
+}

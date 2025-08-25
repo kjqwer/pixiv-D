@@ -56,8 +56,6 @@
           </div>
         </div>
 
-
-
         <!-- 作品列表 -->
         <div class="artworks-section">
           <div class="section-header">
@@ -102,9 +100,21 @@
             <button @click="goToPage(currentPage + 1)" class="page-btn" :disabled="currentPage >= totalPages">
               下一页
               <svg viewBox="0 0 24 24" fill="currentColor" class="page-icon">
-                <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z" />
+                <path d="8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z" />
               </svg>
             </button>
+          </div>
+
+          <!-- 跳转到指定页面 -->
+          <div v-if="totalPages > 1 && artworks.length > 0" class="jump-to-page">
+            <div class="jump-input-group">
+              <label for="jumpPage">跳转到:</label>
+              <input v-model="jumpPageInput" type="number" id="jumpPage" class="jump-input" :min="1" :max="totalPages"
+                placeholder="页码" @keyup.enter="handleJumpToPage" />
+              <button @click="handleJumpToPage" class="jump-btn" :disabled="!jumpPageInput || jumping">
+                {{ jumping ? '跳转中...' : '跳转' }}
+              </button>
+            </div>
           </div>
 
           <!-- 页面信息 -->
@@ -247,7 +257,7 @@ const fetchArtistInfo = async () => {
 };
 
 // 获取作者作品
-const fetchArtworks = async (page = 1) => {
+const fetchArtworks = async (page = 1, isJumpToPage = false) => {
   if (!artist.value) return;
 
   const cacheKey = getCacheKey(artworkType.value, page);
@@ -313,8 +323,14 @@ const fetchArtworks = async (page = 1) => {
       throw new Error(response.error || '获取作品列表失败');
     }
   } catch (err) {
-    error.value = err instanceof Error ? err.message : '获取作品列表失败';
     console.error('获取作品列表失败:', err);
+    
+    // 只有在跳转到指定页面失败时才显示错误
+    if (isJumpToPage) {
+      error.value = `跳转失败：无法跳转到第 ${page} 页`;
+    } else {
+      error.value = err instanceof Error ? err.message : '获取作品列表失败';
+    }
   } finally {
     artworksLoading.value = false;
   }
@@ -323,12 +339,30 @@ const fetchArtworks = async (page = 1) => {
 // 处理类型切换
 const handleTypeChange = () => {
   currentPage.value = 1;
+
+  // 清除URL中的页码参数
+  router.push({
+    query: {
+      ...route.query,
+      page: undefined
+    }
+  });
+
   fetchArtworks(1);
 };
 
 // 跳转到指定页面
 const goToPage = (page: number) => {
-  if (page < 1 || page > totalPages.value || page === currentPage.value) return;
+  if (page < 1 || page === currentPage.value) return;
+
+  // 更新URL参数
+  router.push({
+    query: {
+      ...route.query,
+      page: page.toString()
+    }
+  });
+
   fetchArtworks(page);
 };
 
@@ -407,19 +441,60 @@ const clearError = () => {
   error.value = null;
 };
 
+// 跳转到指定页面输入框
+const jumpPageInput = ref<string | number>('');
+const jumping = ref(false);
+
+// 处理跳转到指定页面
+const handleJumpToPage = async () => {
+  const page = parseInt(jumpPageInput.value as string);
+  if (isNaN(page) || page < 1) {
+    error.value = '请输入有效的页码';
+    return;
+  }
+
+  jumping.value = true;
+  jumpPageInput.value = ''; // 清空输入框
+
+  // 更新URL参数
+  router.push({
+    query: {
+      ...route.query,
+      page: page.toString()
+    }
+  });
+
+  try {
+    await fetchArtworks(page, true);
+  } finally {
+    jumping.value = false;
+  }
+};
+
 // 监听路由变化
 watch(() => route.params.id, () => {
   // 清除缓存并重新加载
   clearCache();
   fetchArtistInfo();
 
-  // 检查是否有返回的页面信息
+  // 检查是否有返回的页面信息或指定的页码
   const returnPage = parseInt(route.query.page as string);
   if (returnPage && returnPage > 0) {
     currentPage.value = returnPage;
-    fetchArtworks(returnPage);
+    fetchArtworks(returnPage, true);
   } else {
     fetchArtworks(1);
+  }
+});
+
+// 监听URL查询参数变化
+watch(() => route.query.page, (newPage) => {
+  if (newPage && artist.value) {
+    const page = parseInt(newPage as string);
+    if (page > 0 && page !== currentPage.value) {
+      currentPage.value = page;
+      fetchArtworks(page, true);
+    }
   }
 });
 
@@ -431,11 +506,11 @@ onUnmounted(() => {
 onMounted(async () => {
   await fetchArtistInfo();
 
-  // 检查是否有返回的页面信息
+  // 检查是否有返回的页面信息或指定的页码
   const returnPage = parseInt(route.query.page as string);
   if (returnPage && returnPage > 0) {
     currentPage.value = returnPage;
-    await fetchArtworks(returnPage);
+    await fetchArtworks(returnPage, true);
   } else {
     await fetchArtworks(1);
   }
@@ -749,6 +824,73 @@ onMounted(async () => {
   font-size: 0.875rem;
 }
 
+.jump-to-page {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+.jump-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.jump-input-group label {
+  font-size: 0.875rem;
+  color: #374151;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.jump-input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  background: white;
+  font-size: 0.875rem;
+  color: #374151;
+  min-width: 80px;
+  text-align: center;
+  transition: border-color 0.2s;
+}
+
+.jump-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.jump-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  background: #3b82f6;
+  color: white;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s;
+  border: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  min-width: 80px;
+}
+
+.jump-btn:hover:not(:disabled) {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+.jump-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
 @media (max-width: 768px) {
   .container {
     padding: 0 1rem;
@@ -805,6 +947,24 @@ onMounted(async () => {
     flex-direction: column;
     gap: 0.5rem;
     text-align: center;
+  }
+
+  .jump-to-page {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .jump-input-group {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .jump-input {
+    width: 100%;
+  }
+
+  .jump-btn {
+    width: 100%;
   }
 }
 </style>
