@@ -22,7 +22,7 @@ Pixiv 下载浏览管理器是一个基于 Web 的应用程序，提供以下功
 
 观看更新内容（关注于新功能演示，上面的视频主要是登录教学）：
 
-[![功能更新](https://img.shields.io/badge/📹-功能更新-blue?style=for-the-badge)](https://sywb.top/Staticfiles/p%E6%9B%B4%E6%96%B0.mp4)
+[![功能更新](https://img.shields.io/badge/📹-功能更新-blue?style=for-the-badge)](https://sywb.top/Staticfiles/updates.html)
 
 ## 🚀 快速开始
 
