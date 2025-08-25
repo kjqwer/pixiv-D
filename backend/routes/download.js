@@ -583,4 +583,71 @@ router.get('/stream/:taskId', async (req, res) => {
   });
 });
 
+/**
+ * 清理历史记录
+ * POST /api/download/cleanup/history
+ */
+router.post('/cleanup/history', async (req, res) => {
+  try {
+    const { keepCount = 500 } = req.body;
+    
+    const downloadService = req.backend.getDownloadService();
+    const result = await downloadService.cleanupHistory(parseInt(keepCount));
+    
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 清理已完成的任务
+ * POST /api/download/cleanup/tasks
+ */
+router.post('/cleanup/tasks', async (req, res) => {
+  try {
+    const { keepActive = true, keepCompleted = 100 } = req.body;
+    
+    const downloadService = req.backend.getDownloadService();
+    const result = await downloadService.cleanupTasks(keepActive, parseInt(keepCompleted));
+    
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 获取系统统计信息
+ * GET /api/download/stats
+ */
+router.get('/stats', async (req, res) => {
+  try {
+    const downloadService = req.backend.getDownloadService();
+    const result = await downloadService.getSystemStats();
+    
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router; 

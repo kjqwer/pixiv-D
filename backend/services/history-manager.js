@@ -10,6 +10,10 @@ class HistoryManager {
     this.historyFile = path.join(dataPath, 'download_history.json');
     this.history = [];
     this.initialized = false;
+    
+    // 配置
+    this.maxHistoryItems = 500; // 最多保存500条历史记录
+    this.cleanupThreshold = 600; // 超过600条时开始清理
   }
 
   /**
@@ -19,8 +23,12 @@ class HistoryManager {
     try {
       await fs.ensureDir(this.dataPath);
       await this.loadHistory();
+      
+      // 初始化时清理历史记录
+      await this.cleanupHistory();
+      
       this.initialized = true;
-      // 历史记录管理器初始化完成
+      console.log('历史记录管理器初始化完成');
     } catch (error) {
       console.error('历史记录管理器初始化失败:', error);
       this.initialized = false;
@@ -53,10 +61,47 @@ class HistoryManager {
   }
 
   /**
-   * 添加历史记录
+   * 添加历史记录（简化版本）
    */
   async addHistoryItem(item) {
-    this.history.unshift(item);
+    // 简化历史记录信息
+    const simplifiedItem = {
+      id: item.id,
+      type: item.type,
+      status: item.status,
+      total_files: item.total_files,
+      completed_files: item.completed_files,
+      failed_files: item.failed_files,
+      start_time: item.start_time,
+      end_time: item.end_time,
+      // 只保存关键信息
+      artwork_id: item.artwork_id,
+      artist_name: item.artist_name,
+      artwork_title: item.artwork_title
+    };
+
+    this.history.unshift(simplifiedItem);
+    
+    // 检查是否需要清理
+    if (this.history.length > this.cleanupThreshold) {
+      await this.cleanupHistory();
+    } else {
+      await this.saveHistory();
+    }
+  }
+
+  /**
+   * 清理历史记录
+   */
+  async cleanupHistory() {
+    if (this.history.length <= this.maxHistoryItems) {
+      return;
+    }
+
+    console.log(`清理历史记录: ${this.history.length} -> ${this.maxHistoryItems}`);
+    
+    // 保留最新的记录
+    this.history = this.history.slice(0, this.maxHistoryItems);
     await this.saveHistory();
   }
 
@@ -120,8 +165,7 @@ class HistoryManager {
       completed: 0,
       failed: 0,
       partial: 0,
-      totalFiles: 0,
-      totalSize: 0
+      totalFiles: 0
     };
 
     for (const item of this.history) {
@@ -152,6 +196,21 @@ class HistoryManager {
       (item.artwork_title && item.artwork_title.toLowerCase().includes(lowerQuery)) ||
       (item.artist_name && item.artist_name.toLowerCase().includes(lowerQuery))
     );
+  }
+
+  /**
+   * 手动清理历史记录（保留指定数量）
+   */
+  async cleanupHistoryManually(keepCount = this.maxHistoryItems) {
+    if (this.history.length <= keepCount) {
+      return { cleaned: 0, remaining: this.history.length };
+    }
+
+    const cleanedCount = this.history.length - keepCount;
+    this.history = this.history.slice(0, keepCount);
+    await this.saveHistory();
+
+    return { cleaned: cleanedCount, remaining: this.history.length };
   }
 }
 

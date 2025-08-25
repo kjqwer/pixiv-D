@@ -1,15 +1,16 @@
-const fs = require('fs-extra');
 const path = require('path');
+const fs = require('fs-extra');
 
 /**
  * 下载执行器 - 负责具体的下载逻辑执行
  */
 class DownloadExecutor {
-  constructor(fileManager, taskManager, progressManager, historyManager) {
+  constructor(fileManager, taskManager, progressManager, historyManager, downloadService) {
     this.fileManager = fileManager;
     this.taskManager = taskManager;
     this.progressManager = progressManager;
     this.historyManager = historyManager;
+    this.downloadService = downloadService; // 添加下载服务引用
   }
 
   /**
@@ -17,38 +18,53 @@ class DownloadExecutor {
    */
   async executeArtworkDownload(task, images, size, artworkDir, artwork) {
     try {
-      // 检查哪些文件已经存在（断点续传）
-      const existingFiles = new Set();
-      if (await this.fileManager.directoryExists(artworkDir)) {
-        const files = await this.fileManager.listDirectory(artworkDir);
-        for (const file of files) {
-          if (/\.(jpg|jpeg|png|gif|webp)$/i.test(file)) {
-            existingFiles.add(file);
-          }
-        }
-      }
-
-      // 逐个下载图片，实时更新进度
       const results = [];
+
       for (let index = 0; index < images.length; index++) {
         if (task.status === 'cancelled') {
           break;
         }
 
-        const image = images[index];
-        const imageUrl = image[size] || image.original;
-        // 使用安全处理的标题创建文件名
-        const safeTitle = this.fileManager.createSafeDirectoryName(artwork.title || 'Untitled');
-        const fileName = `${safeTitle}_${artwork.id}_${index + 1}${this.fileManager.getFileExtension(imageUrl)}`;
+        // 从图片对象中获取指定尺寸的URL
+        const imageObj = images[index];
+        let imageUrl;
+        
+        // 根据size参数选择对应的URL
+        switch (size) {
+          case 'original':
+            imageUrl = imageObj.original;
+            break;
+          case 'large':
+            imageUrl = imageObj.large;
+            break;
+          case 'medium':
+            imageUrl = imageObj.medium;
+            break;
+          case 'square_medium':
+            imageUrl = imageObj.square_medium;
+            break;
+          default:
+            imageUrl = imageObj.original || imageObj.large || imageObj.medium;
+        }
+
+        // 确保imageUrl是字符串
+        if (typeof imageUrl !== 'string') {
+          console.error(`图片URL不是字符串:`, imageUrl);
+          task.failed_files++;
+          this.progressManager.notifyProgressUpdate(task.id, task);
+          results.push({ success: false, error: '图片URL格式错误' });
+          continue;
+        }
+
+        const fileName = `image_${index + 1}.${this.getFileExtension(imageUrl)}`;
         const filePath = path.join(artworkDir, fileName);
 
-        // 如果文件已存在，跳过下载
-        if (existingFiles.has(fileName)) {
+        // 检查文件是否已存在
+        if (await this.fileManager.fileExists(filePath)) {
           task.completed_files++;
           task.progress = Math.round((task.completed_files / task.total_files) * 100);
           await this.taskManager.saveTasks();
           this.progressManager.notifyProgressUpdate(task.id, task);
-          results.push({ success: true, file: fileName, skipped: true });
           continue;
         }
 
@@ -95,7 +111,7 @@ class DownloadExecutor {
         completed_files: task.completed_files,
         failed_files: task.failed_files,
         start_time: task.start_time,
-        end_time: task.end_time,
+        end_time: task.end_time instanceof Date ? task.end_time.toISOString() : task.end_time,
         status: task.status,
       };
 
@@ -118,23 +134,66 @@ class DownloadExecutor {
 
     try {
       const results = [];
+      const recentCompleted = []; // 最近完成的作品列表
 
       // 分批下载
-      for (let i = 0; i < task.filtered_ids.length; i += concurrent) {
+      for (let i = 0; i < artworkIds.length; i += concurrent) {
         if (task.status === 'cancelled') {
           break;
         }
 
-        const batch = task.filtered_ids.slice(i, i + concurrent);
+        const batch = artworkIds.slice(i, i + concurrent);
         const batchPromises = batch.map(async artworkId => {
           try {
-            // 这里需要调用主下载服务的方法，暂时返回模拟结果
-            task.completed++;
-            const result = { artwork_id: artworkId, success: true };
-            results.push(result);
-            return result;
+            // 使用专门的批量下载方法，避免创建重复任务
+            const downloadResult = await this.downloadService.downloadSingleArtworkForBatch(artworkId, {
+              size,
+              quality,
+              format,
+              skipExisting: true
+            });
+
+            if (downloadResult.success) {
+              // 检查是否跳过下载
+              if (downloadResult.skipped) {
+                // 跳过下载，不计入失败，但也不计入完成
+                const result = { artwork_id: artworkId, success: true, skipped: true };
+                results.push(result);
+                return result;
+              } else {
+                // 真正下载成功
+                task.completed_files++;
+                
+                // 添加到最近完成列表
+                const completedItem = {
+                  artwork_id: artworkId,
+                  artwork_title: downloadResult.artwork_title || `作品 ${artworkId}`,
+                  artist_name: downloadResult.artist_name || '未知作者'
+                };
+                
+                recentCompleted.unshift(completedItem);
+                // 只保留最近5个
+                if (recentCompleted.length > 5) {
+                  recentCompleted.pop();
+                }
+                
+                // 更新任务的recent_completed
+                task.recent_completed = [...recentCompleted];
+                
+                const result = { artwork_id: artworkId, success: true };
+                results.push(result);
+                return result;
+              }
+            } else {
+              // 下载失败
+              task.failed_files++;
+              const result = { artwork_id: artworkId, success: false, error: downloadResult.error };
+              results.push(result);
+              return result;
+            }
           } catch (error) {
-            task.failed++;
+            // 异常情况
+            task.failed_files++;
             const result = { artwork_id: artworkId, success: false, error: error.message };
             results.push(result);
             return result;
@@ -142,22 +201,38 @@ class DownloadExecutor {
         });
 
         await Promise.all(batchPromises);
-        task.progress = Math.round((task.completed / task.total) * 100);
+
+        // 更新进度并通知
+        task.progress = Math.round((task.completed_files / task.total_files) * 100);
         await this.taskManager.saveTasks();
         this.progressManager.notifyProgressUpdate(task.id, task);
 
         // 添加延迟避免请求过于频繁
-        if (i + concurrent < task.filtered_ids.length) {
+        if (i + concurrent < artworkIds.length) {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
 
       // 更新任务状态
-      task.status = task.failed === 0 ? 'completed' : 'partial';
+      task.status = task.failed_files === 0 ? 'completed' : 'partial';
       task.end_time = new Date();
       task.results = results;
       await this.taskManager.saveTasks();
       this.progressManager.notifyProgressUpdate(task.id, task);
+      
+      // 添加到历史记录
+      const historyItem = {
+        id: task.id,
+        type: 'batch',
+        total_files: task.total_files,
+        completed_files: task.completed_files,
+        failed_files: task.failed_files,
+        start_time: task.start_time,
+        end_time: task.end_time instanceof Date ? task.end_time.toISOString() : task.end_time,
+        status: task.status,
+      };
+      
+      await this.historyManager.addHistoryItem(historyItem);
     } catch (error) {
       task.status = 'failed';
       task.error = error.message;
@@ -175,6 +250,7 @@ class DownloadExecutor {
 
     try {
       const results = [];
+      const recentCompleted = []; // 最近完成的作品列表
 
       // 分批下载作品
       for (let i = 0; i < newArtworks.length; i += maxConcurrent) {
@@ -185,13 +261,55 @@ class DownloadExecutor {
         const batch = newArtworks.slice(i, i + maxConcurrent);
         const batchPromises = batch.map(async artwork => {
           try {
-            // 这里需要调用主下载服务的方法，暂时返回模拟结果
-            task.completed++;
-            const result = { artwork_id: artwork.id, success: true };
-            results.push(result);
-            return result;
+            // 使用专门的批量下载方法，避免创建重复任务
+            const downloadResult = await this.downloadService.downloadSingleArtworkForBatch(artwork.id, {
+              size,
+              quality,
+              format,
+              skipExisting: true
+            });
+
+            if (downloadResult.success) {
+              // 检查是否跳过下载
+              if (downloadResult.skipped) {
+                // 跳过下载，不计入失败，但也不计入完成
+                const result = { artwork_id: artwork.id, success: true, skipped: true };
+                results.push(result);
+                return result;
+              } else {
+                // 真正下载成功
+                task.completed_files++;
+                
+                // 添加到最近完成列表
+                const completedItem = {
+                  artwork_id: artwork.id,
+                  artwork_title: downloadResult.artwork_title || artwork.title || `作品 ${artwork.id}`,
+                  artist_name: downloadResult.artist_name || artwork.user?.name || '未知作者'
+                };
+                
+                recentCompleted.unshift(completedItem);
+                // 只保留最近5个
+                if (recentCompleted.length > 5) {
+                  recentCompleted.pop();
+                }
+                
+                // 更新任务的recent_completed
+                task.recent_completed = [...recentCompleted];
+                
+                const result = { artwork_id: artwork.id, success: true };
+                results.push(result);
+                return result;
+              }
+            } else {
+              // 下载失败
+              task.failed_files++;
+              const result = { artwork_id: artwork.id, success: false, error: downloadResult.error };
+              results.push(result);
+              return result;
+            }
           } catch (error) {
-            task.failed++;
+            // 异常情况
+            task.failed_files++;
             const result = { artwork_id: artwork.id, success: false, error: error.message };
             results.push(result);
             return result;
@@ -199,7 +317,9 @@ class DownloadExecutor {
         });
 
         await Promise.all(batchPromises);
-        task.progress = Math.round((task.completed / task.total) * 100);
+
+        // 更新进度并通知
+        task.progress = Math.round((task.completed_files / task.total_files) * 100);
         await this.taskManager.saveTasks();
         this.progressManager.notifyProgressUpdate(task.id, task);
 
@@ -210,11 +330,26 @@ class DownloadExecutor {
       }
 
       // 更新任务状态
-      task.status = task.failed === 0 ? 'completed' : 'partial';
+      task.status = task.failed_files === 0 ? 'completed' : 'partial';
       task.end_time = new Date();
       task.results = results;
       await this.taskManager.saveTasks();
       this.progressManager.notifyProgressUpdate(task.id, task);
+      
+      // 添加到历史记录
+      const historyItem = {
+        id: task.id,
+        type: 'artist',
+        artist_name: task.artist_name,
+        total_files: task.total_files,
+        completed_files: task.completed_files,
+        failed_files: task.failed_files,
+        start_time: task.start_time,
+        end_time: task.end_time instanceof Date ? task.end_time.toISOString() : task.end_time,
+        status: task.status,
+      };
+      
+      await this.historyManager.addHistoryItem(historyItem);
     } catch (error) {
       task.status = 'failed';
       task.error = error.message;
@@ -232,6 +367,7 @@ class DownloadExecutor {
 
     try {
       const results = [];
+      const recentCompleted = []; // 最近完成的作品列表
 
       // 分批下载作品
       for (let i = 0; i < newArtworks.length; i += maxConcurrent) {
@@ -242,13 +378,55 @@ class DownloadExecutor {
         const batch = newArtworks.slice(i, i + maxConcurrent);
         const batchPromises = batch.map(async artwork => {
           try {
-            // 这里需要调用主下载服务的方法，暂时返回模拟结果
-            task.completed++;
-            const result = { artwork_id: artwork.id, success: true };
-            results.push(result);
-            return result;
+            // 使用专门的批量下载方法，避免创建重复任务
+            const downloadResult = await this.downloadService.downloadSingleArtworkForBatch(artwork.id, {
+              size,
+              quality,
+              format,
+              skipExisting: true
+            });
+
+            if (downloadResult.success) {
+              // 检查是否跳过下载
+              if (downloadResult.skipped) {
+                // 跳过下载，不计入失败，但也不计入完成
+                const result = { artwork_id: artwork.id, success: true, skipped: true };
+                results.push(result);
+                return result;
+              } else {
+                // 真正下载成功
+                task.completed_files++;
+                
+                // 添加到最近完成列表
+                const completedItem = {
+                  artwork_id: artwork.id,
+                  artwork_title: downloadResult.artwork_title || artwork.title || `作品 ${artwork.id}`,
+                  artist_name: downloadResult.artist_name || artwork.user?.name || '未知作者'
+                };
+                
+                recentCompleted.unshift(completedItem);
+                // 只保留最近5个
+                if (recentCompleted.length > 5) {
+                  recentCompleted.pop();
+                }
+                
+                // 更新任务的recent_completed
+                task.recent_completed = [...recentCompleted];
+                
+                const result = { artwork_id: artwork.id, success: true };
+                results.push(result);
+                return result;
+              }
+            } else {
+              // 下载失败
+              task.failed_files++;
+              const result = { artwork_id: artwork.id, success: false, error: downloadResult.error };
+              results.push(result);
+              return result;
+            }
           } catch (error) {
-            task.failed++;
+            // 异常情况
+            task.failed_files++;
             const result = { artwork_id: artwork.id, success: false, error: error.message };
             results.push(result);
             return result;
@@ -256,7 +434,9 @@ class DownloadExecutor {
         });
 
         await Promise.all(batchPromises);
-        task.progress = Math.round((task.completed / task.total) * 100);
+
+        // 更新进度并通知
+        task.progress = Math.round((task.completed_files / task.total_files) * 100);
         await this.taskManager.saveTasks();
         this.progressManager.notifyProgressUpdate(task.id, task);
 
@@ -267,11 +447,25 @@ class DownloadExecutor {
       }
 
       // 更新任务状态
-      task.status = task.failed === 0 ? 'completed' : 'partial';
+      task.status = task.failed_files === 0 ? 'completed' : 'partial';
       task.end_time = new Date();
       task.results = results;
       await this.taskManager.saveTasks();
       this.progressManager.notifyProgressUpdate(task.id, task);
+      
+      // 添加到历史记录
+      const historyItem = {
+        id: task.id,
+        type: 'ranking',
+        total_files: task.total_files,
+        completed_files: task.completed_files,
+        failed_files: task.failed_files,
+        start_time: task.start_time,
+        end_time: task.end_time instanceof Date ? task.end_time.toISOString() : task.end_time,
+        status: task.status,
+      };
+      
+      await this.historyManager.addHistoryItem(historyItem);
     } catch (error) {
       task.status = 'failed';
       task.error = error.message;
@@ -279,6 +473,19 @@ class DownloadExecutor {
       await this.taskManager.saveTasks();
       this.progressManager.notifyProgressUpdate(task.id, task);
     }
+  }
+
+  /**
+   * 获取文件扩展名
+   */
+  getFileExtension(url) {
+    if (typeof url !== 'string') {
+      console.warn('URL不是字符串，使用默认扩展名:', url);
+      return 'jpg';
+    }
+    
+    const match = url.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
+    return match ? match[1] : 'jpg';
   }
 }
 

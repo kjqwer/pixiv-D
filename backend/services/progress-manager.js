@@ -59,6 +59,17 @@ class ProgressManager {
   }
 
   /**
+   * 获取总连接数
+   */
+  getTotalListenerCount() {
+    let total = 0;
+    for (const listeners of this.progressListeners.values()) {
+      total += listeners.length;
+    }
+    return total;
+  }
+
+  /**
    * 清理所有监听器
    */
   clearAllListeners() {

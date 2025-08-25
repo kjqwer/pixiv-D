@@ -6,6 +6,7 @@ const FileManager = require('./file-manager');
 const ProgressManager = require('./progress-manager');
 const HistoryManager = require('./history-manager');
 const DownloadExecutor = require('./download-executor');
+const fs = require('fs-extra'); // Added for fs-extra
 
 /**
  * 下载服务 - 主服务类，协调各个管理器
@@ -32,7 +33,8 @@ class DownloadService {
     this.taskManager = new TaskManager(this.dataPath);
     this.progressManager = new ProgressManager();
     this.historyManager = new HistoryManager(this.dataPath);
-    this.downloadExecutor = new DownloadExecutor(this.fileManager, this.taskManager, this.progressManager, this.historyManager);
+    // 先创建下载执行器，稍后在init方法中设置downloadService引用
+    this.downloadExecutor = new DownloadExecutor(this.fileManager, this.taskManager, this.progressManager, this.historyManager, this);
 
     this.initialized = false;
   }
@@ -146,6 +148,63 @@ class DownloadService {
       success: true,
       data: result,
     };
+  }
+
+  /**
+   * 清理历史记录
+   */
+  async cleanupHistory(keepCount = 500) {
+    try {
+      const result = await this.historyManager.cleanupHistoryManually(keepCount);
+      return {
+        success: true,
+        data: result
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * 清理已完成的任务
+   */
+  async cleanupTasks(keepActive = true, keepCompleted = 100) {
+    try {
+      const result = await this.taskManager.cleanupTasksManually(keepActive, keepCompleted);
+      return {
+        success: true,
+        data: { cleaned: result }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * 获取系统统计信息
+   */
+  async getSystemStats() {
+    try {
+      const taskStats = this.taskManager.getTaskStats();
+      const historyStats = this.historyManager.getHistoryStats();
+      
+      return {
+        tasks: taskStats,
+        history: historyStats,
+        activeConnections: this.progressManager.getTotalListenerCount()
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
   }
 
   // 代理方法 - 文件管理
@@ -409,9 +468,9 @@ class DownloadService {
       const task = this.taskManager.createTask('batch', {
         artwork_ids: artworkIds,
         filtered_ids: filteredIds,
-        total: filteredIds.length,
-        completed: 0,
-        failed: 0,
+        total_files: filteredIds.length,
+        completed_files: 0,
+        failed_files: 0,
         skipped: skippedCount,
         results: [],
       });
@@ -439,7 +498,7 @@ class DownloadService {
       }
 
       // 异步执行批量下载
-      this.downloadExecutor.executeBatchDownload(task, artworkIds, options);
+      this.downloadExecutor.executeBatchDownload(task, filteredIds, options);
 
       return {
         success: true,
@@ -461,18 +520,177 @@ class DownloadService {
   }
 
   /**
+   * 内部方法：下载单个作品（用于批量下载，不创建新任务）
+   */
+  async downloadSingleArtworkForBatch(artworkId, options = {}) {
+    const { size = 'original', quality = 'high', format = 'auto', skipExisting = true } = options;
+
+    try {
+      // 检查是否已下载
+      if (skipExisting && (await this.isArtworkDownloaded(artworkId))) {
+        return {
+          success: true,
+          skipped: true,
+          message: '作品已存在且完整，跳过下载',
+        };
+      }
+
+      // 获取作品信息
+      const artworkResult = await this.artworkService.getArtworkDetail(artworkId);
+      if (!artworkResult.success) {
+        throw new Error(`获取作品信息失败: ${artworkResult.error}`);
+      }
+
+      const artwork = artworkResult.data;
+
+      // 确保作品信息完整
+      if (!artwork || !artwork.user || !artwork.title) {
+        throw new Error('作品信息不完整');
+      }
+
+      const artistName = this.fileManager.createSafeDirectoryName(artwork.user.name || 'Unknown Artist');
+      const artworkTitle = this.fileManager.createSafeDirectoryName(artwork.title || 'Untitled');
+
+      // 创建作品目录
+      const downloadPath = await this.fileManager.getDownloadPath();
+      const artistDir = path.join(downloadPath, artistName);
+      const artworkDirName = `${artworkId}_${artworkTitle}`;
+      const artworkDir = path.join(artistDir, artworkDirName);
+
+      // 如果是重新下载，先删除现有目录
+      if (!skipExisting && (await this.fileManager.directoryExists(artworkDir))) {
+        console.log(`删除现有作品目录: ${artworkDir}`);
+        await this.fileManager.removeDirectory(artworkDir);
+      }
+
+      await this.fileManager.ensureDirectory(artworkDir);
+
+      // 获取图片URL
+      const imagesResult = await this.artworkService.getArtworkImages(artworkId, size);
+      if (!imagesResult.success) {
+        throw new Error(`获取图片URL失败: ${imagesResult.error}`);
+      }
+
+      const images = imagesResult.data.images;
+
+      // 直接下载，不创建新任务
+      const results = [];
+      for (let index = 0; index < images.length; index++) {
+        // 从图片对象中获取指定尺寸的URL
+        const imageObj = images[index];
+        let imageUrl;
+        
+        // 根据size参数选择对应的URL
+        switch (size) {
+          case 'original':
+            imageUrl = imageObj.original;
+            break;
+          case 'large':
+            imageUrl = imageObj.large;
+            break;
+          case 'medium':
+            imageUrl = imageObj.medium;
+            break;
+          case 'square_medium':
+            imageUrl = imageObj.square_medium;
+            break;
+          default:
+            imageUrl = imageObj.original || imageObj.large || imageObj.medium;
+        }
+
+        // 确保imageUrl是字符串
+        if (typeof imageUrl !== 'string') {
+          console.error(`图片URL不是字符串:`, imageUrl);
+          results.push({ success: false, error: '图片URL格式错误' });
+          continue;
+        }
+
+        const fileName = `image_${index + 1}.${this.getFileExtension(imageUrl)}`;
+        const filePath = path.join(artworkDir, fileName);
+
+        // 检查文件是否已存在
+        if (await this.fileManager.fileExists(filePath)) {
+          results.push({ success: true, file: fileName, skipped: true });
+          continue;
+        }
+
+        try {
+          // 确保目录存在
+          await this.fileManager.ensureDirectory(path.dirname(filePath));
+          await this.fileManager.downloadFile(imageUrl, filePath);
+          results.push({ success: true, file: fileName });
+        } catch (error) {
+          console.error(`下载图片失败 ${index + 1}: ${error.message}`);
+          results.push({ success: false, error: error.message });
+        }
+      }
+
+      // 保存作品信息
+      const infoPath = path.join(artworkDir, 'artwork_info.json');
+      await fs.writeJson(infoPath, artwork, { spaces: 2 });
+
+      // 检查下载结果
+      const failedCount = results.filter(r => !r.success).length;
+      const successCount = results.filter(r => r.success && !r.skipped).length;
+
+      return {
+        success: failedCount === 0,
+        artwork_id: artworkId,
+        artist_name: artistName,
+        artwork_title: artworkTitle,
+        total_files: images.length,
+        completed_files: successCount,
+        failed_files: failedCount,
+        results: results,
+      };
+    } catch (error) {
+      console.error(`下载作品 ${artworkId} 失败:`, error);
+      return {
+        success: false,
+        error: error.message,
+        artwork_id: artworkId,
+      };
+    }
+  }
+
+  /**
+   * 获取文件扩展名
+   */
+  getFileExtension(url) {
+    if (typeof url !== 'string') {
+      console.warn('URL不是字符串，使用默认扩展名:', url);
+      return 'jpg';
+    }
+    
+    const match = url.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
+    return match ? match[1] : 'jpg';
+  }
+
+  /**
    * 下载作者作品
    */
   async downloadArtistArtworks(artistId, options = {}) {
     const { type = 'art', limit = 50, size = 'original', quality = 'high', format = 'auto', skipExisting = true, maxConcurrent = 3, pageSize = 30 } = options;
 
     try {
+      // 先获取作者信息
+      let artistName = '未知作者';
+      try {
+        const artistResult = await this.artistService.getArtistInfo(artistId);
+        if (artistResult.success && artistResult.data) {
+          artistName = artistResult.data.name || `作者 ${artistId}`;
+        }
+      } catch (err) {
+        console.warn(`获取作者 ${artistId} 信息失败:`, err.message);
+      }
+
       // 创建任务记录
       const task = this.taskManager.createTask('artist', {
         artist_id: artistId,
-        total: 0,
-        completed: 0,
-        failed: 0,
+        artist_name: artistName,
+        total_files: 0,
+        completed_files: 0,
+        failed_files: 0,
         skipped: 0,
         results: [],
       });
@@ -521,7 +739,7 @@ class DownloadService {
 
       await this.taskManager.updateTask(task.id, {
         skipped: skippedCount,
-        total: newArtworks.length,
+        total_files: newArtworks.length,
       });
 
       // 作者作品下载统计
@@ -538,6 +756,7 @@ class DownloadService {
           data: {
             task_id: task.id,
             artist_id: artistId,
+            artist_name: artistName,
             total_artworks: allArtworks.length,
             completed_artworks: 0,
             failed_artworks: 0,
@@ -555,9 +774,10 @@ class DownloadService {
         data: {
           task_id: task.id,
           artist_id: artistId,
-          total_artworks: task.total,
-          completed_artworks: task.completed,
-          failed_artworks: task.failed,
+          artist_name: artistName,
+          total_artworks: task.total_files,
+          completed_artworks: task.completed_files,
+          failed_artworks: task.failed_files,
           message: '作者作品下载任务已创建，正在后台执行',
         },
       };
@@ -581,9 +801,9 @@ class DownloadService {
       const task = this.taskManager.createTask('ranking', {
         mode: mode,
         type: type,
-        total: 0,
-        completed: 0,
-        failed: 0,
+        total_files: 0,
+        completed_files: 0,
+        failed_files: 0,
         skipped: 0,
         results: [],
       });
@@ -631,7 +851,7 @@ class DownloadService {
 
       await this.taskManager.updateTask(task.id, {
         skipped: skippedCount,
-        total: newArtworks.length,
+        total_files: newArtworks.length,
       });
 
       // 排行榜作品下载统计

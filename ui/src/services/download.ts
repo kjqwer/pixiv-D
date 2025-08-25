@@ -129,6 +129,27 @@ class DownloadService {
   }
 
   /**
+   * 清理历史记录
+   */
+  async cleanupHistory(keepCount = 500) {
+    return apiService.post('/api/download/cleanup/history', { keepCount });
+  }
+
+  /**
+   * 清理已完成的任务
+   */
+  async cleanupTasks(keepActive = true, keepCompleted = 100) {
+    return apiService.post('/api/download/cleanup/tasks', { keepActive, keepCompleted });
+  }
+
+  /**
+   * 获取系统统计信息
+   */
+  async getSystemStats() {
+    return apiService.get('/api/download/stats');
+  }
+
+  /**
    * 使用SSE监听下载进度
    */
   streamTaskProgress(taskId: string, onProgress: (task: DownloadTask) => void, onComplete?: () => void) {

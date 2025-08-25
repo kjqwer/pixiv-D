@@ -42,6 +42,36 @@
       </div>
     </div>
 
+    <!-- 批量下载的详细进度 -->
+    <div v-if="task.type === 'batch' || task.type === 'artist'" class="batch-progress">
+      <div class="batch-stats">
+        <div class="stat-item">
+          <span class="stat-label">已完成:</span>
+          <span class="stat-value success">{{ task.completed_files }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">失败:</span>
+          <span class="stat-value error">{{ task.failed_files }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">剩余:</span>
+          <span class="stat-value">{{ task.total_files - task.completed_files - task.failed_files }}</span>
+        </div>
+      </div>
+      
+      <!-- 最近完成的作品列表 -->
+      <div v-if="task.recent_completed && task.recent_completed.length > 0" class="recent-completed">
+        <h4>最近完成:</h4>
+        <div class="completed-list">
+          <div v-for="item in task.recent_completed.slice(0, 3)" :key="item.artwork_id" class="completed-item">
+            <span class="artwork-id">#{{ item.artwork_id }}</span>
+            <span v-if="item.artwork_title" class="artwork-title">{{ item.artwork_title }}</span>
+            <span v-if="item.artist_name" class="artist-name">by {{ item.artist_name }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="task-status">
       <span class="status-badge" :class="statusClass">
         {{ getStatusText(task.status) }}
@@ -398,6 +428,81 @@ const cancelTask = async () => {
   margin-top: 0.25rem;
 }
 
+/* 批量下载进度样式 */
+.batch-progress {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+}
+
+.batch-stats {
+  display: flex;
+  gap: 2rem;
+  margin-bottom: 1rem;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.stat-value.success {
+  color: #059669;
+}
+
+.stat-value.error {
+  color: #dc2626;
+}
+
+.recent-completed h4 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 0.5rem 0;
+}
+
+.completed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.completed-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.artwork-id {
+  font-weight: 600;
+  color: #3b82f6;
+}
+
+.artwork-title {
+  color: #374151;
+  font-weight: 500;
+}
+
+.artist-name {
+  color: #6b7280;
+}
+
 .task-error {
   display: flex;
   align-items: center;
@@ -412,5 +517,12 @@ const cancelTask = async () => {
 
 .error-icon {
   font-size: 1rem;
+}
+
+@media (max-width: 768px) {
+  .batch-stats {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
 }
 </style> 

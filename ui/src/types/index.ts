@@ -110,6 +110,11 @@ export interface DownloadTask {
   end_time?: string;
   error?: string;
   results?: any[];
+  recent_completed?: Array<{
+    artwork_id: number;
+    artwork_title?: string;
+    artist_name?: string;
+  }>;
 }
 
 // 搜索参数
