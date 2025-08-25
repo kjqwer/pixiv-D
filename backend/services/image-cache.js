@@ -17,8 +17,8 @@ class ImageCacheService {
       // 在打包环境中，使用可执行文件所在目录
       this.cacheDir = path.join(process.cwd(), 'data', 'image-cache');
     } else {
-      // 在开发环境中，使用相对路径
-      this.cacheDir = path.join(__dirname, '..', 'data', 'image-cache');
+      // 在开发环境中，使用项目根目录的data文件夹
+      this.cacheDir = path.join(__dirname, '..', '..', 'data', 'image-cache');
     }
     
     // 确保路径是绝对路径

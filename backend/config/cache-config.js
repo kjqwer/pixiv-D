@@ -14,8 +14,8 @@ class CacheConfigManager {
       // 在打包环境中，使用可执行文件所在目录
       this.configPath = path.join(process.cwd(), 'data', 'cache-config.json');
     } else {
-      // 在开发环境中，使用相对路径
-      this.configPath = path.join(__dirname, 'cache-config.json');
+      // 在开发环境中，使用项目根目录的data文件夹
+      this.configPath = path.join(__dirname, '..', '..', 'data', 'cache-config.json');
     }
     
     // 确保路径是绝对路径
