@@ -2,6 +2,7 @@
 import { RouterLink, RouterView } from 'vue-router'
 import { computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import SettingsWidget from '@/components/common/SettingsWidget.vue'
 
 const authStore = useAuthStore()
 
@@ -68,6 +69,9 @@ onMounted(async () => {
         <p>&copy; 2025 Pixiv Manager. 仅供学习和个人使用。</p>
       </div>
     </footer>
+
+    <!-- 设置小组件 - 只在登录时显示 -->
+    <SettingsWidget v-if="isLoggedIn" />
   </div>
 </template>
 

@@ -46,6 +46,18 @@
           <RankingPagination v-if="totalPages > 1 && artworks && artworks.length > 0" :currentPage="currentPage"
             :totalPages="totalPages" :visiblePages="visiblePages" @page-change="goToPage" />
 
+          <!-- 跳转到指定页面 -->
+          <div v-if="totalPages > 1 && artworks && artworks.length > 0" class="jump-to-page">
+            <div class="jump-input-group">
+              <label for="jumpPage">跳转到:</label>
+              <input v-model="jumpPageInput" type="number" id="jumpPage" class="jump-input" :min="1" :max="totalPages"
+                placeholder="页码" @keyup.enter="handleJumpToPage" />
+              <button @click="handleJumpToPage" class="jump-btn" :disabled="!jumpPageInput || jumping">
+                {{ jumping ? '跳转中...' : '跳转' }}
+              </button>
+            </div>
+          </div>
+
           <!-- 页面信息 -->
           <div v-if="totalPages > 1 && artworks && artworks.length > 0" class="page-info">
             <span>第 {{ currentPage }} 页，共 {{ totalPages }} 页</span>
@@ -88,6 +100,10 @@ const currentPage = ref(1);
 const pageSize = ref(30);
 const totalCount = ref(0);
 const totalPages = ref(0);
+
+// 跳转到指定页面相关
+const jumpPageInput = ref<string | number>('');
+const jumping = ref(false);
 
 // 缓存相关
 const cache = ref<Map<string, any>>(new Map());
@@ -227,6 +243,16 @@ const fetchRankingData = async (page = 1) => {
 const handleModeChange = (mode: 'day' | 'week' | 'month') => {
   currentMode.value = mode;
   currentPage.value = 1;
+
+  // 更新URL参数
+  router.push({
+    query: {
+      mode: mode,
+      type: currentType.value,
+      page: undefined
+    }
+  });
+
   fetchRankingData(1);
 };
 
@@ -234,12 +260,32 @@ const handleModeChange = (mode: 'day' | 'week' | 'month') => {
 const handleTypeChange = (type: 'art' | 'manga' | 'novel') => {
   currentType.value = type;
   currentPage.value = 1;
+
+  // 更新URL参数
+  router.push({
+    query: {
+      mode: currentMode.value,
+      type: type,
+      page: undefined
+    }
+  });
+
   fetchRankingData(1);
 };
 
 // 跳转到指定页面
 const goToPage = (page: number) => {
   if (page < 1 || page > totalPages.value || page === currentPage.value) return;
+
+  // 更新URL参数
+  router.push({
+    query: {
+      mode: currentMode.value,
+      type: currentType.value,
+      page: page.toString()
+    }
+  });
+
   fetchRankingData(page);
 };
 
@@ -275,13 +321,64 @@ const handleDownloadError = (errorMessage: string) => {
   error.value = errorMessage;
 };
 
+// 跳转到指定页面
+const handleJumpToPage = async () => {
+  const page = parseInt(jumpPageInput.value as string);
+  if (isNaN(page) || page < 1) {
+    error.value = '请输入有效的页码';
+    return;
+  }
+
+  jumping.value = true;
+  jumpPageInput.value = ''; // 清空输入框
+
+  // 更新URL参数
+  router.push({
+    query: {
+      mode: currentMode.value,
+      type: currentType.value,
+      page: page.toString()
+    }
+  });
+
+  try {
+    await fetchRankingData(page);
+  } finally {
+    jumping.value = false;
+  }
+};
+
 // 监听路由变化
 watch(() => route.query, () => {
-  // 检查是否有返回的页面信息
-  const returnPage = parseInt(route.query.page as string);
-  if (returnPage && returnPage > 0) {
+  // 恢复模式、类型和页码状态
+  const urlMode = route.query.mode as string;
+  const urlType = route.query.type as string;
+  const urlPage = route.query.page as string;
+
+  let hasChanges = false;
+
+  // 恢复模式
+  if (urlMode && ['day', 'week', 'month'].includes(urlMode) && urlMode !== currentMode.value) {
+    currentMode.value = urlMode as 'day' | 'week' | 'month';
+    hasChanges = true;
+  }
+
+  // 恢复类型
+  if (urlType && ['art', 'manga', 'novel'].includes(urlType) && urlType !== currentType.value) {
+    currentType.value = urlType as 'art' | 'manga' | 'novel';
+    hasChanges = true;
+  }
+
+  // 恢复页码
+  const returnPage = parseInt(urlPage);
+  if (returnPage && returnPage > 0 && returnPage !== currentPage.value) {
     currentPage.value = returnPage;
-    fetchRankingData(returnPage);
+    hasChanges = true;
+  }
+
+  // 如果有变化，重新获取数据
+  if (hasChanges) {
+    fetchRankingData(currentPage.value);
   }
 });
 
@@ -291,7 +388,29 @@ onUnmounted(() => {
 });
 
 onMounted(async () => {
-  await fetchRankingData(1);
+  // 检查URL参数并恢复状态
+  const urlMode = route.query.mode as string;
+  const urlType = route.query.type as string;
+  const urlPage = route.query.page as string;
+
+  // 恢复模式
+  if (urlMode && ['day', 'week', 'month'].includes(urlMode)) {
+    currentMode.value = urlMode as 'day' | 'week' | 'month';
+  }
+
+  // 恢复类型
+  if (urlType && ['art', 'manga', 'novel'].includes(urlType)) {
+    currentType.value = urlType as 'art' | 'manga' | 'novel';
+  }
+
+  // 恢复页码
+  const returnPage = parseInt(urlPage);
+  if (returnPage && returnPage > 0) {
+    currentPage.value = returnPage;
+    await fetchRankingData(returnPage);
+  } else {
+    await fetchRankingData(1);
+  }
 });
 </script>
 
@@ -387,6 +506,57 @@ onMounted(async () => {
   font-size: 0.875rem;
 }
 
+.jump-to-page {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.jump-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  width: fit-content;
+}
+
+.jump-input {
+  border: none;
+  background: transparent;
+  padding: 0.5rem 0.25rem;
+  font-size: 0.875rem;
+  width: 50px;
+  text-align: center;
+}
+
+.jump-input:focus {
+  outline: none;
+}
+
+.jump-btn {
+  background: #4f46e5;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s ease;
+}
+
+.jump-btn:hover:not(:disabled) {
+  background: #4338ca;
+}
+
+.jump-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  color: #6b7280;
+}
+
 @media (max-width: 768px) {
   .container {
     padding: 0 1rem;
@@ -400,6 +570,24 @@ onMounted(async () => {
     flex-direction: column;
     gap: 0.5rem;
     text-align: center;
+  }
+
+  .jump-to-page {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .jump-input-group {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .jump-input {
+    width: 100%;
+  }
+
+  .jump-btn {
+    width: 100%;
   }
 }
 </style>

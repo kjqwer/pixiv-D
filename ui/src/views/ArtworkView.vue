@@ -253,8 +253,9 @@ const fetchArtworkDetail = async () => {
     loading.value = true;
     error.value = null;
 
-    // 清理之前的任务状态
+    // 立即清理所有下载相关状态
     currentTask.value = null;
+    downloading.value = false;
     stopTaskStreaming();
 
     const response = await artworkService.getArtworkDetail(artworkId);
@@ -307,7 +308,10 @@ const handleDownload = async () => {
   if (!artwork.value) return;
 
   try {
+    // 清理之前的任务状态
+    currentTask.value = null;
     downloading.value = true;
+
     // 如果已经下载过，则强制重新下载（跳过现有文件检查）
     const skipExisting = !isDownloaded.value;
     const response = await downloadService.downloadArtwork(artwork.value.id, {
@@ -383,9 +387,12 @@ const startTaskStreaming = (taskId: string) => {
 
         // 延迟检查下载状态，确保文件写入完成
         setTimeout(async () => {
-          await checkDownloadStatus(artwork.value!.id);
-          // 清理任务状态，显示下载完成状态
-          currentTask.value = null;
+          // 检查当前页面是否还是同一个作品，避免页面切换后的状态更新
+          if (artwork.value && artwork.value.id === task.artwork_id) {
+            await checkDownloadStatus(artwork.value.id);
+            // 清理任务状态，显示下载完成状态
+            currentTask.value = null;
+          }
         }, 1000);
       }
     },
@@ -404,6 +411,9 @@ const stopTaskStreaming = () => {
     sseConnection.value();
     sseConnection.value = null;
   }
+  // 确保清理任务状态
+  currentTask.value = null;
+  downloading.value = false;
 };
 
 // 更新任务状态
@@ -501,6 +511,11 @@ const fetchArtistArtworks = async () => {
 // 导航到上一个作品
 const navigateToPrevious = () => {
   if (previousArtwork.value && !loading.value) {
+    // 立即清理下载任务状态
+    currentTask.value = null;
+    downloading.value = false;
+    stopTaskStreaming();
+
     // 立即设置加载状态
     loading.value = true;
 
@@ -519,6 +534,11 @@ const navigateToPrevious = () => {
 // 导航到下一个作品
 const navigateToNext = () => {
   if (nextArtwork.value && !loading.value) {
+    // 立即清理下载任务状态
+    currentTask.value = null;
+    downloading.value = false;
+    stopTaskStreaming();
+
     // 立即设置加载状态
     loading.value = true;
 
@@ -630,8 +650,12 @@ watch(() => route.params.id, (newId, oldId) => {
   // 如果是同一个ID，不重复加载
   if (newId === oldId) return;
 
-  // 清理之前的任务状态
+  // 确保页面滚动到顶部
+  window.scrollTo(0, 0);
+
+  // 立即清理所有下载相关状态
   currentTask.value = null;
+  downloading.value = false;
   stopTaskStreaming();
 
   // 重新获取作品详情
@@ -660,6 +684,9 @@ const handleKeydown = (event: KeyboardEvent) => {
 };
 
 onMounted(() => {
+  // 确保页面滚动到顶部
+  window.scrollTo(0, 0);
+
   fetchArtworkDetail();
   if (showNavigation.value) {
     fetchArtistArtworks();

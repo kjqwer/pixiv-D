@@ -100,7 +100,7 @@
             <button @click="goToPage(currentPage + 1)" class="page-btn" :disabled="currentPage >= totalPages">
               下一页
               <svg viewBox="0 0 24 24" fill="currentColor" class="page-icon">
-                <path d="8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z" />
+                <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z" />
               </svg>
             </button>
           </div>
@@ -324,7 +324,7 @@ const fetchArtworks = async (page = 1, isJumpToPage = false) => {
     }
   } catch (err) {
     console.error('获取作品列表失败:', err);
-    
+
     // 只有在跳转到指定页面失败时才显示错误
     if (isJumpToPage) {
       error.value = `跳转失败：无法跳转到第 ${page} 页`;
