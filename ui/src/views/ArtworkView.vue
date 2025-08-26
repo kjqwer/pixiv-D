@@ -55,13 +55,6 @@
                 <span v-else-if="isDownloaded">重新下载</span>
                 <span v-else>下载</span>
               </button>
-
-              <!-- 强制检查按钮 -->
-              <button @click="handleForceCheck" :disabled="checkingDownloadStatus || !artwork" class="btn btn-secondary"
-                title="强制检查下载状态">
-                <span v-if="checkingDownloadStatus">检查中...</span>
-                <span v-else>检查状态</span>
-              </button>
               <button @click="handleBookmark" class="btn btn-secondary">
                 {{ artwork.is_bookmarked ? '取消收藏' : '收藏' }}
               </button>
@@ -206,7 +199,6 @@ const imageLoaded = ref(false);
 const imageError = ref(false);
 const downloading = ref(false);
 const isDownloaded = ref(false);
-const checkingDownloadStatus = ref(false);
 
 // 下载任务状态
 const currentTask = ref<DownloadTask | null>(null);
@@ -296,7 +288,6 @@ const fetchArtworkDetail = async () => {
 // 检查下载状态
 const checkDownloadStatus = async (artworkId: number, retryCount = 0) => {
   try {
-    checkingDownloadStatus.value = true;
     const response = await repositoryStore.checkArtworkDownloaded(artworkId);
 
     console.log('下载状态检查响应:', response);
@@ -324,8 +315,6 @@ const checkDownloadStatus = async (artworkId: number, retryCount = 0) => {
         checkDownloadStatus(artworkId, retryCount + 1);
       }, 2000 * (retryCount + 1));
     }
-  } finally {
-    checkingDownloadStatus.value = false;
   }
 };
 
@@ -355,21 +344,24 @@ const handleDownload = async () => {
         return;
       }
 
-      // 如果是新任务，开始监听进度
+      // 如果是新任务，立即创建任务状态并开始监听进度
       if (response.data.task_id) {
+        // 立即创建任务状态，让进度条立即显示
         currentTask.value = {
           id: response.data.task_id,
           type: 'artwork',
           status: 'downloading',
           progress: 0,
-          total_files: 0,
+          total_files: response.data.total_files || 0,
           completed_files: 0,
           failed_files: 0,
           artwork_id: artwork.value.id,
+          artist_name: response.data.artist_name,
+          artwork_title: response.data.artwork_title,
           start_time: new Date().toISOString()
         };
 
-        // 开始SSE监听任务进度
+        // 立即开始SSE监听任务进度
         startTaskStreaming(response.data.task_id);
       }
     } else {
@@ -380,50 +372,6 @@ const handleDownload = async () => {
     console.error('下载失败:', err);
   } finally {
     downloading.value = false;
-  }
-};
-
-// 强制检查下载状态
-const handleForceCheck = async () => {
-  if (!artwork.value) return;
-
-  try {
-    checkingDownloadStatus.value = true;
-    console.log('开始强制检查下载状态...');
-
-    // 调用强制检查API
-    const response = await fetch(`${getApiBaseUrl()}/api/download/force-check/${artwork.value.id}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      if (result.success) {
-        console.log('强制检查结果:', result.data);
-
-        // 更新下载状态
-        isDownloaded.value = result.data.is_downloaded;
-
-        // 显示检查结果
-        if (result.data.cleaned_files > 0) {
-          alert(`检查完成！${result.data.message}`);
-        } else {
-          alert(`检查完成！${result.data.message}`);
-        }
-      } else {
-        throw new Error(result.error || '强制检查失败');
-      }
-    } else {
-      throw new Error('强制检查请求失败');
-    }
-  } catch (err) {
-    console.error('强制检查失败:', err);
-    alert(`强制检查失败: ${err instanceof Error ? err.message : '未知错误'}`);
-  } finally {
-    checkingDownloadStatus.value = false;
   }
 };
 
@@ -448,6 +396,7 @@ const startTaskStreaming = (taskId: string) => {
         total: task.total_files
       });
 
+      // 立即更新任务状态，让进度条立即显示
       currentTask.value = task;
 
       // 如果任务完成，清理连接并检查下载状态
@@ -456,8 +405,8 @@ const startTaskStreaming = (taskId: string) => {
         stopTaskStreaming();
 
         // 延迟检查下载状态，确保文件写入完成
-        // 对于大文件，可能需要更长时间
-        const delay = task.total_files > 1 ? 3000 : 2000; // 多文件延迟3秒，单文件延迟2秒
+        // 减少延迟时间，提高响应速度
+        const delay = task.total_files > 1 ? 1500 : 1000; // 多文件延迟1.5秒，单文件延迟1秒
 
         setTimeout(async () => {
           // 检查当前页面是否还是同一个作品，避免页面切换后的状态更新
@@ -472,7 +421,7 @@ const startTaskStreaming = (taskId: string) => {
                 if (artwork.value && artwork.value.id === task.artwork_id) {
                   await checkDownloadStatus(artwork.value.id);
                 }
-              }, 2000);
+              }, 1000);
             }
 
             // 清理任务状态，显示下载完成状态
