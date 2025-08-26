@@ -320,6 +320,7 @@ class DownloadService {
             // 检查作品信息文件
             const infoPath = path.join(artworkPath, 'artwork_info.json');
             if (!(await this.fileManager.fileExists(infoPath))) {
+              console.log(`作品 ${artworkId} 缺少信息文件`);
               return false;
             }
 
@@ -328,19 +329,30 @@ class DownloadService {
             const imageFiles = files.filter(file => /\.(jpg|jpeg|png|gif|webp)$/i.test(file) && file !== 'artwork_info.json');
 
             if (imageFiles.length === 0) {
+              console.log(`作品 ${artworkId} 没有图片文件`);
               return false;
             }
 
             // 检查每个图片文件的完整性
+            let validFiles = 0;
             for (const imageFile of imageFiles) {
               const imagePath = path.join(artworkPath, imageFile);
               const integrity = await this.fileManager.checkFileIntegrity(imagePath);
-              if (!integrity.valid) {
-                return false;
+              if (integrity.valid) {
+                validFiles++;
+              } else {
+                console.log(`作品 ${artworkId} 的图片文件 ${imageFile} 不完整: ${integrity.reason}`);
               }
             }
 
-            return true;
+            // 只有当所有图片文件都完整时，才认为作品已下载
+            if (validFiles === imageFiles.length) {
+              console.log(`作品 ${artworkId} 已完整下载，共 ${validFiles} 个文件`);
+              return true;
+            } else {
+              console.log(`作品 ${artworkId} 下载不完整，${validFiles}/${imageFiles.length} 个文件有效`);
+              return false;
+            }
           }
         }
       }
@@ -349,6 +361,116 @@ class DownloadService {
     } catch (error) {
       console.error('检查作品下载状态失败:', error);
       return false;
+    }
+  }
+
+  /**
+   * 强制重新检查作品下载状态，包括清理不完整的文件
+   */
+  async forceCheckArtworkDownloaded(artworkId) {
+    try {
+      const downloadPath = await this.fileManager.getDownloadPath();
+      let cleanedFiles = 0;
+
+      // 扫描所有作者目录
+      const artistEntries = await this.fileManager.listDirectory(downloadPath);
+
+      for (const artistEntry of artistEntries) {
+        const artistPath = path.join(downloadPath, artistEntry);
+        const artistStat = await this.fileManager.getFileInfo(artistPath);
+
+        if (!artistStat.exists || !artistStat.isDirectory) continue;
+
+        // 扫描作者下的作品目录
+        const artworkEntries = await this.fileManager.listDirectory(artistPath);
+
+        for (const artworkEntry of artworkEntries) {
+          // 检查是否是目标作品目录（包含数字ID）
+          const artworkMatch = artworkEntry.match(/^(\d+)_(.+)$/);
+          if (artworkMatch && artworkMatch[1] === artworkId.toString()) {
+            const artworkPath = path.join(artistPath, artworkEntry);
+
+            // 检查作品信息文件
+            const infoPath = path.join(artworkPath, 'artwork_info.json');
+            if (!(await this.fileManager.fileExists(infoPath))) {
+              console.log(`作品 ${artworkId} 缺少信息文件，清理目录`);
+              await this.fileManager.removeDirectory(artworkPath);
+              return {
+                is_downloaded: false,
+                cleaned_files: 1,
+                message: '作品目录不完整，已清理'
+              };
+            }
+
+            // 检查图片文件
+            const files = await this.fileManager.listDirectory(artworkPath);
+            const imageFiles = files.filter(file => /\.(jpg|jpeg|png|gif|webp)$/i.test(file) && file !== 'artwork_info.json');
+
+            if (imageFiles.length === 0) {
+              console.log(`作品 ${artworkId} 没有图片文件，清理目录`);
+              await this.fileManager.removeDirectory(artworkPath);
+              return {
+                is_downloaded: false,
+                cleaned_files: 1,
+                message: '作品目录没有图片文件，已清理'
+              };
+            }
+
+            // 检查每个图片文件的完整性，清理不完整的文件
+            let validFiles = 0;
+            for (const imageFile of imageFiles) {
+              const imagePath = path.join(artworkPath, imageFile);
+              const integrity = await this.fileManager.checkFileIntegrity(imagePath);
+              if (integrity.valid) {
+                validFiles++;
+              } else {
+                console.log(`作品 ${artworkId} 的图片文件 ${imageFile} 不完整，删除: ${integrity.reason}`);
+                await this.fileManager.safeDeleteFile(imagePath);
+                cleanedFiles++;
+              }
+            }
+
+            // 如果所有文件都被清理了，删除整个目录
+            if (validFiles === 0) {
+              console.log(`作品 ${artworkId} 所有图片文件都不完整，清理目录`);
+              await this.fileManager.removeDirectory(artworkPath);
+              return {
+                is_downloaded: false,
+                cleaned_files: cleanedFiles + 1,
+                message: '所有图片文件都不完整，已清理整个目录'
+              };
+            }
+
+            // 只有当所有图片文件都完整时，才认为作品已下载
+            if (validFiles === imageFiles.length) {
+              return {
+                is_downloaded: true,
+                cleaned_files: cleanedFiles,
+                message: `作品已完整下载，共 ${validFiles} 个文件`
+              };
+            } else {
+              return {
+                is_downloaded: false,
+                cleaned_files: cleanedFiles,
+                message: `作品下载不完整，${validFiles}/${imageFiles.length} 个文件有效，已清理 ${cleanedFiles} 个不完整文件`
+              };
+            }
+          }
+        }
+      }
+
+      return {
+        is_downloaded: false,
+        cleaned_files: cleanedFiles,
+        message: '作品未找到'
+      };
+    } catch (error) {
+      console.error('强制检查作品下载状态失败:', error);
+      return {
+        is_downloaded: false,
+        cleaned_files: 0,
+        message: `检查失败: ${error.message}`
+      };
     }
   }
 

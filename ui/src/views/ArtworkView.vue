@@ -48,9 +48,19 @@
         <div class="artwork-info">
           <div class="artwork-header">
             <h1 class="artwork-title">{{ artwork.title }}</h1>
+            <!-- 下载按钮 -->
             <div class="artwork-actions">
-              <button @click="handleDownload" class="btn btn-primary" :disabled="downloading">
-                {{ downloading ? '下载中...' : (isDownloaded ? '重新下载' : '下载') }}
+              <button @click="handleDownload" :disabled="downloading || !artwork" class="btn btn-primary">
+                <span v-if="downloading">下载中...</span>
+                <span v-else-if="isDownloaded">重新下载</span>
+                <span v-else>下载</span>
+              </button>
+
+              <!-- 强制检查按钮 -->
+              <button @click="handleForceCheck" :disabled="checkingDownloadStatus || !artwork" class="btn btn-secondary"
+                title="强制检查下载状态">
+                <span v-if="checkingDownloadStatus">检查中...</span>
+                <span v-else>检查状态</span>
               </button>
               <button @click="handleBookmark" class="btn btn-secondary">
                 {{ artwork.is_bookmarked ? '取消收藏' : '收藏' }}
@@ -172,13 +182,14 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { useRepositoryStore } from '@/stores/repository';
 import artworkService from '@/services/artwork';
 import artistService from '@/services/artist';
 import downloadService from '@/services/download';
-import { useRepositoryStore } from '@/stores/repository';
-import { getImageProxyUrl } from '@/services/api';
+import { getApiBaseUrl, getImageProxyUrl } from '@/services/api';
 import type { Artwork, DownloadTask } from '@/types';
-
+import ErrorMessage from '@/components/common/ErrorMessage.vue';
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
 import DownloadProgress from '@/components/download/DownloadProgress.vue';
 
 const route = useRoute();
@@ -283,7 +294,7 @@ const fetchArtworkDetail = async () => {
 };
 
 // 检查下载状态
-const checkDownloadStatus = async (artworkId: number) => {
+const checkDownloadStatus = async (artworkId: number, retryCount = 0) => {
   try {
     checkingDownloadStatus.value = true;
     const response = await repositoryStore.checkArtworkDownloaded(artworkId);
@@ -292,12 +303,27 @@ const checkDownloadStatus = async (artworkId: number) => {
 
     // repository store的apiCall返回的是data.data，所以response直接是数据对象
     if (response && typeof response === 'object') {
-      isDownloaded.value = response.is_downloaded || false;
+      const newStatus = response.is_downloaded || false;
+
+      // 如果状态发生变化，记录日志
+      if (isDownloaded.value !== newStatus) {
+        console.log(`作品下载状态变化: ${isDownloaded.value} -> ${newStatus}`);
+      }
+
+      isDownloaded.value = newStatus;
       console.log('作品下载状态:', isDownloaded.value);
     }
   } catch (err) {
     console.error('检查下载状态失败:', err);
     isDownloaded.value = false;
+
+    // 如果是网络错误且重试次数少于3次，延迟重试
+    if (retryCount < 3 && (err instanceof Error && err.message.includes('network') || err instanceof TypeError)) {
+      console.log(`下载状态检查失败，${2000 * (retryCount + 1)}ms 后重试 (${retryCount + 1}/3)`);
+      setTimeout(() => {
+        checkDownloadStatus(artworkId, retryCount + 1);
+      }, 2000 * (retryCount + 1));
+    }
   } finally {
     checkingDownloadStatus.value = false;
   }
@@ -357,6 +383,50 @@ const handleDownload = async () => {
   }
 };
 
+// 强制检查下载状态
+const handleForceCheck = async () => {
+  if (!artwork.value) return;
+
+  try {
+    checkingDownloadStatus.value = true;
+    console.log('开始强制检查下载状态...');
+
+    // 调用强制检查API
+    const response = await fetch(`${getApiBaseUrl()}/api/download/force-check/${artwork.value.id}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      if (result.success) {
+        console.log('强制检查结果:', result.data);
+
+        // 更新下载状态
+        isDownloaded.value = result.data.is_downloaded;
+
+        // 显示检查结果
+        if (result.data.cleaned_files > 0) {
+          alert(`检查完成！${result.data.message}`);
+        } else {
+          alert(`检查完成！${result.data.message}`);
+        }
+      } else {
+        throw new Error(result.error || '强制检查失败');
+      }
+    } else {
+      throw new Error('强制检查请求失败');
+    }
+  } catch (err) {
+    console.error('强制检查失败:', err);
+    alert(`强制检查失败: ${err instanceof Error ? err.message : '未知错误'}`);
+  } finally {
+    checkingDownloadStatus.value = false;
+  }
+};
+
 // 开始SSE监听任务进度
 const startTaskStreaming = (taskId: string) => {
   // 清除之前的连接
@@ -386,14 +456,29 @@ const startTaskStreaming = (taskId: string) => {
         stopTaskStreaming();
 
         // 延迟检查下载状态，确保文件写入完成
+        // 对于大文件，可能需要更长时间
+        const delay = task.total_files > 1 ? 3000 : 2000; // 多文件延迟3秒，单文件延迟2秒
+
         setTimeout(async () => {
           // 检查当前页面是否还是同一个作品，避免页面切换后的状态更新
           if (artwork.value && artwork.value.id === task.artwork_id) {
+            console.log(`延迟 ${delay}ms 后检查下载状态`);
             await checkDownloadStatus(artwork.value.id);
+
+            // 如果任务完成但状态检查显示未下载，再次延迟检查
+            if (task.status === 'completed' && !isDownloaded.value) {
+              console.log('任务完成但状态检查失败，再次延迟检查');
+              setTimeout(async () => {
+                if (artwork.value && artwork.value.id === task.artwork_id) {
+                  await checkDownloadStatus(artwork.value.id);
+                }
+              }, 2000);
+            }
+
             // 清理任务状态，显示下载完成状态
             currentTask.value = null;
           }
-        }, 1000);
+        }, delay);
       }
     },
     () => {

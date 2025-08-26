@@ -83,6 +83,59 @@ class FileManager {
         return { valid: false, reason: '文件为空' };
       }
 
+      // 检查文件是否过小（可能下载不完整）
+      if (stats.size < 1024) { // 小于1KB的文件可能是损坏的
+        return { valid: false, reason: '文件过小，可能下载不完整', size: stats.size };
+      }
+
+      // 检查文件头，验证是否为有效的图片文件
+      try {
+        const fileHandle = await fs.open(filePath, 'r');
+        const buffer = Buffer.alloc(12);
+        await fileHandle.read(buffer, 0, 12, 0);
+        await fileHandle.close();
+
+        // 检查常见图片格式的文件头
+        const isJPEG = buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF;
+        const isPNG = buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47;
+        const isGIF = (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) || 
+                     (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x38);
+        const isWebP = buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46;
+
+        if (!isJPEG && !isPNG && !isGIF && !isWebP) {
+          return { valid: false, reason: '文件格式无效或损坏', size: stats.size };
+        }
+
+        // 对于JPEG文件，检查文件尾
+        if (isJPEG) {
+          const endBuffer = Buffer.alloc(2);
+          const endHandle = await fs.open(filePath, 'r');
+          await endHandle.read(endBuffer, 0, 2, stats.size - 2);
+          await endHandle.close();
+          
+          if (endBuffer[0] !== 0xFF || endBuffer[1] !== 0xD9) {
+            return { valid: false, reason: 'JPEG文件不完整（缺少结束标记）', size: stats.size };
+          }
+        }
+
+        // 对于PNG文件，检查文件尾
+        if (isPNG) {
+          const endBuffer = Buffer.alloc(8);
+          const endHandle = await fs.open(filePath, 'r');
+          await endHandle.read(endBuffer, 0, 8, stats.size - 8);
+          await endHandle.close();
+          
+          const pngEnd = Buffer.from([0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82]);
+          if (!endBuffer.equals(pngEnd)) {
+            return { valid: false, reason: 'PNG文件不完整（缺少结束标记）', size: stats.size };
+          }
+        }
+
+      } catch (headerError) {
+        console.warn('文件头检查失败，但继续验证:', headerError.message);
+        // 如果文件头检查失败，但文件大小正常，仍然认为是有效的
+      }
+
       return { valid: true, size: stats.size };
     } catch (error) {
       return { valid: false, reason: '检查文件失败', error: error.message };

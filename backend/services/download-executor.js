@@ -59,20 +59,36 @@ class DownloadExecutor {
         const fileName = `image_${index + 1}.${this.getFileExtension(imageUrl)}`;
         const filePath = path.join(artworkDir, fileName);
 
-        // 检查文件是否已存在
+        // 检查文件是否已存在且完整
         if (await this.fileManager.fileExists(filePath)) {
-          task.completed_files++;
-          task.progress = Math.round((task.completed_files / task.total_files) * 100);
-          await this.taskManager.saveTasks();
-          this.progressManager.notifyProgressUpdate(task.id, task);
-          continue;
+          // 验证文件完整性
+          const integrity = await this.fileManager.checkFileIntegrity(filePath);
+          if (integrity.valid) {
+            task.completed_files++;
+            task.progress = Math.round((task.completed_files / task.total_files) * 100);
+            await this.taskManager.saveTasks();
+            this.progressManager.notifyProgressUpdate(task.id, task);
+            results.push({ success: true, file: fileName, skipped: true });
+            continue;
+          } else {
+            // 文件不完整，删除重新下载
+            console.log(`文件不完整，重新下载: ${filePath}`);
+            await this.fileManager.safeDeleteFile(filePath);
+          }
         }
 
         try {
           // 确保目录存在
           await this.fileManager.ensureDirectory(path.dirname(filePath));
 
+          // 下载文件并等待完成
           await this.fileManager.downloadFile(imageUrl, filePath);
+
+          // 验证下载的文件完整性
+          const integrity = await this.fileManager.checkFileIntegrity(filePath);
+          if (!integrity.valid) {
+            throw new Error(`文件下载不完整: ${integrity.reason}`);
+          }
 
           task.completed_files++;
           task.progress = Math.round((task.completed_files / task.total_files) * 100);
@@ -92,7 +108,7 @@ class DownloadExecutor {
       const infoPath = path.join(artworkDir, 'artwork_info.json');
       await fs.writeJson(infoPath, artwork, { spaces: 2 });
 
-      // 更新任务状态
+      // 更新任务状态 - 确保所有文件都处理完成后再更新
       task.status = task.failed_files === 0 ? 'completed' : 'partial';
       task.end_time = new Date();
       task.progress = 100;
