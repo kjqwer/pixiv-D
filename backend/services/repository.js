@@ -462,10 +462,26 @@ class RepositoryService {
           // 检查是否是目标作品目录（包含数字ID）
           const artworkMatch = artworkEntry.name.match(/^(\d+)_(.+)$/)
           if (artworkMatch && artworkMatch[1] === artworkId.toString()) {
-            // 检查作品目录中是否有图片文件
             const artworkPath = path.join(artistPath, artworkEntry.name)
+            
+            // 检查作品信息文件 - 这是最可靠的判断标准
+            const infoPath = path.join(artworkPath, 'artwork_info.json')
+            try {
+              await fs.access(infoPath)
+            } catch (error) {
+              // 信息文件不存在，认为未下载
+              return false
+            }
+            
+            // 检查是否有图片文件
             const files = await this.scanArtworkFiles(artworkPath)
-            return files.length > 0
+            if (files.length === 0) {
+              // 有信息文件但没有图片文件，认为未下载
+              return false
+            }
+            
+            // 有信息文件且有图片文件，认为已下载
+            return true
           }
         }
       }
