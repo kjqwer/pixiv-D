@@ -24,7 +24,7 @@
       <div v-if="activeTab === 'config'" class="tab-content">
         <RepositoryConfigComponent :config="config" :migrating="migrating" :migration-progress="migrationProgress"
           :migration-percent="migrationPercent" :migration-result="migrationResult" @save-config="saveConfig"
-          @reset-config="resetConfig" @select-download-dir="selectDownloadDir" @test-download-dir="testDownloadDir"
+          @reset-config="resetConfig" @test-download-dir="testDownloadDir"
           @config-saved="handleConfigSaved" />
       </div>
 

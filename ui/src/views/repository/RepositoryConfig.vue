@@ -5,15 +5,8 @@
       <div class="form-group">
         <label>下载目录</label>
         <div class="path-input-group">
-          <input 
-            v-model="config.downloadDir" 
-            type="text" 
-            placeholder="设置下载目录路径，例如: ./downloads 或 D:\downloads"
-            class="form-input"
-          />
-          <button type="button" @click="selectDownloadDir" class="btn btn-secondary">
-            选择目录
-          </button>
+          <input v-model="config.downloadDir" type="text" placeholder="设置下载目录路径，例如: ./downloads 或 D:\downloads"
+            class="form-input" />
           <button type="button" @click="testDownloadDir" class="btn btn-outline">
             测试
           </button>
@@ -25,22 +18,18 @@
           • 当前目录：<code>.</code> 或 <code>./</code>
         </small>
       </div>
-      
+
       <!-- 自动迁移选项 -->
       <div class="form-group">
         <label class="checkbox-label">
-          <input 
-            v-model="config.autoMigration" 
-            type="checkbox" 
-            class="form-checkbox"
-          />
+          <input v-model="config.autoMigration" type="checkbox" class="form-checkbox" />
           <span>自动迁移旧下载文件</span>
         </label>
         <small class="form-help">
           启用后，保存配置时会自动将旧下载目录中的文件移动到新目录
         </small>
       </div>
-      
+
       <!-- 迁移进度显示 -->
       <div v-if="migrating" class="migration-progress">
         <div class="progress-header">
@@ -51,22 +40,18 @@
           <div class="progress-fill" :style="{ width: migrationPercent + '%' }"></div>
         </div>
       </div>
-      
+
       <!-- 迁移结果 -->
       <div v-if="migrationResult" class="migration-result">
         <h4>迁移完成</h4>
         <div class="result-stats">
           <p>✅ 成功迁移: {{ migrationResult.totalMigrated }} 个作品</p>
-          <p>⏭️ 跳过: {{ migrationResult.log.filter((item: any) => item.status === 'skipped').length }} 个作品</p>
+          <p>⏭️ 跳过: {{migrationResult.log.filter((item: any) => item.status === 'skipped').length}} 个作品</p>
         </div>
         <div class="migration-log">
           <h5>详细日志</h5>
-          <div 
-            v-for="(item, index) in migrationResult.log.slice(0, 10)" 
-            :key="index"
-            class="log-item"
-            :class="(item as any).status"
-          >
+          <div v-for="(item, index) in migrationResult.log.slice(0, 10)" :key="index" class="log-item"
+            :class="(item as any).status">
             <span class="log-status">{{ (item as any).status === 'success' ? '✅' : '⏭️' }}</span>
             <span class="log-text">{{ (item as any).title }} (ID: {{ (item as any).id }})</span>
             <span v-if="(item as any).reason" class="log-reason">{{ (item as any).reason }}</span>
@@ -76,7 +61,7 @@
           </div>
         </div>
       </div>
-      
+
       <div class="form-group">
         <label>文件结构</label>
         <select v-model="config.fileStructure" class="form-select">
@@ -87,31 +72,18 @@
       </div>
       <div class="form-group">
         <label>命名模式</label>
-        <input 
-          v-model="config.namingPattern" 
-          type="text" 
-          placeholder="{artist_name}/{artwork_id}_{title}"
-          class="form-input"
-        />
+        <input v-model="config.namingPattern" type="text" placeholder="{artist_name}/{artwork_id}_{title}"
+          class="form-input" />
       </div>
       <div class="form-group">
         <label>最大文件大小 (MB)</label>
-        <input 
-          v-model.number="config.maxFileSize" 
-          type="number" 
-          placeholder="0表示无限制"
-          class="form-input"
-        />
+        <input v-model.number="config.maxFileSize" type="number" placeholder="0表示无限制" class="form-input" />
       </div>
       <div class="form-group">
         <label>允许的文件扩展名</label>
-        <input 
-          :value="config.allowedExtensions.join(',')" 
+        <input :value="config.allowedExtensions.join(',')"
           @input="(e) => config.allowedExtensions = (e.target as HTMLInputElement).value.split(',').map(ext => ext.trim()).filter(ext => ext)"
-          type="text" 
-          placeholder=".jpg,.png,.gif,.webp"
-          class="form-input"
-        />
+          type="text" placeholder=".jpg,.png,.gif,.webp" class="form-input" />
       </div>
       <div class="form-actions">
         <button @click="saveConfig" class="btn btn-primary" :disabled="saving">
@@ -141,7 +113,6 @@ interface Emits {
   (e: 'update:config', config: RepositoryConfig): void
   (e: 'save-config'): void
   (e: 'reset-config'): void
-  (e: 'select-download-dir'): void
   (e: 'test-download-dir'): void
   (e: 'config-saved'): void
 }
@@ -150,11 +121,6 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const saving = ref(false)
-
-// 选择下载目录
-const selectDownloadDir = () => {
-  emit('select-download-dir')
-}
 
 // 测试下载目录
 const testDownloadDir = () => {
@@ -391,4 +357,4 @@ const resetConfig = () => {
   color: #6b7280;
   margin-top: 0.5rem;
 }
-</style> 
+</style>
