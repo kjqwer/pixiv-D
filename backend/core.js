@@ -4,7 +4,7 @@ const PixivAuth = require('./auth');
 const DownloadService = require('./services/download');
 
 // 配置文件路径
-const CONFIG_FILE_DIR = require('appdata-path').getAppDataPath('pxder');
+const CONFIG_FILE_DIR = require('appdata-path').getAppDataPath('pmanager');
 const CONFIG_FILE = Path.resolve(CONFIG_FILE_DIR, 'config.json');
 
 // 默认配置

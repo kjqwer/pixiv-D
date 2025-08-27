@@ -650,41 +650,4 @@ router.get('/stats', async (req, res) => {
   }
 });
 
-/**
- * 强制重新检查作品下载状态
- * POST /api/download/force-check/:artworkId
- */
-router.post('/force-check/:artworkId', async (req, res) => {
-  try {
-    const { artworkId } = req.params;
-    
-    if (!artworkId || isNaN(parseInt(artworkId))) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid artwork ID'
-      });
-    }
-
-    const downloadService = req.backend.getDownloadService();
-    
-    // 强制重新检查，包括清理不完整的文件
-    const result = await downloadService.forceCheckArtworkDownloaded(parseInt(artworkId));
-    
-    res.json({
-      success: true,
-      data: {
-        artwork_id: parseInt(artworkId),
-        is_downloaded: result.is_downloaded,
-        cleaned_files: result.cleaned_files || 0,
-        message: result.message
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
 module.exports = router; 

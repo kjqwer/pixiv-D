@@ -124,22 +124,15 @@ class PixivAuth {
         include_policy: true
       };
 
-      console.log('请求数据:', data);
-
       const headers = {
         ...this.getDefaultHeaders(),
         'Content-Type': 'application/x-www-form-urlencoded'
       };
 
-      console.log('请求头部:', headers);
-
       const response = await this.axiosInstance.post('https://oauth.secure.pixiv.net/auth/token', 
         stringify(data),
         { headers }
       );
-
-      console.log('响应状态:', response.status);
-      console.log('响应数据:', JSON.stringify(response.data, null, 2));
 
       const tokenData = response.data.response;
       

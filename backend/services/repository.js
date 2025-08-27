@@ -466,10 +466,12 @@ class RepositoryService {
             
             // 检查作品信息文件 - 这是最可靠的判断标准
             const infoPath = path.join(artworkPath, 'artwork_info.json')
+            let artworkInfo;
             try {
-              await fs.access(infoPath)
+              const infoContent = await fs.readFile(infoPath, 'utf8')
+              artworkInfo = JSON.parse(infoContent)
             } catch (error) {
-              // 信息文件不存在，认为未下载
+              // 信息文件不存在或无法读取，认为未下载
               return false
             }
             
@@ -480,7 +482,16 @@ class RepositoryService {
               return false
             }
             
-            // 有信息文件且有图片文件，认为已下载
+            // 检查图片数量是否与artwork_info.json中记录的一致
+            const expectedImageCount = artworkInfo.page_count || 1
+            if (files.length < expectedImageCount) {
+              // 图片文件数量不足，认为下载不完整
+              console.log(`作品 ${artworkId} 图片数量不匹配: 期望 ${expectedImageCount} 个，实际 ${files.length} 个`)
+              return false
+            }
+            
+            // 有信息文件、有图片文件且数量匹配，认为已下载
+            console.log(`作品 ${artworkId} 已完整下载: ${files.length}/${expectedImageCount} 个图片文件`)
             return true
           }
         }
