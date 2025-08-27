@@ -74,3 +74,6 @@ start_me.bat
 dist/
 pixiv-manager-portable/
 pixiv-manager-portable.rar
+build/
+zzip.bat
+dist.zip
