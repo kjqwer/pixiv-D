@@ -1,19 +1,10 @@
 <template>
   <div class="artworks-view">
     <div class="artworks-grid">
-      <div 
-        v-for="artwork in artworks" 
-        :key="artwork.id"
-        class="artwork-card"
-        @click="$emit('view-artwork', artwork)"
-      >
+      <div v-for="artwork in artworks" :key="artwork.id" class="artwork-card" @click="$emit('view-artwork', artwork)">
         <div class="artwork-preview" v-if="artwork.files.length > 0">
-          <img 
-            :src="getPreviewUrl(artwork.files[0].path)" 
-            :alt="artwork.title"
-            class="preview-image"
-            @click.stop="$emit('open-image-viewer', artwork, 0)"
-          />
+          <img :src="getPreviewUrl(artwork.files[0].path)" :alt="artwork.title" class="preview-image"
+            @click.stop="$emit('open-image-viewer', artwork, 0)" />
           <div class="artwork-overlay">
             <button @click.stop="$emit('open-image-viewer', artwork, 0)" class="view-btn-overlay">
               👁️ 查看大图
@@ -184,4 +175,4 @@ defineEmits<Emits>()
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   }
 }
-</style> 
+</style>

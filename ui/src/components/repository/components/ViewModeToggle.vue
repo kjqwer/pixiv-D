@@ -1,26 +1,17 @@
 <template>
   <div class="view-toggle">
-    <button 
-      class="view-btn" 
-      :class="{ active: modelValue === 'artists' }"
-      @click="$emit('update:modelValue', 'artists')"
-    >
+    <button class="view-btn" :class="{ active: modelValue === 'artists' }"
+      @click="$emit('update:modelValue', 'artists')">
       <span class="btn-icon">👥</span>
       按作者浏览
     </button>
-    <button 
-      class="view-btn" 
-      :class="{ active: modelValue === 'artworks' }"
-      @click="$emit('update:modelValue', 'artworks')"
-    >
+    <button class="view-btn" :class="{ active: modelValue === 'artworks' }"
+      @click="$emit('update:modelValue', 'artworks')">
       <span class="btn-icon">🖼️</span>
       所有作品
     </button>
-    <button 
-      class="view-btn" 
-      :class="{ active: modelValue === 'gallery' }"
-      @click="$emit('update:modelValue', 'gallery')"
-    >
+    <button class="view-btn" :class="{ active: modelValue === 'gallery' }"
+      @click="$emit('update:modelValue', 'gallery')">
       <span class="btn-icon">🎨</span>
       画廊模式
     </button>
@@ -76,4 +67,4 @@ defineEmits<Emits>()
     justify-content: center;
   }
 }
-</style> 
+</style>

@@ -4,17 +4,13 @@
     <p class="migrate-description">
       将旧项目中的作品文件迁移到当前仓库中。系统会自动识别作品ID并避免重复迁移。
     </p>
-    
+
     <div class="migrate-form">
       <div class="form-group">
         <label>源目录路径</label>
         <div class="path-input-group">
-          <input 
-            v-model="migrateSourceDir" 
-            type="text" 
-            placeholder="选择要迁移的目录路径，例如: D:\old-downloads"
-            class="form-input"
-          />
+          <input v-model="migrateSourceDir" type="text" placeholder="选择要迁移的目录路径，例如: D:\old-downloads"
+            class="form-input" />
           <button type="button" @click="selectMigrateDir" class="btn btn-secondary">
             选择目录
           </button>
@@ -30,11 +26,7 @@
         </small>
       </div>
       <div class="form-actions">
-        <button 
-          @click="startMigration" 
-          class="btn btn-primary" 
-          :disabled="migrating"
-        >
+        <button @click="startMigration" class="btn btn-primary" :disabled="migrating">
           {{ migrating ? '迁移中...' : '开始迁移' }}
         </button>
       </div>
@@ -45,16 +37,11 @@
       <h4>迁移结果</h4>
       <div class="result-stats">
         <p>成功迁移: {{ migrationResult.totalMigrated }} 个作品</p>
-        <p>跳过: {{ migrationResult.log.filter((item: any) => item.status === 'skipped').length }} 个作品</p>
+        <p>跳过: {{migrationResult.log.filter((item: any) => item.status === 'skipped').length}} 个作品</p>
       </div>
       <div class="migration-log">
         <h5>详细日志</h5>
-        <div 
-          v-for="(item, index) in migrationResult.log" 
-          :key="index"
-          class="log-item"
-          :class="(item as any).status"
-        >
+        <div v-for="(item, index) in migrationResult.log" :key="index" class="log-item" :class="(item as any).status">
           <span class="log-status">{{ (item as any).status === 'success' ? '✅' : '⏭️' }}</span>
           <span class="log-text">{{ (item as any).title }} (ID: {{ (item as any).id }})</span>
           <span v-if="(item as any).reason" class="log-reason">{{ (item as any).reason }}</span>
@@ -241,4 +228,4 @@ const startMigration = () => {
   color: #6b7280;
   font-size: 0.875rem;
 }
-</style> 
+</style>

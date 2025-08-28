@@ -22,22 +22,13 @@
         </button>
       </div>
     </div>
-    
+
     <div class="gallery-grid" :class="`grid-${gridSize}`">
-      <div 
-        v-for="artwork in artworks" 
-        :key="artwork.id"
-        class="gallery-item"
-        @click="$emit('open-image-viewer', artwork, 0)"
-      >
+      <div v-for="artwork in artworks" :key="artwork.id" class="gallery-item"
+        @click="$emit('open-image-viewer', artwork, 0)">
         <div class="gallery-image-container">
-          <img 
-            :src="getPreviewUrl(artwork.files[0].path)" 
-            :alt="artwork.title"
-            class="gallery-image"
-            @load="onImageLoad"
-            @error="onImageError"
-          />
+          <img :src="getPreviewUrl(artwork.files[0].path)" :alt="artwork.title" class="gallery-image"
+            @load="onImageLoad" @error="onImageError" />
           <div class="gallery-overlay">
             <div class="overlay-content">
               <h4>{{ artwork.title }}</h4>
@@ -301,14 +292,14 @@ const onImageError = (event: Event) => {
     flex-direction: column;
     gap: 1rem;
   }
-  
+
   .zoom-controls,
   .view-controls {
     justify-content: center;
   }
-  
+
   .gallery-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   }
 }
-</style> 
+</style>

@@ -45,10 +45,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRepositoryStore, type RepositoryStats, type RepositoryConfig, type Artist, type Artwork } from '@/stores/repository.ts'
-import RepositoryStatsComponent from './repository/RepositoryStats.vue'
-import RepositoryConfigComponent from './repository/RepositoryConfig.vue'
-import RepositoryBrowse from './repository/RepositoryBrowse.vue'
-import ArtworkModal from './repository/ArtworkModal.vue'
+import RepositoryStatsComponent from '@/components/repository/RepositoryStats.vue'
+import RepositoryConfigComponent from '@/components/repository/RepositoryConfig.vue'
+import RepositoryBrowse from '@/components/repository/RepositoryBrowse.vue'
+import ArtworkModal from '@/components/repository/ArtworkModal.vue'
 
 const repositoryStore = useRepositoryStore()
 

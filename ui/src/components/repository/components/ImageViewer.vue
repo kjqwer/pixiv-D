@@ -17,26 +17,23 @@
           <button @click="close" class="close-btn">×</button>
         </div>
       </div>
-      
+
       <div class="viewer-main">
         <button @click="previousImage" class="nav-btn prev-btn" :disabled="currentIndex <= 0">
           ‹
         </button>
-        
+
         <div class="image-container">
-          <img 
-            :src="getPreviewUrl(currentImagePath)" 
-            :alt="currentImageName"
-            class="viewer-image"
-            :style="{ transform: `scale(${zoomLevel})` }"
-          />
+          <img :src="getPreviewUrl(currentImagePath)" :alt="currentImageName" class="viewer-image"
+            :style="{ transform: `scale(${zoomLevel})` }" />
         </div>
-        
-        <button @click="nextImage" class="nav-btn next-btn" :disabled="currentIndex >= (artwork?.files?.length || 0) - 1">
+
+        <button @click="nextImage" class="nav-btn next-btn"
+          :disabled="currentIndex >= (artwork?.files?.length || 0) - 1">
           ›
         </button>
       </div>
-      
+
       <div class="viewer-footer">
         <div class="image-info">
           <p>{{ currentImageName }}</p>
@@ -46,19 +43,11 @@
           {{ currentIndex + 1 }} / {{ artwork?.files?.length || 0 }}
         </div>
       </div>
-      
+
       <div class="thumbnail-strip">
-        <div 
-          v-for="(file, index) in (artwork?.files || [])" 
-          :key="index"
-          :class="['thumbnail', { active: index === currentIndex }]"
-          @click="goToImage(index)"
-        >
-          <img 
-            :src="getPreviewUrl(file.path)" 
-            :alt="file.name"
-            class="thumbnail-img"
-          />
+        <div v-for="(file, index) in (artwork?.files || [])" :key="index"
+          :class="['thumbnail', { active: index === currentIndex }]" @click="goToImage(index)">
+          <img :src="getPreviewUrl(file.path)" :alt="file.name" class="thumbnail-img" />
         </div>
       </div>
     </div>
@@ -392,40 +381,40 @@ onUnmounted(() => {
     width: 95%;
     max-height: 95vh;
   }
-  
+
   .viewer-header {
     flex-direction: column;
     gap: 1rem;
     align-items: stretch;
   }
-  
+
   .viewer-controls {
     justify-content: space-between;
   }
-  
+
   .viewer-zoom-controls {
     flex-wrap: wrap;
     justify-content: center;
   }
-  
+
   .viewer-main {
     flex-direction: column;
     gap: 0.5rem;
   }
-  
+
   .nav-btn {
     width: 40px;
     height: 40px;
     font-size: 1.2rem;
   }
-  
+
   .thumbnail-strip {
     padding: 0.5rem;
   }
-  
+
   .thumbnail {
     width: 60px;
     height: 45px;
   }
 }
-</style> 
+</style>

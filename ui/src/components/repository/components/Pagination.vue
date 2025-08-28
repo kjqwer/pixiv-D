@@ -1,43 +1,23 @@
 <template>
   <div class="pagination" v-if="totalPages > 1">
-    <button 
-      @click="$emit('change-page', 1)" 
-      :disabled="currentPage <= 1"
-      class="page-btn"
-    >
+    <button @click="$emit('change-page', 1)" :disabled="currentPage <= 1" class="page-btn">
       首页
     </button>
-    <button 
-      @click="$emit('change-page', currentPage - 1)" 
-      :disabled="currentPage <= 1"
-      class="page-btn"
-    >
+    <button @click="$emit('change-page', currentPage - 1)" :disabled="currentPage <= 1" class="page-btn">
       上一页
     </button>
-    
+
     <div class="page-numbers">
-      <button 
-        v-for="page in visiblePages" 
-        :key="page"
-        @click="$emit('change-page', page)"
-        :class="['page-btn', { active: page === currentPage }]"
-      >
+      <button v-for="page in visiblePages" :key="page" @click="$emit('change-page', page)"
+        :class="['page-btn', { active: page === currentPage }]">
         {{ page }}
       </button>
     </div>
-    
-    <button 
-      @click="$emit('change-page', currentPage + 1)" 
-      :disabled="currentPage >= totalPages"
-      class="page-btn"
-    >
+
+    <button @click="$emit('change-page', currentPage + 1)" :disabled="currentPage >= totalPages" class="page-btn">
       下一页
     </button>
-    <button 
-      @click="$emit('change-page', totalPages)" 
-      :disabled="currentPage >= totalPages"
-      class="page-btn"
-    >
+    <button @click="$emit('change-page', totalPages)" :disabled="currentPage >= totalPages" class="page-btn">
       末页
     </button>
   </div>
@@ -63,15 +43,15 @@ const visiblePages = computed(() => {
   const maxVisible = 5
   let start = Math.max(1, props.currentPage - Math.floor(maxVisible / 2))
   let end = Math.min(props.totalPages, start + maxVisible - 1)
-  
+
   if (end - start + 1 < maxVisible) {
     start = Math.max(1, end - maxVisible + 1)
   }
-  
+
   for (let i = start; i <= end; i++) {
     pages.push(i)
   }
-  
+
   return pages
 })
 </script>
@@ -120,7 +100,7 @@ const visiblePages = computed(() => {
   .pagination {
     flex-wrap: wrap;
   }
-  
+
   .page-numbers {
     order: 3;
     width: 100%;
@@ -128,4 +108,4 @@ const visiblePages = computed(() => {
     margin-top: 0.5rem;
   }
 }
-</style> 
+</style>

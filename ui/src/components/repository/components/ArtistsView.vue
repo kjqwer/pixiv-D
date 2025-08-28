@@ -1,12 +1,8 @@
 <template>
   <div class="artists-view">
     <div class="artists-grid">
-      <div 
-        v-for="artist in artists" 
-        :key="artist.name"
-        class="artist-card"
-        @click="$emit('select-artist', artist.name)"
-      >
+      <div v-for="artist in artists" :key="artist.name" class="artist-card"
+        @click="$emit('select-artist', artist.name)">
         <div class="artist-avatar">
           <span class="avatar-text">{{ artist.name.charAt(0).toUpperCase() }}</span>
         </div>
@@ -119,10 +115,10 @@ defineEmits<Emits>()
   .artists-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   }
-  
+
   .artist-card {
     flex-direction: column;
     text-align: center;
   }
 }
-</style> 
+</style>

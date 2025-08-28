@@ -3,23 +3,20 @@
     <div class="stats-header">
       <h3>仓库统计</h3>
       <div class="stats-actions">
-        <button 
-          @click="refreshStats" 
-          :disabled="loading"
-          class="btn btn-secondary btn-sm"
-          title="刷新统计数据"
-        >
+        <button @click="refreshStats" :disabled="loading" class="btn btn-secondary btn-sm" title="刷新统计数据">
           <svg v-if="loading" viewBox="0 0 24 24" fill="currentColor" class="refresh-icon spinning">
-            <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+            <path
+              d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
           </svg>
           <svg v-else viewBox="0 0 24 24" fill="currentColor" class="refresh-icon">
-            <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+            <path
+              d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
           </svg>
           刷新
         </button>
       </div>
     </div>
-    
+
     <div class="stats-grid" v-if="stats">
       <div class="stat-card">
         <div class="stat-icon">📁</div>
@@ -129,6 +126,7 @@ import { formatFileSize } from '@/utils/formatters'
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -175,4 +173,4 @@ import { formatFileSize } from '@/utils/formatters'
   margin-top: 0.25rem;
   font-style: italic;
 }
-</style> 
+</style>

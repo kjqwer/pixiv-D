@@ -491,7 +491,7 @@ class RepositoryService {
             }
             
             // 有信息文件、有图片文件且数量匹配，认为已下载
-            console.log(`作品 ${artworkId} 已完整下载: ${files.length}/${expectedImageCount} 个图片文件`)
+            // console.log(`作品 ${artworkId} 已完整下载: ${files.length}/${expectedImageCount} 个图片文件`)
             return true
           }
         }

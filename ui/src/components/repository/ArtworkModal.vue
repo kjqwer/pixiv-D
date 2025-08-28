@@ -15,16 +15,8 @@
         <div class="artwork-files">
           <h4>文件列表</h4>
           <div class="files-grid">
-            <div 
-              v-for="file in artwork.files" 
-              :key="file.path"
-              class="file-item"
-            >
-              <img 
-                :src="getPreviewUrl(file.path)" 
-                :alt="file.name"
-                class="file-preview"
-              />
+            <div v-for="file in artwork.files" :key="file.path" class="file-item">
+              <img :src="getPreviewUrl(file.path)" :alt="file.name" class="file-preview" />
               <div class="file-info">
                 <p>{{ file.name }}</p>
                 <p>{{ formatFileSize(file.size) }}</p>
@@ -187,4 +179,4 @@ import { formatFileSize, getPreviewUrl } from '@/utils/formatters'
 .btn-secondary:hover {
   background: #4b5563;
 }
-</style> 
+</style>

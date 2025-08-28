@@ -432,6 +432,42 @@ const handleSearchModeChange = (mode: 'keyword' | 'tags' | 'artwork' | 'artist')
   router.push({ query });
 };
 
+const handleSingleTagSearch = async () => {
+  if (searchTags.value.length === 0) {
+    return;
+  }
+
+  try {
+    loading.value = true;
+    error.value = null;
+    offset.value = 0;
+    hasSearched.value = true;
+
+    const params: SearchParams = {
+      tags: searchTags.value,
+      type: searchType.value,
+      sort: searchSort.value,
+      duration: searchDuration.value,
+      offset: 0,
+      limit: 30
+    };
+
+    const response = await artworkService.searchArtworks(params);
+
+    if (response.success && response.data) {
+      searchResults.value = response.data.artworks;
+      totalResults.value = response.data.total;
+    } else {
+      throw new Error(response.error || '标签搜索失败');
+    }
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '标签搜索失败';
+    console.error('标签搜索失败:', err);
+  } finally {
+    loading.value = false;
+  }
+};
+
 const handleTagSearch = async () => {
   if (searchTags.value.length === 0) {
     return;
@@ -530,16 +566,21 @@ watch(() => route.query, () => {
       }
       // 保存到sessionStorage
       sessionStorage.setItem('currentSearchTags', JSON.stringify(searchTags.value));
+
+      // 如果有多个标签，自动执行搜索
+      if (searchTags.value.length > 0) {
+        handleTagSearch();
+      }
     } else if (urlTag) {
       // 处理单个标签
       searchTags.value = [urlTag];
       // 清除sessionStorage中的多标签选择
       sessionStorage.removeItem('currentSearchTags');
-    }
 
-    // 如果有标签，自动执行搜索
-    if (searchTags.value.length > 0) {
-      handleTagSearch();
+      // 对于单个标签，直接执行搜索而不更新URL
+      if (searchTags.value.length > 0) {
+        handleSingleTagSearch();
+      }
     }
   } else if (urlMode === 'keyword' && urlKeyword) {
     // 如果是关键词搜索模式且有关键词，自动执行搜索

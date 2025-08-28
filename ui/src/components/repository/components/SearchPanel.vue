@@ -2,25 +2,20 @@
   <div class="search-panel">
     <div class="search-filters">
       <div class="search-box">
-        <input 
-          v-model="searchQuery" 
-          type="text" 
-          placeholder="搜索作品标题、作者名称..."
-          class="search-input"
-          @input="debounceSearch"
-        />
+        <input v-model="searchQuery" type="text" placeholder="搜索作品标题、作者名称..." class="search-input"
+          @input="debounceSearch" />
         <button @click="clearSearch" class="clear-btn" v-if="searchQuery">
           ✕
         </button>
       </div>
-      
+
       <div class="filter-controls">
         <select v-model="sortBy" @change="handleSortChange" class="filter-select">
           <option value="date">按日期排序</option>
           <option value="name">按名称排序</option>
           <option value="size">按大小排序</option>
         </select>
-        
+
         <select v-model="filterBy" @change="handleFilterChange" class="filter-select">
           <option value="all">全部</option>
           <option value="images">仅图片</option>
@@ -148,17 +143,17 @@ watch(() => props.initialQuery, (newQuery) => {
     flex-direction: column;
     width: 100%;
   }
-  
+
   .search-box {
     max-width: none;
   }
-  
+
   .filter-controls {
     width: 100%;
   }
-  
+
   .filter-select {
     flex: 1;
   }
 }
-</style> 
+</style>
