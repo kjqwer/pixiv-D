@@ -62,7 +62,10 @@
             <div class="task-header">
               <div class="task-info">
                 <h3 class="task-title">
-                  {{ getTaskTitle(task) }}
+                  <a v-if="task.artwork_id" :href="`/artwork/${task.artwork_id}`" class="task-link">
+                    {{ getTaskTitle(task) }}
+                  </a>
+                  <span v-else>{{ getTaskTitle(task) }}</span>
                 </h3>
                 <span class="task-status" :class="task.status">
                   {{ getStatusText(task.status) }}
@@ -71,6 +74,12 @@
               <div class="task-actions">
                 <button v-if="task.status === 'downloading'" @click="cancelTask(task.id)" class="btn btn-danger btn-sm">
                   取消
+                </button>
+                <button v-if="task.status === 'paused'" @click="resumeTask(task.id)" class="btn btn-primary btn-sm">
+                  恢复
+                </button>
+                <button v-if="task.status === 'paused'" @click="cancelTask(task.id)" class="btn btn-danger btn-sm">
+                  删除
                 </button>
               </div>
             </div>
@@ -205,7 +214,7 @@ const history = ref<any[]>([]);
 // SSE连接管理
 const sseConnections = ref<Map<string, () => void>>(new Map());
 
-// 计算属性：只显示活跃任务
+// 计算属性：显示活跃任务和暂停任务
 const activeTasks = computed(() => {
   return tasks.value.filter(task =>
     ['downloading', 'paused'].includes(task.status)
@@ -298,9 +307,9 @@ const fetchTasks = async () => {
     if (response.success) {
       tasks.value = response.data || [];
 
-      // 为活跃任务建立SSE连接
+      // 只为正在下载的任务建立SSE连接，避免为暂停任务建立连接
       activeTasks.value.forEach(task => {
-        if (!sseConnections.value.has(task.id)) {
+        if (task.status === 'downloading' && !sseConnections.value.has(task.id)) {
           startTaskStreaming(task.id);
         }
       });
@@ -337,6 +346,12 @@ const startTaskStreaming = (taskId: string) => {
 
   console.log('开始SSE监听任务进度:', taskId);
 
+  // 添加超时处理
+  const timeoutId = setTimeout(() => {
+    console.warn('SSE连接超时，关闭连接:', taskId);
+    stopTaskStreaming(taskId);
+  }, 30000); // 30秒超时
+
   const closeConnection = downloadService.streamTaskProgress(
     taskId,
     (task) => {
@@ -348,25 +363,31 @@ const startTaskStreaming = (taskId: string) => {
         total: task.total_files
       });
 
+      // 清除超时
+      clearTimeout(timeoutId);
+
       // 更新任务状态
       const index = tasks.value.findIndex(t => t.id === taskId);
       if (index !== -1) {
         tasks.value[index] = task;
       }
 
-      // 如果任务完成，清理连接
-      if (['completed', 'failed', 'cancelled', 'partial'].includes(task.status)) {
-        console.log('任务完成，关闭SSE连接:', taskId);
+      // 如果任务完成或暂停，清理连接
+      if (['completed', 'failed', 'cancelled', 'partial', 'paused'].includes(task.status)) {
+        console.log('任务状态变更，关闭SSE连接:', taskId);
         stopTaskStreaming(taskId);
 
         // 延迟刷新历史记录
-        setTimeout(() => {
-          fetchHistory();
-        }, 1000);
+        if (['completed', 'failed', 'cancelled', 'partial'].includes(task.status)) {
+          setTimeout(() => {
+            fetchHistory();
+          }, 1000);
+        }
       }
     },
     () => {
       console.log('SSE连接完成:', taskId);
+      clearTimeout(timeoutId);
       stopTaskStreaming(taskId);
     }
   );
@@ -382,11 +403,35 @@ const stopTaskStreaming = (taskId: string) => {
   }
 };
 
+// 管理SSE连接
+const manageSSEConnections = () => {
+  // 清理不需要的连接
+  const currentTaskIds = new Set(activeTasks.value.map(task => task.id));
+  
+  // 关闭已不存在的任务的连接
+  sseConnections.value.forEach((closeConnection, taskId) => {
+    if (!currentTaskIds.has(taskId)) {
+      console.log('清理已不存在的任务连接:', taskId);
+      closeConnection();
+      sseConnections.value.delete(taskId);
+    }
+  });
+
+  // 为正在下载的任务建立连接
+  activeTasks.value.forEach(task => {
+    if (task.status === 'downloading' && !sseConnections.value.has(task.id)) {
+      startTaskStreaming(task.id);
+    }
+  });
+};
+
 // 取消任务
 const cancelTask = async (taskId: string) => {
   try {
     const response = await downloadService.cancelTask(taskId);
     if (response.success) {
+      // 立即停止SSE连接
+      stopTaskStreaming(taskId);
       await fetchTasks();
     } else {
       throw new Error(response.error || '取消任务失败');
@@ -394,6 +439,23 @@ const cancelTask = async (taskId: string) => {
   } catch (err) {
     error.value = err instanceof Error ? err.message : '取消任务失败';
     console.error('取消任务失败:', err);
+  }
+};
+
+// 恢复任务
+const resumeTask = async (taskId: string) => {
+  try {
+    const response = await downloadService.resumeTask(taskId);
+    if (response.success) {
+      await fetchTasks();
+      // 重新管理SSE连接
+      manageSSEConnections();
+    } else {
+      throw new Error(response.error || '恢复任务失败');
+    }
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '恢复任务失败';
+    console.error('恢复任务失败:', err);
   }
 };
 
@@ -455,7 +517,16 @@ const cleanupSSEConnections = () => {
 onMounted(async () => {
   loading.value = true;
   try {
-    await refreshData();
+    // 先获取数据，不阻塞页面渲染
+    await Promise.all([
+      fetchTasks(),
+      fetchHistory()
+    ]);
+    
+    // 数据加载完成后，异步管理SSE连接
+    setTimeout(() => {
+      manageSSEConnections();
+    }, 100);
   } catch (err) {
     error.value = err instanceof Error ? err.message : '加载数据失败';
   } finally {
@@ -662,6 +733,17 @@ onUnmounted(() => {
   margin: 0 0 0.25rem 0;
 }
 
+.task-title .task-link {
+  color: #3b82f6;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.task-title .task-link:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
 .task-status,
 .history-status {
   display: inline-block;
@@ -705,6 +787,13 @@ onUnmounted(() => {
 .task-status.paused {
   background: #fef3c7;
   color: #d97706;
+}
+
+.task-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .task-progress {

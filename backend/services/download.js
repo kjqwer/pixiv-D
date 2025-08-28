@@ -134,11 +134,17 @@ class DownloadService {
       return { success: false, error: '任务状态不是暂停状态' };
     }
 
+    // 更新任务状态为下载中
     await this.taskManager.updateTask(taskId, { status: 'downloading' });
-    this.progressManager.notifyProgressUpdate(taskId, task);
+    
+    // 通知进度更新
+    const updatedTask = this.taskManager.getTask(taskId);
+    this.progressManager.notifyProgressUpdate(taskId, updatedTask);
 
-    // 重新开始下载
-    return this.downloadArtwork(task.artwork_id, { skipExisting: false });
+    // 重新开始下载执行
+    this.downloadExecutor.resumeTask(taskId);
+
+    return { success: true, data: updatedTask };
   }
 
   // 代理方法 - 历史记录管理

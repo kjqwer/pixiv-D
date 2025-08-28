@@ -25,6 +25,12 @@ class DownloadExecutor {
           break;
         }
 
+        // 检查是否应该暂停
+        if (this.shouldPause(task.id)) {
+          console.log('任务已暂停，停止下载:', task.id);
+          break;
+        }
+
         // 从图片对象中获取指定尺寸的URL
         const imageObj = images[index];
         let imageUrl;
@@ -155,6 +161,12 @@ class DownloadExecutor {
       // 分批下载
       for (let i = 0; i < artworkIds.length; i += concurrent) {
         if (task.status === 'cancelled') {
+          break;
+        }
+
+        // 检查是否应该暂停
+        if (this.shouldPause(task.id)) {
+          console.log('批量下载任务已暂停，停止下载:', task.id);
           break;
         }
 
@@ -502,6 +514,56 @@ class DownloadExecutor {
     
     const match = url.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
     return match ? match[1] : 'jpg';
+  }
+
+  /**
+   * 恢复暂停的任务
+   */
+  async resumeTask(taskId) {
+    const task = this.taskManager.getTask(taskId);
+    if (!task) {
+      throw new Error('任务不存在');
+    }
+
+    if (task.status !== 'paused') {
+      throw new Error('任务状态不是暂停状态');
+    }
+
+    // 根据任务类型重新开始下载
+    if (task.type === 'artwork') {
+      // 重新获取作品信息和图片URL
+      const artworkResult = await this.downloadService.artworkService.getArtwork(task.artwork_id);
+      if (!artworkResult.success) {
+        throw new Error(`获取作品信息失败: ${artworkResult.error}`);
+      }
+
+      const imagesResult = await this.downloadService.artworkService.getArtworkImages(task.artwork_id, 'original');
+      if (!imagesResult.success) {
+        throw new Error(`获取图片URL失败: ${imagesResult.error}`);
+      }
+
+      const artwork = artworkResult.data;
+      const images = imagesResult.data.images;
+      const artworkDir = await this.fileManager.getArtworkDirectory(artwork);
+
+      // 重新开始下载
+      this.executeArtworkDownload(task, images, 'original', artworkDir, artwork);
+    } else if (task.type === 'batch' || task.type === 'artist') {
+      // 批量下载和作者下载的恢复逻辑
+      // 这里需要根据具体实现来恢复
+      console.log('恢复批量下载任务:', taskId);
+      // TODO: 实现批量下载的恢复逻辑
+    }
+
+    return { success: true };
+  }
+
+  /**
+   * 检查任务是否应该暂停
+   */
+  shouldPause(taskId) {
+    const task = this.taskManager.getTask(taskId);
+    return task && task.status === 'paused';
   }
 }
 
