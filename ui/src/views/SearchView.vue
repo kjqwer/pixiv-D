@@ -27,8 +27,8 @@
           <!-- 关键词搜索 -->
           <div v-if="searchMode === 'keyword'" class="search-input-group">
             <input v-model="searchKeyword" type="text" placeholder="输入关键词搜索作品..." class="search-input"
-              @keyup.enter="handleSearch" />
-            <button @click="handleSearch" class="search-btn" :disabled="loading">
+              @keyup.enter="() => handleSearch()" />
+            <button @click="() => handleSearch()" class="search-btn" :disabled="loading">
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path
                   d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
@@ -59,7 +59,8 @@
                   </button>
                 </span>
               </div>
-              <button @click="handleTagSearch" class="search-btn" :disabled="loading || searchTags.length === 0">
+              <button @click="() => handleTagSearch()" class="search-btn"
+                :disabled="loading || searchTags.length === 0">
                 搜索标签
               </button>
             </div>
@@ -128,16 +129,47 @@
           <div v-else-if="searchResults.length > 0" class="results-section">
             <div class="results-header">
               <h2>搜索结果 ({{ totalResults }})</h2>
-              <div class="results-actions">
-                <button @click="loadMore" class="btn btn-secondary" :disabled="loadingMore">
-                  {{ loadingMore ? '加载中...' : '加载更多' }}
-                </button>
-              </div>
             </div>
 
             <div class="artworks-grid">
               <ArtworkCard v-for="artwork in searchResults" :key="artwork.id" :artwork="artwork"
                 @click="handleArtworkClick" />
+            </div>
+
+            <!-- 分页导航 -->
+            <div v-if="totalPages > 1" class="pagination-section">
+              <div class="pagination">
+                <button @click="goToPage(currentPage - 1)" class="page-btn" :disabled="currentPage <= 1">
+                  上一页
+                </button>
+
+                <button v-for="page in visiblePages" :key="page" @click="goToPage(page)" class="page-btn"
+                  :class="{ active: page === currentPage }">
+                  {{ page }}
+                </button>
+
+                <button @click="goToPage(currentPage + 1)" class="page-btn" :disabled="currentPage >= totalPages">
+                  下一页
+                </button>
+              </div>
+
+              <!-- 跳转到指定页面 -->
+              <div class="jump-to-page">
+                <div class="jump-input-group">
+                  <label for="jumpPage">跳转到:</label>
+                  <input v-model="jumpPageInput" type="number" id="jumpPage" class="jump-input" :min="1"
+                    :max="totalPages" placeholder="页码" @keyup.enter="handleJumpToPage" />
+                  <button @click="handleJumpToPage" class="jump-btn" :disabled="!jumpPageInput || jumping">
+                    {{ jumping ? '跳转中...' : '跳转' }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- 页面信息 -->
+              <div class="page-info">
+                <span>第 {{ currentPage }} 页，共 {{ totalPages }} 页</span>
+                <span>共 {{ totalResults }} 个作品</span>
+              </div>
             </div>
           </div>
 
@@ -193,15 +225,40 @@ const searchDuration = ref<'all' | 'within_last_day' | 'within_last_week' | 'wit
 
 // 结果状态
 const searchResults = ref<Artwork[]>([]);
-const totalResults = ref(0);
 const loading = ref(false);
-const loadingMore = ref(false);
 const error = ref<string | null>(null);
 const hasSearched = ref(false);
-const offset = ref(0);
 const artistSearchRef = ref();
 
-const handleSearch = async () => {
+// 分页状态
+const currentPage = ref(1);
+const pageSize = ref(30);
+const totalPages = ref(0);
+const totalResults = ref(0);
+
+// 跳转到指定页面相关
+const jumpPageInput = ref<string | number>('');
+const jumping = ref(false);
+
+// 计算属性
+const visiblePages = computed(() => {
+  const pages = [];
+  const maxVisible = 5;
+  let start = Math.max(1, currentPage.value - Math.floor(maxVisible / 2));
+  let end = Math.min(totalPages.value, start + maxVisible - 1);
+
+  if (end - start + 1 < maxVisible) {
+    start = Math.max(1, end - maxVisible + 1);
+  }
+
+  for (let i = start; i <= end; i++) {
+    pages.push(i);
+  }
+
+  return pages;
+});
+
+const handleSearch = async (page = 1) => {
   if (!searchKeyword.value.trim()) {
     return;
   }
@@ -210,6 +267,7 @@ const handleSearch = async () => {
   const query: any = { ...route.query };
   query.keyword = searchKeyword.value.trim();
   query.mode = 'keyword';
+  query.page = page.toString();
   // 清除标签相关参数
   delete query.tags;
   router.push({ query });
@@ -217,23 +275,50 @@ const handleSearch = async () => {
   try {
     loading.value = true;
     error.value = null;
-    offset.value = 0;
+    currentPage.value = page;
     hasSearched.value = true;
 
+    const offset = (page - 1) * pageSize.value;
     const params: SearchParams = {
       keyword: searchKeyword.value.trim(),
       type: searchType.value,
       sort: searchSort.value,
       duration: searchDuration.value,
-      offset: 0,
-      limit: 30
+      offset: offset,
+      limit: pageSize.value
     };
 
     const response = await artworkService.searchArtworks(params);
 
     if (response.success && response.data) {
       searchResults.value = response.data.artworks;
-      totalResults.value = response.data.total;
+
+      // 基于 next_url 来判断是否还有更多页面
+      const hasMore = !!response.data.next_url;
+
+      if (page === 1) {
+        // 第一页，基于是否有下一页来判断总数
+        if (hasMore) {
+          // 如果有下一页，至少说明有2页
+          totalResults.value = pageSize.value * 2;
+          totalPages.value = 2;
+        } else {
+          // 没有下一页，说明只有1页
+          totalResults.value = response.data.artworks?.length || 0;
+          totalPages.value = 1;
+        }
+      } else {
+        // 非第一页，基于当前页面位置和是否有下一页来判断
+        if (hasMore) {
+          // 如果有下一页，说明至少还有1页
+          totalResults.value = Math.max(totalResults.value, (page + 1) * pageSize.value);
+          totalPages.value = Math.max(totalPages.value, page + 1);
+        } else {
+          // 没有下一页，说明这是最后一页
+          totalResults.value = Math.max(totalResults.value, page * pageSize.value);
+          totalPages.value = Math.max(totalPages.value, page);
+        }
+      }
     } else {
       throw new Error(response.error || '搜索失败');
     }
@@ -245,50 +330,20 @@ const handleSearch = async () => {
   }
 };
 
-const loadMore = async () => {
-  if (loadingMore.value) {
-    return;
-  }
+// 跳转到指定页面
+const goToPage = (page: number) => {
+  if (page < 1 || page > totalPages.value || page === currentPage.value) return;
 
-  // 检查是否有搜索条件
-  const hasKeyword = searchKeyword.value.trim();
-  const hasTags = searchTags.value.length > 0;
+  // 更新URL参数
+  const query: any = { ...route.query };
+  query.page = page.toString();
+  router.push({ query });
 
-  if (!hasKeyword && !hasTags) {
-    return;
-  }
-
-  try {
-    loadingMore.value = true;
-    offset.value += 30;
-
-    const params: SearchParams = {
-      type: searchType.value,
-      sort: searchSort.value,
-      duration: searchDuration.value,
-      offset: offset.value,
-      limit: 30
-    };
-
-    // 根据当前搜索模式添加相应的参数
-    if (searchMode.value === 'keyword' && hasKeyword) {
-      params.keyword = searchKeyword.value.trim();
-    } else if (searchMode.value === 'tags' && hasTags) {
-      params.tags = searchTags.value;
-    }
-
-    const response = await artworkService.searchArtworks(params);
-
-    if (response.success && response.data) {
-      searchResults.value.push(...response.data.artworks);
-    } else {
-      throw new Error(response.error || '加载更多失败');
-    }
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : '加载更多失败';
-    console.error('加载更多失败:', err);
-  } finally {
-    loadingMore.value = false;
+  // 根据当前搜索模式执行搜索
+  if (searchMode.value === 'keyword' && searchKeyword.value.trim()) {
+    handleSearch(page);
+  } else if (searchMode.value === 'tags' && searchTags.value.length > 0) {
+    handleTagSearch(page);
   }
 };
 
@@ -317,6 +372,7 @@ const handleArtworkSearch = () => {
   // 清除其他搜索参数
   delete query.keyword;
   delete query.tags;
+  delete query.page;
   router.push({ query });
 
   router.push(`/artwork/${id}`);
@@ -343,6 +399,7 @@ const handleArtistSearch = () => {
   // 清除其他搜索参数
   delete query.keyword;
   delete query.tags;
+  delete query.page;
   router.push({ query });
 
   // 切换到作者搜索模式并跳转
@@ -376,16 +433,16 @@ const updateSearchTagsInUrl = () => {
   if (searchTags.value.length > 0) {
     query.tags = searchTags.value;
     query.mode = 'tags';
+    delete query.page; // 重置页码
   } else {
     // 如果没有标签，清除相关参数
     delete query.tags;
     delete query.mode;
+    delete query.page;
   }
 
   router.push({ query });
 };
-
-
 
 // 更新搜索过滤器到URL
 const updateFiltersInUrl = () => {
@@ -419,6 +476,7 @@ const handleSearchModeChange = (mode: 'keyword' | 'tags' | 'artwork' | 'artist')
   // 更新URL参数，清除不相关的参数
   const query: any = { ...route.query };
   query.mode = mode;
+  delete query.page; // 重置页码
 
   // 根据模式清除不相关的参数
   if (mode !== 'keyword') delete query.keyword;
@@ -432,7 +490,7 @@ const handleSearchModeChange = (mode: 'keyword' | 'tags' | 'artwork' | 'artist')
   router.push({ query });
 };
 
-const handleSingleTagSearch = async () => {
+const handleSingleTagSearch = async (page = 1) => {
   if (searchTags.value.length === 0) {
     return;
   }
@@ -440,23 +498,50 @@ const handleSingleTagSearch = async () => {
   try {
     loading.value = true;
     error.value = null;
-    offset.value = 0;
+    currentPage.value = page;
     hasSearched.value = true;
 
+    const offset = (page - 1) * pageSize.value;
     const params: SearchParams = {
       tags: searchTags.value,
       type: searchType.value,
       sort: searchSort.value,
       duration: searchDuration.value,
-      offset: 0,
-      limit: 30
+      offset: offset,
+      limit: pageSize.value
     };
 
     const response = await artworkService.searchArtworks(params);
 
     if (response.success && response.data) {
       searchResults.value = response.data.artworks;
-      totalResults.value = response.data.total;
+
+      // 基于 next_url 来判断是否还有更多页面
+      const hasMore = !!response.data.next_url;
+
+      if (page === 1) {
+        // 第一页，基于是否有下一页来判断总数
+        if (hasMore) {
+          // 如果有下一页，至少说明有2页
+          totalResults.value = pageSize.value * 2;
+          totalPages.value = 2;
+        } else {
+          // 没有下一页，说明只有1页
+          totalResults.value = response.data.artworks?.length || 0;
+          totalPages.value = 1;
+        }
+      } else {
+        // 非第一页，基于当前页面位置和是否有下一页来判断
+        if (hasMore) {
+          // 如果有下一页，说明至少还有1页
+          totalResults.value = Math.max(totalResults.value, (page + 1) * pageSize.value);
+          totalPages.value = Math.max(totalPages.value, page + 1);
+        } else {
+          // 没有下一页，说明这是最后一页
+          totalResults.value = Math.max(totalResults.value, page * pageSize.value);
+          totalPages.value = Math.max(totalPages.value, page);
+        }
+      }
     } else {
       throw new Error(response.error || '标签搜索失败');
     }
@@ -468,7 +553,7 @@ const handleSingleTagSearch = async () => {
   }
 };
 
-const handleTagSearch = async () => {
+const handleTagSearch = async (page = 1) => {
   if (searchTags.value.length === 0) {
     return;
   }
@@ -477,6 +562,7 @@ const handleTagSearch = async () => {
   const query: any = { ...route.query };
   query.tags = searchTags.value;
   query.mode = 'tags';
+  query.page = page.toString();
   // 清除关键词相关参数
   delete query.keyword;
   router.push({ query });
@@ -484,23 +570,50 @@ const handleTagSearch = async () => {
   try {
     loading.value = true;
     error.value = null;
-    offset.value = 0;
+    currentPage.value = page;
     hasSearched.value = true;
 
+    const offset = (page - 1) * pageSize.value;
     const params: SearchParams = {
       tags: searchTags.value,
       type: searchType.value,
       sort: searchSort.value,
       duration: searchDuration.value,
-      offset: 0,
-      limit: 30
+      offset: offset,
+      limit: pageSize.value
     };
 
     const response = await artworkService.searchArtworks(params);
 
     if (response.success && response.data) {
       searchResults.value = response.data.artworks;
-      totalResults.value = response.data.total;
+
+      // 基于 next_url 来判断是否还有更多页面
+      const hasMore = !!response.data.next_url;
+
+      if (page === 1) {
+        // 第一页，基于是否有下一页来判断总数
+        if (hasMore) {
+          // 如果有下一页，至少说明有2页
+          totalResults.value = pageSize.value * 2;
+          totalPages.value = 2;
+        } else {
+          // 没有下一页，说明只有1页
+          totalResults.value = response.data.artworks?.length || 0;
+          totalPages.value = 1;
+        }
+      } else {
+        // 非第一页，基于当前页面位置和是否有下一页来判断
+        if (hasMore) {
+          // 如果有下一页，说明至少还有1页
+          totalResults.value = Math.max(totalResults.value, (page + 1) * pageSize.value);
+          totalPages.value = Math.max(totalPages.value, page + 1);
+        } else {
+          // 没有下一页，说明这是最后一页
+          totalResults.value = Math.max(totalResults.value, page * pageSize.value);
+          totalPages.value = Math.max(totalPages.value, page);
+        }
+      }
     } else {
       throw new Error(response.error || '标签搜索失败');
     }
@@ -523,6 +636,34 @@ const handleArtistDownload = (artist: any) => {
   router.push(`/artist/${artist.id}`);
 };
 
+// 跳转到指定页面
+const handleJumpToPage = async () => {
+  const page = parseInt(jumpPageInput.value as string);
+  if (isNaN(page) || page < 1 || page > totalPages.value) {
+    error.value = '请输入有效的页码';
+    return;
+  }
+
+  jumping.value = true;
+  jumpPageInput.value = ''; // 清空输入框
+
+  // 更新URL参数
+  const query: any = { ...route.query };
+  query.page = page.toString();
+  router.push({ query });
+
+  try {
+    // 根据当前搜索模式执行搜索
+    if (searchMode.value === 'keyword' && searchKeyword.value.trim()) {
+      await handleSearch(page);
+    } else if (searchMode.value === 'tags' && searchTags.value.length > 0) {
+      await handleTagSearch(page);
+    }
+  } finally {
+    jumping.value = false;
+  }
+};
+
 // 监听路由变化，处理URL参数
 watch(() => route.query, () => {
   const urlMode = route.query.mode as string;
@@ -534,6 +675,7 @@ watch(() => route.query, () => {
   const urlDuration = route.query.duration as string;
   const urlArtworkId = route.query.artworkId as string;
   const urlArtistId = route.query.artistId as string;
+  const urlPage = route.query.page as string;
 
   // 恢复搜索模式
   if (urlMode) {
@@ -555,6 +697,12 @@ watch(() => route.query, () => {
     artistId.value = urlArtistId;
   }
 
+  // 恢复页码
+  const returnPage = parseInt(urlPage);
+  if (returnPage && returnPage > 0) {
+    currentPage.value = returnPage;
+  }
+
   // 恢复标签
   if (urlMode === 'tags') {
     if (urlTags) {
@@ -569,7 +717,7 @@ watch(() => route.query, () => {
 
       // 如果有多个标签，自动执行搜索
       if (searchTags.value.length > 0) {
-        handleTagSearch();
+        handleTagSearch(returnPage || 1);
       }
     } else if (urlTag) {
       // 处理单个标签
@@ -579,12 +727,12 @@ watch(() => route.query, () => {
 
       // 对于单个标签，直接执行搜索而不更新URL
       if (searchTags.value.length > 0) {
-        handleSingleTagSearch();
+        handleSingleTagSearch(returnPage || 1);
       }
     }
   } else if (urlMode === 'keyword' && urlKeyword) {
     // 如果是关键词搜索模式且有关键词，自动执行搜索
-    handleSearch();
+    handleSearch(returnPage || 1);
   }
 
   // 恢复过滤器
@@ -805,39 +953,113 @@ watch(() => route.query, () => {
   margin: 0;
 }
 
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.5rem 1rem;
-  border-radius: 0.375rem;
-  font-weight: 500;
-  text-decoration: none;
-  transition: all 0.2s;
-  border: none;
-  cursor: pointer;
-  font-size: 0.875rem;
-}
-
-.btn-secondary {
-  background: #f3f4f6;
-  color: #374151;
-  border: 1px solid #d1d5db;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: #e5e7eb;
-}
-
-.btn-secondary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .artworks-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+/* 分页样式 */
+.pagination-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+  margin-top: 2rem;
+}
+
+.pagination {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.page-btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #374151;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.875rem;
+  min-width: 2.5rem;
+}
+
+.page-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.page-btn.active {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.jump-to-page {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.jump-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  width: fit-content;
+}
+
+.jump-input {
+  border: none;
+  background: transparent;
+  padding: 0.5rem 0.25rem;
+  font-size: 0.875rem;
+  width: 50px;
+  text-align: center;
+}
+
+.jump-input:focus {
+  outline: none;
+}
+
+.jump-btn {
+  background: #4f46e5;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s ease;
+}
+
+.jump-btn:hover:not(:disabled) {
+  background: #4338ca;
+}
+
+.jump-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  color: #6b7280;
+}
+
+.page-info {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  color: #6b7280;
+  font-size: 0.875rem;
 }
 
 .empty-section,
@@ -903,6 +1125,35 @@ watch(() => route.query, () => {
   .tag-item {
     font-size: 0.75rem;
     padding: 0.375rem 0.625rem;
+  }
+
+  .pagination {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .page-info {
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
+  }
+
+  .jump-to-page {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .jump-input-group {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .jump-input {
+    width: 100%;
+  }
+
+  .jump-btn {
+    width: 100%;
   }
 }
 </style>
