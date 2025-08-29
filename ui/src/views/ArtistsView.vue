@@ -4,6 +4,23 @@
       <div class="page-header">
         <h1 class="page-title">作者管理</h1>
         <div class="header-actions">
+          <!-- 关注类型切换 -->
+          <div class="follow-type-toggle">
+            <button 
+              @click="switchFollowType('public')" 
+              :class="['toggle-btn', { active: followType === 'public' }]"
+              :disabled="artistStore.loading"
+            >
+              公开关注
+            </button>
+            <button 
+              @click="switchFollowType('private')" 
+              :class="['toggle-btn', { active: followType === 'private' }]"
+              :disabled="artistStore.loading"
+            >
+              非公开关注
+            </button>
+          </div>
           <button @click="handleRefresh" class="btn btn-secondary" :disabled="artistStore.loading">
             <svg viewBox="0 0 24 24" fill="currentColor" class="refresh-icon">
               <path
@@ -42,6 +59,11 @@
                 数据已缓存
               </span>
             </div>
+          </div>
+
+          <!-- 作者统计信息 -->
+          <div v-if="artistStore.hasFollowingArtists" class="stats-section">
+            <span>共 {{ artistStore.followingArtists.length }} 个关注的作者</span>
           </div>
 
           <div v-if="artistStore.followingArtists.length > 0" class="artists-grid">
@@ -130,8 +152,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, onMounted, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useArtistStore } from '@/stores/artist';
 import downloadService from '@/services/download';
@@ -139,6 +161,7 @@ import downloadService from '@/services/download';
 import ArtistCard from '@/components/artist/ArtistCard.vue';
 
 const router = useRouter();
+const route = useRoute();
 const authStore = useAuthStore();
 const artistStore = useArtistStore();
 
@@ -149,13 +172,42 @@ const downloadLimit = ref('50');
 const downloading = ref(false);
 const downloadSuccess = ref<string | null>(null);
 
+// 关注类型切换
+const followType = ref<'public' | 'private'>('public');
+
 // 获取关注的作者
-const fetchFollowingArtists = async () => {
+const fetchFollowingArtists = async (forceRefresh = false) => {
   try {
-    await artistStore.fetchFollowingArtists();
+    artistStore.loading = true;
+    artistStore.error = null;
+    
+    const response = await artistStore.fetchFollowingArtists(forceRefresh, {
+      restrict: followType.value
+    });
+    
+    if (!response.success) {
+      throw new Error('获取关注列表失败');
+    }
   } catch (err) {
+    artistStore.error = err instanceof Error ? err.message : '获取关注列表失败';
     console.error('获取关注列表失败:', err);
+  } finally {
+    artistStore.loading = false;
   }
+};
+
+// 切换关注类型
+const switchFollowType = async (type: 'public' | 'private') => {
+  followType.value = type;
+  
+  // 更新URL参数
+  router.push({
+    query: {
+      type: type
+    }
+  });
+  
+  await fetchFollowingArtists(true);
 };
 
 // 关注作者
@@ -171,6 +223,8 @@ const handleFollow = async (artistId: number) => {
 const handleUnfollow = async (artistId: number) => {
   try {
     await artistStore.unfollowArtist(artistId);
+    // 重新获取数据
+    await fetchFollowingArtists(true);
   } catch (err) {
     console.error('取消关注失败:', err);
   }
@@ -228,24 +282,30 @@ const handleDownloadArtist = async () => {
 // 刷新数据
 const handleRefresh = async () => {
   try {
-    await artistStore.refreshData();
+    await fetchFollowingArtists(true);
   } catch (err) {
     console.error('刷新失败:', err);
   }
 };
 
-
-
-// 监听数据过期状态，自动刷新
-watch(() => artistStore.isDataStale, (isStale) => {
-  if (isStale && artistStore.hasFollowingArtists) {
-    console.log('数据已过期，自动刷新...');
-    fetchFollowingArtists();
+// 监听路由变化
+watch(() => route.query, () => {
+  // 恢复关注类型状态
+  const urlType = route.query.type as string;
+  if (urlType && ['public', 'private'].includes(urlType) && urlType !== followType.value) {
+    followType.value = urlType as 'public' | 'private';
+    fetchFollowingArtists(true);
   }
 });
 
-onMounted(() => {
-  fetchFollowingArtists();
+onMounted(async () => {
+  // 检查URL参数并恢复状态
+  const urlType = route.query.type as string;
+  if (urlType && ['public', 'private'].includes(urlType)) {
+    followType.value = urlType as 'public' | 'private';
+  }
+  
+  await fetchFollowingArtists();
 });
 </script>
 
@@ -279,6 +339,45 @@ onMounted(() => {
 .header-actions {
   display: flex;
   gap: 1rem;
+}
+
+.follow-type-toggle {
+  display: flex;
+  gap: 0.25rem;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  padding: 0.25rem;
+  margin-right: 1rem;
+}
+
+.toggle-btn {
+  background: none;
+  border: none;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #6b7280;
+  border-radius: 0.375rem;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.toggle-btn:hover:not(:disabled) {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.toggle-btn:disabled {
+  background: #f9fafb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.toggle-btn.active {
+  background: #4f46e5;
+  color: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .refresh-icon {
@@ -348,13 +447,24 @@ onMounted(() => {
   height: 0.875rem;
 }
 
+.stats-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: #f3f4f6;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
 .artists-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1.5rem;
+  margin-bottom: 2rem;
 }
-
-
 
 .empty-section {
   text-align: center;
@@ -574,8 +684,24 @@ onMounted(() => {
     align-items: stretch;
   }
 
+  .header-actions {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .follow-type-toggle {
+    margin-right: 0;
+    justify-content: center;
+  }
+
   .artists-grid {
     grid-template-columns: 1fr;
+  }
+
+  .stats-section {
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
   }
 }
 </style>

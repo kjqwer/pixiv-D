@@ -85,10 +85,9 @@ class ArtistService {
   /**
    * 获取当前用户关注的作者列表
    */
-  async getFollowingArtists(options: { offset?: number; limit?: number } = {}): Promise<ApiResponse<{ artists: Artist[]; total: number }>> {
+  async getFollowingArtists(options: { restrict?: 'public' | 'private' } = {}): Promise<ApiResponse<{ artists: Artist[]; total: number }>> {
     const params = new URLSearchParams();
-    if (options.offset !== undefined) params.append('offset', options.offset.toString());
-    if (options.limit !== undefined) params.append('limit', options.limit.toString());
+    if (options.restrict) params.append('restrict', options.restrict);
 
     const query = params.toString();
     const url = query ? `/api/artist/following?${query}` : '/api/artist/following';

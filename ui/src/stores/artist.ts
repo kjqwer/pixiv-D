@@ -26,7 +26,7 @@ export const useArtistStore = defineStore('artist', () => {
   });
 
   // 获取关注的作者
-  const fetchFollowingArtists = async (forceRefresh = false) => {
+  const fetchFollowingArtists = async (forceRefresh = false, options: { restrict?: 'public' | 'private' } = {}) => {
     // 如果数据不是过期的且不是强制刷新，直接返回缓存的数据
     if (!forceRefresh && !isDataStale.value && hasFollowingArtists.value) {
       return {
@@ -39,12 +39,18 @@ export const useArtistStore = defineStore('artist', () => {
       loading.value = true;
       error.value = null;
       
-      const response = await artistService.getFollowingArtists();
+      const restrict = options.restrict || 'public';
+      
+      // 后端会自动循环获取所有数据
+      const response = await artistService.getFollowingArtists({
+        restrict: restrict
+      });
+      
       if (response.success && response.data) {
         followingArtists.value = response.data.artists;
         lastFetchTime.value = Date.now();
       } else {
-        throw new Error(response.error || '获取关注列表失败');
+        throw new Error('获取关注列表失败');
       }
       
       return response;
@@ -70,7 +76,7 @@ export const useArtistStore = defineStore('artist', () => {
         searchResults.value = response.data.artists;
         return response;
       } else {
-        throw new Error(response.error || '搜索失败');
+        throw new Error('搜索失败');
       }
     } catch (err) {
       error.value = err instanceof Error ? err.message : '搜索失败';
@@ -97,7 +103,7 @@ export const useArtistStore = defineStore('artist', () => {
           followingArtists.value.push(artistToAdd);
         }
       } else {
-        throw new Error(response.error || '关注失败');
+        throw new Error('关注失败');
       }
       
       return response;
@@ -123,7 +129,7 @@ export const useArtistStore = defineStore('artist', () => {
           artist.is_followed = false;
         }
       } else {
-        throw new Error(response.error || '取消关注失败');
+        throw new Error('取消关注失败');
       }
       
       return response;

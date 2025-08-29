@@ -93,7 +93,7 @@ class ArtistService {
    */
   async getArtistFollowing(artistId, options = {}) {
     try {
-      const { restrict = 'public', offset = 0, limit = 30 } = options;
+      const { restrict = 'public', offset = 0, limit = 100 } = options;
 
       const params = {
         user_id: artistId,
@@ -124,7 +124,7 @@ class ArtistService {
    */
   async getArtistFollowers(artistId, options = {}) {
     try {
-      const { offset = 0, limit = 30 } = options;
+      const { offset = 0, limit = 100 } = options;
 
       const params = {
         user_id: artistId,
@@ -154,7 +154,7 @@ class ArtistService {
    */
   async getFollowingArtists(options = {}) {
     try {
-      const { offset = 0, limit = 30 } = options;
+      const { offset = 0, limit = 30, restrict = 'public' } = options;
 
       // 检查认证状态
       if (!this.auth || !this.auth.accessToken) {
@@ -180,29 +180,48 @@ class ArtistService {
         };
       }
 
-      const params = {
-        user_id: currentUserId,
-        restrict: 'public',
-        offset,
-        limit,
-      };
+      let allArtists = [];
+      let currentOffset = offset;
+      let hasMore = true;
 
-      const response = await this.makeRequest('GET', `/v1/user/following?${stringify(params)}`);
+      // 循环获取所有关注的作者
+      while (hasMore) {
+        const params = {
+          user_id: currentUserId,
+          restrict,
+          offset: currentOffset,
+          limit,
+        };
 
-      // 转换数据格式以匹配前端期望
-      const artists = (response.user_previews || []).map(user => ({
-        id: user.user.id,
-        name: user.user.name,
-        account: user.user.account,
-        profile_image_urls: user.user.profile_image_urls,
-        is_followed: user.user.is_followed || false,
-      }));
+        console.log(`请求关注列表: offset=${currentOffset}, limit=${limit}`);
+        const response = await this.makeRequest('GET', `/v1/user/following?${stringify(params)}`);
+
+        // 转换数据格式以匹配前端期望
+        const artists = (response.user_previews || []).map(user => ({
+          id: user.user.id,
+          name: user.user.name,
+          account: user.user.account,
+          profile_image_urls: user.user.profile_image_urls,
+          is_followed: user.user.is_followed || false,
+        }));
+
+        allArtists.push(...artists);
+        console.log(`本次获取到 ${artists.length} 个作者，累计 ${allArtists.length} 个`);
+
+        // 如果返回的数量少于limit，说明已经获取完所有数据
+        if (artists.length < limit) {
+          hasMore = false;
+          console.log('已获取完所有关注的作者');
+        } else {
+          currentOffset += artists.length;
+        }
+      }
 
       return {
         success: true,
         data: {
-          artists: artists,
-          total: artists.length,
+          artists: allArtists,
+          total: allArtists.length,
         },
       };
     } catch (error) {

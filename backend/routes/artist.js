@@ -61,12 +61,11 @@ router.get('/search', async (req, res) => {
  */
 router.get('/following', async (req, res) => {
   try {
-    const { offset = 0, limit = 30 } = req.query;
+    const { restrict = 'public' } = req.query;
     
     const artistService = new ArtistService(req.backend.getAuth());
     const result = await artistService.getFollowingArtists({
-      offset: parseInt(offset),
-      limit: parseInt(limit)
+      restrict
     });
     
     if (result.success) {
