@@ -60,12 +60,30 @@
         <div class="artworks-section">
           <div class="section-header">
             <h2>作品列表</h2>
-            <div class="artwork-filters">
-              <select v-model="artworkType" @change="handleTypeChange" class="filter-select">
-                <option value="art">插画</option>
-                <option value="manga">漫画</option>
-                <option value="novel">小说</option>
-              </select>
+            <div class="header-controls">
+              <div class="artwork-filters">
+                <select v-model="artworkType" @change="handleTypeChange" class="filter-select">
+                  <option value="art">插画</option>
+                  <option value="manga">漫画</option>
+                  <option value="novel">小说</option>
+                </select>
+              </div>
+
+              <!-- 顶部分页导航 -->
+              <div v-if="totalPages > 1 && artworks.length > 0" class="simple-pagination">
+                <button @click="goToPage(currentPage - 1)" class="simple-page-btn" :disabled="currentPage <= 1">
+                  <svg viewBox="0 0 24 24" fill="currentColor" class="simple-page-icon">
+                    <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
+                  </svg>
+                </button>
+                <span class="simple-page-info">{{ currentPage }} / {{ totalPages }}</span>
+                <button @click="goToPage(currentPage + 1)" class="simple-page-btn"
+                  :disabled="currentPage >= totalPages">
+                  <svg viewBox="0 0 24 24" fill="currentColor" class="simple-page-icon">
+                    <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -704,6 +722,7 @@ onMounted(async () => {
   border-radius: 1rem;
   padding: 2rem;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  position: relative;
 }
 
 .section-header {
@@ -720,6 +739,12 @@ onMounted(async () => {
   margin: 0;
 }
 
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .artwork-filters {
   display: flex;
   gap: 1rem;
@@ -732,6 +757,58 @@ onMounted(async () => {
   background: white;
   font-size: 0.875rem;
   color: #374151;
+}
+
+/* 顶部分页导航样式 */
+.simple-pagination {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.simple-page-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  background: white;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.simple-page-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  transform: translateY(-1px);
+}
+
+.simple-page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.simple-page-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.simple-page-info {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-weight: 500;
+  min-width: 3rem;
+  text-align: center;
 }
 
 .artworks-grid {
@@ -901,6 +978,12 @@ onMounted(async () => {
     align-items: stretch;
   }
 
+  /* 移动端简洁分页导航样式调整 */
+  .simple-pagination {
+    justify-content: center;
+    margin-bottom: 1rem;
+  }
+
   .artist-profile {
     flex-direction: column;
     text-align: center;
@@ -925,6 +1008,12 @@ onMounted(async () => {
   }
 
   .section-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+
+  .header-controls {
     flex-direction: column;
     gap: 1rem;
     align-items: stretch;

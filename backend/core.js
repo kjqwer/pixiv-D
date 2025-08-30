@@ -41,6 +41,15 @@ class PixivBackend {
     // 创建认证实例，传入代理配置
     this.auth = new PixivAuth(this.config.proxy);
     
+    // 同步已保存的token状态
+    if (this.config.access_token && this.config.refresh_token) {
+      this.auth.syncTokens(
+        this.config.access_token,
+        this.config.refresh_token,
+        this.config.user
+      );
+    }
+    
     // 创建下载服务实例
     this.downloadService = new DownloadService(this.auth);
     await this.downloadService.init();
@@ -53,7 +62,24 @@ class PixivBackend {
       console.log('未检测到登录信息，需要先登录');
     }
     
+    // 启动token同步定时任务
+    this.startTokenSyncTask();
+    
     return this;
+  }
+
+  /**
+   * 启动token同步定时任务
+   */
+  startTokenSyncTask() {
+    // 每5分钟同步一次token状态到配置文件
+    setInterval(() => {
+      if (this.auth && this.isLoggedIn) {
+        this.syncTokensToConfig();
+      }
+    }, 5 * 60 * 1000); // 5分钟
+    
+    console.log('Token同步定时任务已启动');
   }
 
   /**
@@ -173,6 +199,13 @@ class PixivBackend {
           this.config.user = result.user;
         }
         
+        // 同步到auth实例
+        this.auth.syncTokens(
+          result.access_token,
+          result.refresh_token,
+          result.user
+        );
+        
         this.saveConfig();
         
         this.isLoggedIn = true;
@@ -260,10 +293,22 @@ class PixivBackend {
   }
 
   /**
-   * 获取认证实例（用于后续API调用）
+   * 获取认证实例
    */
   getAuth() {
     return this.auth;
+  }
+
+  /**
+   * 同步token状态到配置
+   */
+  syncTokensToConfig() {
+    if (this.auth) {
+      this.config.access_token = this.auth.accessToken;
+      this.config.refresh_token = this.auth.refreshToken;
+      this.config.user = this.auth.user;
+      this.saveConfig();
+    }
   }
 
   /**

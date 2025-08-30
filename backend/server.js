@@ -42,8 +42,11 @@ function customLogger(req, res, next) {
   // 过滤掉图片代理请求
   const isImageProxy = req.path === '/api/proxy/image';
 
-  // 只记录API请求和重要请求，排除静态资源和图片代理
-  if (!isStaticResource && !isImageProxy) {
+  // 过滤掉下载任务状态查询请求
+  const isDownloadTasksQuery = req.path === '/api/download/tasks';
+
+  // 只记录API请求和重要请求，排除静态资源、图片代理和下载任务查询
+  if (!isStaticResource && !isImageProxy && !isDownloadTasksQuery) {
     const start = Date.now();
 
     // 原始响应结束方法

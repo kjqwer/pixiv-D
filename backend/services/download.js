@@ -98,6 +98,106 @@ class DownloadService {
     };
   }
 
+  /**
+   * 获取活跃任务（下载中或暂停）
+   */
+  async getActiveTasks() {
+    return {
+      success: true,
+      data: this.taskManager.getActiveTasks(),
+    };
+  }
+
+  /**
+   * 获取任务摘要（用于快速状态检查）
+   */
+  async getTasksSummary() {
+    const allTasks = this.taskManager.getAllTasks();
+    const activeTasks = this.taskManager.getActiveTasks();
+    
+    const summary = {
+      total: allTasks.length,
+      active: activeTasks.length,
+      downloading: activeTasks.filter(t => t.status === 'downloading').length,
+      paused: activeTasks.filter(t => t.status === 'paused').length,
+      completed: allTasks.filter(t => t.status === 'completed').length,
+      failed: allTasks.filter(t => t.status === 'failed').length,
+      cancelled: allTasks.filter(t => t.status === 'cancelled').length,
+      partial: allTasks.filter(t => t.status === 'partial').length,
+      lastUpdate: Date.now()
+    };
+    
+    return {
+      success: true,
+      data: summary,
+    };
+  }
+
+  /**
+   * 获取任务变更（增量更新）
+   */
+  async getTasksChanges(since = null) {
+    const allTasks = this.taskManager.getAllTasks();
+    
+    if (!since) {
+      // 如果没有since参数，返回所有活跃任务
+      return {
+        success: true,
+        data: {
+          tasks: this.taskManager.getActiveTasks(),
+          lastUpdate: Date.now()
+        },
+      };
+    }
+    
+    // 过滤出自指定时间后有变更的任务
+    const changedTasks = allTasks.filter(task => {
+      const lastModified = Math.max(
+        new Date(task.created_at).getTime(),
+        task.updated_at ? new Date(task.updated_at).getTime() : 0,
+        task.end_time ? new Date(task.end_time).getTime() : 0
+      );
+      return lastModified > since;
+    });
+    
+    return {
+      success: true,
+      data: {
+        tasks: changedTasks,
+        lastUpdate: Date.now()
+      },
+    };
+  }
+
+  /**
+   * 获取已完成任务（分页）
+   */
+  async getCompletedTasks(offset = 0, limit = 50) {
+    const allTasks = this.taskManager.getAllTasks();
+    const completedTasks = allTasks.filter(task => 
+      ['completed', 'failed', 'cancelled', 'partial'].includes(task.status)
+    );
+    
+    // 按完成时间倒序排列
+    completedTasks.sort((a, b) => {
+      const timeA = a.end_time ? new Date(a.end_time).getTime() : 0;
+      const timeB = b.end_time ? new Date(b.end_time).getTime() : 0;
+      return timeB - timeA;
+    });
+    
+    const paginatedTasks = completedTasks.slice(offset, offset + limit);
+    
+    return {
+      success: true,
+      data: {
+        tasks: paginatedTasks,
+        total: completedTasks.length,
+        offset,
+        limit
+      },
+    };
+  }
+
   async cancelTask(taskId) {
     const task = this.taskManager.getTask(taskId);
     if (!task) {

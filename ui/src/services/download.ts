@@ -29,6 +29,37 @@ class DownloadService {
   }
 
   /**
+   * 获取活跃任务（下载中或暂停）
+   */
+  async getActiveTasks() {
+    return apiService.get('/api/download/tasks/active');
+  }
+
+  /**
+   * 获取任务摘要（用于快速状态检查）
+   */
+  async getTasksSummary() {
+    return apiService.get('/api/download/tasks/summary');
+  }
+
+  /**
+   * 获取任务变更（增量更新）
+   */
+  async getTasksChanges(since?: number) {
+    const params = since ? { since } : {};
+    return apiService.get('/api/download/tasks/changes', { params });
+  }
+
+  /**
+   * 获取已完成任务（分页）
+   */
+  async getCompletedTasks(offset = 0, limit = 50) {
+    return apiService.get('/api/download/tasks/completed', { 
+      params: { offset, limit } 
+    });
+  }
+
+  /**
    * 暂停任务
    */
   async pauseTask(taskId: string) {

@@ -18,9 +18,14 @@ class PixivAuth {
     this.refreshToken = null;
     this.user = null;
     this.proxy = proxy;
+    this.isRefreshing = false;
+    this.failedQueue = [];
     
     // 创建 axios 实例，支持代理
     this.axiosInstance = this.createAxiosInstance();
+    
+    // 设置响应拦截器，自动处理token刷新
+    this.setupResponseInterceptor();
   }
 
   /**
@@ -49,11 +54,101 @@ class PixivAuth {
   }
 
   /**
+   * 设置响应拦截器，自动处理token刷新
+   */
+  setupResponseInterceptor() {
+    this.axiosInstance.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const originalRequest = error.config;
+
+        // 如果是401错误且不是刷新token的请求，尝试自动刷新
+        if (error.response?.status === 401 && 
+            !originalRequest._retry && 
+            !originalRequest.url.includes('/auth/token') &&
+            this.refreshToken) {
+          
+          if (this.isRefreshing) {
+            // 如果正在刷新，将请求加入队列
+            return new Promise((resolve, reject) => {
+              this.failedQueue.push({ resolve, reject });
+            }).then(() => {
+              return this.axiosInstance(originalRequest);
+            }).catch((err) => {
+              return Promise.reject(err);
+            });
+          }
+
+          originalRequest._retry = true;
+          this.isRefreshing = true;
+
+          try {
+            console.log('检测到token过期，正在自动刷新...');
+            const result = await this.refreshAccessToken(this.refreshToken);
+            
+            if (result.success) {
+              // 更新token
+              this.accessToken = result.access_token;
+              this.refreshToken = result.refresh_token;
+              if (result.user) {
+                this.user = result.user;
+              }
+
+              // 处理队列中的请求
+              this.processQueue(null, result.access_token);
+              
+              // 重试原始请求
+              originalRequest.headers['Authorization'] = `Bearer ${result.access_token}`;
+              return this.axiosInstance(originalRequest);
+            } else {
+              throw new Error('Token刷新失败');
+            }
+          } catch (refreshError) {
+            console.error('自动刷新token失败:', refreshError.message);
+            this.processQueue(refreshError, null);
+            return Promise.reject(refreshError);
+          } finally {
+            this.isRefreshing = false;
+          }
+        }
+
+        return Promise.reject(error);
+      }
+    );
+  }
+
+  /**
+   * 处理失败的请求队列
+   */
+  processQueue(error, token = null) {
+    this.failedQueue.forEach(({ resolve, reject }) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(token);
+      }
+    });
+    this.failedQueue = [];
+  }
+
+  /**
    * 设置代理
    */
   setProxy(proxy) {
     this.proxy = proxy;
     this.axiosInstance = this.createAxiosInstance();
+    this.setupResponseInterceptor();
+  }
+
+  /**
+   * 同步token状态（从外部配置更新）
+   */
+  syncTokens(accessToken, refreshToken, user = null) {
+    this.accessToken = accessToken;
+    this.refreshToken = refreshToken;
+    if (user) {
+      this.user = user;
+    }
   }
 
   /**

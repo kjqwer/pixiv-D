@@ -274,6 +274,92 @@ router.get('/tasks', async (req, res) => {
 });
 
 /**
+ * 获取活跃任务（下载中或暂停）
+ * GET /api/download/tasks/active
+ */
+router.get('/tasks/active', async (req, res) => {
+  try {
+    const downloadService = req.backend.getDownloadService();
+    const result = await downloadService.getActiveTasks();
+    
+    res.json({
+      success: true,
+      data: result.data
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 获取任务摘要（用于快速状态检查）
+ * GET /api/download/tasks/summary
+ */
+router.get('/tasks/summary', async (req, res) => {
+  try {
+    const downloadService = req.backend.getDownloadService();
+    const result = await downloadService.getTasksSummary();
+    
+    res.json({
+      success: true,
+      data: result.data
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 获取任务变更（增量更新）
+ * GET /api/download/tasks/changes?since=timestamp
+ */
+router.get('/tasks/changes', async (req, res) => {
+  try {
+    const { since } = req.query;
+    const downloadService = req.backend.getDownloadService();
+    const result = await downloadService.getTasksChanges(since ? parseInt(since) : null);
+    
+    res.json({
+      success: true,
+      data: result.data
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 获取已完成任务（分页）
+ * GET /api/download/tasks/completed?offset=0&limit=50
+ */
+router.get('/tasks/completed', async (req, res) => {
+  try {
+    const { offset = 0, limit = 50 } = req.query;
+    const downloadService = req.backend.getDownloadService();
+    const result = await downloadService.getCompletedTasks(parseInt(offset), parseInt(limit));
+    
+    res.json({
+      success: true,
+      data: result.data
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
  * 暂停任务
  * POST /api/download/pause/:taskId
  */
@@ -548,6 +634,11 @@ router.get('/stream/:taskId', async (req, res) => {
   // 创建进度监听器
   const progressListener = (task) => {
     if (task.id === taskId) {
+      // 使用setImmediate避免阻塞事件循环
+      setImmediate(() => {
+        try {
+          // 检查连接是否仍然有效
+          if (!res.destroyed) {
       res.write(`data: ${JSON.stringify({
         type: 'progress',
         data: task
@@ -562,6 +653,13 @@ router.get('/stream/:taskId', async (req, res) => {
         res.end();
         downloadService.removeProgressListener(taskId, progressListener);
       }
+          }
+        } catch (error) {
+          console.error('SSE写入失败:', error);
+          // 连接可能已断开，清理监听器
+          downloadService.removeProgressListener(taskId, progressListener);
+        }
+      });
     }
   };
 

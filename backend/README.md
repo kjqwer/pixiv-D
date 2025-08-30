@@ -85,6 +85,16 @@ backend/
 - `GET /api/download/history` - 获取下载历史
   - 参数: `offset`, `limit`
 
+#### 任务管理API（优化版本）
+
+- `GET /api/download/tasks` - 获取所有任务（完整数据）
+- `GET /api/download/tasks/active` - 获取活跃任务（下载中或暂停）
+- `GET /api/download/tasks/summary` - 获取任务摘要（快速状态检查）
+- `GET /api/download/tasks/changes` - 获取任务变更（增量更新）
+  - 参数: `since` (时间戳，获取指定时间后的变更)
+- `GET /api/download/tasks/completed` - 获取已完成任务（分页）
+  - 参数: `offset`, `limit`
+
 ### 代理相关
 
 - `GET /api/proxy/image` - 图片代理服务

@@ -121,4 +121,43 @@ router.post('/logout', (req, res) => {
   }
 });
 
+/**
+ * 手动刷新token
+ * POST /api/auth/refresh-token
+ */
+router.post('/refresh-token', async (req, res) => {
+  try {
+    if (!req.backend.config.refresh_token) {
+      return res.status(400).json({
+        success: false,
+        error: '没有可用的刷新令牌'
+      });
+    }
+
+    const result = await req.backend.relogin();
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        message: 'Token刷新成功',
+        data: {
+          isLoggedIn: req.backend.isLoggedIn,
+          username: req.backend.config.user?.account
+        }
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.error
+      });
+    }
+  } catch (error) {
+    console.error('手动刷新token失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router; 

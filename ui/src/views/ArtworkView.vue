@@ -25,7 +25,7 @@
         <ArtworkInfoPanel :artwork="artwork" :downloading="downloading" :is-downloaded="isDownloaded"
           :current-task="currentTask" :loading="loading" :show-navigation="showNavigation"
           :previous-artwork="previousArtwork" :next-artwork="nextArtwork" :selected-tags="selectedTags"
-          @download="handleDownload" @bookmark="handleBookmark" @update-task="updateTask" @remove-task="removeTask"
+          @download="handleDownload" @bookmark="handleBookmark"
           @go-back="goBackToArtist" @navigate-previous="navigateToPrevious" @navigate-next="navigateToNext"
           @tag-click="handleTagClick" />
       </div>
@@ -38,6 +38,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useRepositoryStore } from '@/stores/repository';
+import { useDownloadStore } from '@/stores/download';
 import artworkService from '@/services/artwork';
 import artistService from '@/services/artist';
 import downloadService from '@/services/download';
@@ -53,6 +54,7 @@ const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const repositoryStore = useRepositoryStore();
+const downloadStore = useDownloadStore();
 
 // 状态
 const artwork = ref<Artwork | null>(null);
@@ -62,9 +64,11 @@ const currentPage = ref(0);
 const downloading = ref(false);
 const isDownloaded = ref(false);
 
-// 下载任务状态
-const currentTask = ref<DownloadTask | null>(null);
-const sseConnection = ref<(() => void) | null>(null);
+// 下载任务状态 - 使用Pinia store
+const currentTask = computed(() => {
+  if (!artwork.value) return null;
+  return downloadStore.getArtworkTask(artwork.value.id);
+});
 
 // 收藏错误状态
 const bookmarkError = ref<string | null>(null);
@@ -105,10 +109,8 @@ const fetchArtworkDetail = async () => {
     loading.value = true;
     error.value = null;
 
-    // 立即清理所有下载相关状态
-    currentTask.value = null;
+    // 清理下载状态
     downloading.value = false;
-    stopTaskStreaming();
 
     const response = await artworkService.getArtworkDetail(artworkId);
 
@@ -137,19 +139,19 @@ const checkDownloadStatus = async (artworkId: number, retryCount = 0) => {
   try {
     const response = await repositoryStore.checkArtworkDownloaded(artworkId);
 
-    console.log('下载状态检查响应:', response);
+    // console.log('下载状态检查响应:', response);
 
     // repository store的apiCall返回的是data.data，所以response直接是数据对象
     if (response && typeof response === 'object') {
       const newStatus = response.is_downloaded || false;
 
       // 如果状态发生变化，记录日志
-      if (isDownloaded.value !== newStatus) {
-        console.log(`作品下载状态变化: ${isDownloaded.value} -> ${newStatus}`);
-      }
+      // if (isDownloaded.value !== newStatus) {
+      //   console.log(`作品下载状态变化: ${isDownloaded.value} -> ${newStatus}`);
+      // }
 
       isDownloaded.value = newStatus;
-      console.log('作品下载状态:', isDownloaded.value);
+      // console.log('作品下载状态:', isDownloaded.value);
     }
   } catch (err) {
     console.error('检查下载状态失败:', err);
@@ -170,8 +172,7 @@ const handleDownload = async () => {
   if (!artwork.value) return;
 
   try {
-    // 清理之前的任务状态
-    currentTask.value = null;
+    // 清理下载状态
     downloading.value = true;
 
     // 如果已经下载过，则强制重新下载（跳过现有文件检查）
@@ -191,10 +192,10 @@ const handleDownload = async () => {
         return;
       }
 
-      // 如果是新任务，立即创建任务状态并开始监听进度
+      // 如果是新任务，立即添加到store
       if (response.data.task_id) {
         // 立即创建任务状态，让进度条立即显示
-        currentTask.value = {
+        const newTask: DownloadTask = {
           id: response.data.task_id,
           type: 'artwork',
           status: 'downloading',
@@ -208,8 +209,8 @@ const handleDownload = async () => {
           start_time: new Date().toISOString()
         };
 
-        // 立即开始SSE监听任务进度
-        startTaskStreaming(response.data.task_id);
+        // 添加到store，store会自动管理SSE连接
+        downloadStore.addTask(newTask);
       }
     } else {
       throw new Error(response.error || '下载失败');
@@ -222,93 +223,25 @@ const handleDownload = async () => {
   }
 };
 
-// 开始SSE监听任务进度
-const startTaskStreaming = (taskId: string) => {
-  // 清除之前的连接
-  if (sseConnection.value) {
-    sseConnection.value();
-  }
-
-  console.log('开始SSE监听任务进度:', taskId);
-
-  // 建立SSE连接
-  sseConnection.value = downloadService.streamTaskProgress(
-    taskId,
-    (task) => {
-      console.log('收到SSE进度更新:', {
-        taskId,
-        status: task.status,
-        progress: task.progress,
-        completed: task.completed_files,
-        total: task.total_files
-      });
-
-      // 立即更新任务状态，让进度条立即显示
-      currentTask.value = task;
-
-      // 如果任务完成，清理连接并检查下载状态
-      if (['completed', 'failed', 'cancelled', 'partial'].includes(task.status)) {
-        console.log('任务完成，关闭SSE连接');
-        stopTaskStreaming();
-
-        // 延迟检查下载状态，确保文件写入完成
-        // 减少延迟时间，提高响应速度
-        const delay = task.total_files > 1 ? 1500 : 1000; // 多文件延迟1.5秒，单文件延迟1秒
-
-        setTimeout(async () => {
-          // 检查当前页面是否还是同一个作品，避免页面切换后的状态更新
-          if (artwork.value && artwork.value.id === task.artwork_id) {
-            console.log(`延迟 ${delay}ms 后检查下载状态`);
-            await checkDownloadStatus(artwork.value.id);
-
-            // 如果任务完成但状态检查显示未下载，再次延迟检查
-            if (task.status === 'completed' && !isDownloaded.value) {
-              console.log('任务完成但状态检查失败，再次延迟检查');
-              setTimeout(async () => {
-                if (artwork.value && artwork.value.id === task.artwork_id) {
-                  await checkDownloadStatus(artwork.value.id);
-                }
-              }, 1000);
-            }
-
-            // 清理任务状态，显示下载完成状态
-            currentTask.value = null;
-          }
-        }, delay);
-      }
-    },
-    () => {
-      console.log('SSE连接完成');
-      stopTaskStreaming();
+// 监听任务完成状态
+watch(currentTask, (newTask, oldTask) => {
+  if (oldTask && !newTask) {
+    // 任务被移除，检查下载状态
+    if (artwork.value) {
+      setTimeout(async () => {
+        await checkDownloadStatus(artwork.value!.id);
+      }, 1000);
     }
-  );
-};
-
-
-
-// 停止SSE监听
-const stopTaskStreaming = () => {
-  if (sseConnection.value) {
-    sseConnection.value();
-    sseConnection.value = null;
+  } else if (newTask && ['completed', 'failed', 'cancelled', 'partial'].includes(newTask.status)) {
+    // 任务完成，延迟检查下载状态
+    if (artwork.value && artwork.value.id === newTask.artwork_id) {
+      const delay = newTask.total_files > 1 ? 1500 : 1000;
+      setTimeout(async () => {
+        await checkDownloadStatus(artwork.value!.id);
+      }, delay);
+    }
   }
-  // 确保清理任务状态
-  currentTask.value = null;
-  downloading.value = false;
-};
-
-// 更新任务状态
-const updateTask = (task: DownloadTask) => {
-  currentTask.value = task;
-};
-
-// 移除任务
-const removeTask = (taskId: string) => {
-  if (currentTask.value?.id === taskId) {
-    currentTask.value = null;
-    stopTaskStreaming();
-  }
-};
+}, { immediate: true });
 
 // 收藏/取消收藏
 const handleBookmark = async () => {
@@ -386,10 +319,8 @@ const fetchArtistArtworks = async () => {
 // 导航到上一个作品
 const navigateToPrevious = () => {
   if (previousArtwork.value && !loading.value) {
-    // 立即清理下载任务状态
-    currentTask.value = null;
+    // 清理下载状态
     downloading.value = false;
-    stopTaskStreaming();
 
     // 立即设置加载状态
     loading.value = true;
@@ -409,10 +340,8 @@ const navigateToPrevious = () => {
 // 导航到下一个作品
 const navigateToNext = () => {
   if (nextArtwork.value && !loading.value) {
-    // 立即清理下载任务状态
-    currentTask.value = null;
+    // 清理下载状态
     downloading.value = false;
-    stopTaskStreaming();
 
     // 立即设置加载状态
     loading.value = true;
@@ -538,10 +467,8 @@ watch(() => route.params.id, (newId, oldId) => {
   // 确保页面滚动到顶部
   window.scrollTo(0, 0);
 
-  // 立即清理所有下载相关状态
-  currentTask.value = null;
-  downloading.value = false;
-  stopTaskStreaming();
+      // 清理下载状态
+    downloading.value = false;
 
   // 重新获取作品详情
   fetchArtworkDetail();
@@ -583,12 +510,11 @@ onMounted(() => {
   document.addEventListener('keyup', handleKeyUp);
 });
 
-// 组件卸载时移除事件监听和清理SSE连接
+// 组件卸载时移除事件监听
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown);
   document.removeEventListener('keydown', handleKeyDown);
   document.removeEventListener('keyup', handleKeyUp);
-  stopTaskStreaming();
 });
 </script>
 

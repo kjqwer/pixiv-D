@@ -407,8 +407,8 @@ class ArtworkService {
         }
       }
 
-      // 发送API请求
-      const response = await axios(config);
+      // 使用auth实例的axiosInstance发送请求，这样可以利用自动token刷新机制
+      const response = await this.auth.axiosInstance(config);
       const responseData = response.data;
       
       // 对于GET请求，将响应数据缓存

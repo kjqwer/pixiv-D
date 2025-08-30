@@ -1,16 +1,33 @@
 <script setup lang="ts">
 import { RouterLink, RouterView } from 'vue-router'
 import { computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useDownloadStore } from '@/stores/download'
 import SettingsWidget from '@/components/common/SettingsWidget.vue'
+import DownloadProgressWidget from '@/components/common/DownloadProgressWidget.vue'
 
+const route = useRoute()
 const authStore = useAuthStore()
+const downloadStore = useDownloadStore()
 
 const isLoggedIn = computed(() => authStore.isLoggedIn)
 const username = computed(() => authStore.username)
 
+// 在下载管理页面隐藏下载进度小组件
+const showDownloadWidget = computed(() => {
+  return isLoggedIn.value && route.path !== '/downloads'
+})
+
 onMounted(async () => {
   await authStore.fetchLoginStatus()
+  
+  // 如果已登录，初始化下载store
+  if (authStore.isLoggedIn) {
+    await downloadStore.fetchTasks()
+    // 启动定期刷新
+    downloadStore.startRefreshInterval()
+  }
 })
 </script>
 
@@ -72,6 +89,9 @@ onMounted(async () => {
 
     <!-- 设置小组件 - 只在登录时显示 -->
     <SettingsWidget v-if="isLoggedIn" />
+    
+    <!-- 下载进度小组件 - 只在登录时显示，在下载管理页面隐藏 -->
+    <DownloadProgressWidget v-if="showDownloadWidget" />
   </div>
 </template>
 

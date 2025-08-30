@@ -197,22 +197,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import { useDownloadStore } from '@/stores/download';
 import downloadService from '@/services/download';
 import type { DownloadTask } from '@/types';
 
 const authStore = useAuthStore();
+const downloadStore = useDownloadStore();
 
 // 状态
 const activeTab = ref<'tasks' | 'history'>('tasks');
 const loading = ref(false);
 const error = ref<string | null>(null);
-const tasks = ref<DownloadTask[]>([]);
 const history = ref<any[]>([]);
 
-// SSE连接管理
-const sseConnections = ref<Map<string, () => void>>(new Map());
+// 使用store中的任务数据
+const tasks = computed(() => downloadStore.tasks);
 
 // 计算属性：显示活跃任务和暂停任务
 const activeTasks = computed(() => {
@@ -295,30 +296,9 @@ const formatDate = (dateString: string) => {
 // 刷新数据
 const refreshData = async () => {
   await Promise.all([
-    fetchTasks(),
+    downloadStore.fetchTasks(),
     fetchHistory()
   ]);
-};
-
-// 获取任务列表
-const fetchTasks = async () => {
-  try {
-    const response = await downloadService.getAllTasks();
-    if (response.success) {
-      tasks.value = response.data || [];
-
-      // 只为正在下载的任务建立SSE连接，避免为暂停任务建立连接
-      activeTasks.value.forEach(task => {
-        if (task.status === 'downloading' && !sseConnections.value.has(task.id)) {
-          startTaskStreaming(task.id);
-        }
-      });
-    } else {
-      throw new Error(response.error || '获取任务列表失败');
-    }
-  } catch (err) {
-    console.error('获取任务列表失败:', err);
-  }
 };
 
 // 获取历史记录（只获取最近200条）
@@ -337,105 +317,25 @@ const fetchHistory = async () => {
   }
 };
 
-// 开始SSE监听任务进度
-const startTaskStreaming = (taskId: string) => {
-  // 如果已经有连接，先关闭
-  if (sseConnections.value.has(taskId)) {
-    sseConnections.value.get(taskId)!();
-  }
-
-  console.log('开始SSE监听任务进度:', taskId);
-
-  // 添加超时处理
-  const timeoutId = setTimeout(() => {
-    console.warn('SSE连接超时，关闭连接:', taskId);
-    stopTaskStreaming(taskId);
-  }, 30000); // 30秒超时
-
-  const closeConnection = downloadService.streamTaskProgress(
-    taskId,
-    (task) => {
-      console.log('收到SSE进度更新:', {
-        taskId,
-        status: task.status,
-        progress: task.progress,
-        completed: task.completed_files,
-        total: task.total_files
-      });
-
-      // 清除超时
-      clearTimeout(timeoutId);
-
-      // 更新任务状态
-      const index = tasks.value.findIndex(t => t.id === taskId);
-      if (index !== -1) {
-        tasks.value[index] = task;
-      }
-
-      // 如果任务完成或暂停，清理连接
-      if (['completed', 'failed', 'cancelled', 'partial', 'paused'].includes(task.status)) {
-        console.log('任务状态变更，关闭SSE连接:', taskId);
-        stopTaskStreaming(taskId);
-
-        // 延迟刷新历史记录
-        if (['completed', 'failed', 'cancelled', 'partial'].includes(task.status)) {
-          setTimeout(() => {
-            fetchHistory();
-          }, 1000);
-        }
-      }
-    },
-    () => {
-      console.log('SSE连接完成:', taskId);
-      clearTimeout(timeoutId);
-      stopTaskStreaming(taskId);
-    }
+// 监听任务完成，刷新历史记录
+watch(tasks, (newTasks, oldTasks) => {
+  // 检查是否有任务完成
+  const completedTasks = newTasks.filter(task => 
+    ['completed', 'failed', 'cancelled', 'partial'].includes(task.status)
   );
-
-  sseConnections.value.set(taskId, closeConnection);
-};
-
-// 停止SSE监听
-const stopTaskStreaming = (taskId: string) => {
-  if (sseConnections.value.has(taskId)) {
-    sseConnections.value.get(taskId)!();
-    sseConnections.value.delete(taskId);
-  }
-};
-
-// 管理SSE连接
-const manageSSEConnections = () => {
-  // 清理不需要的连接
-  const currentTaskIds = new Set(activeTasks.value.map(task => task.id));
   
-  // 关闭已不存在的任务的连接
-  sseConnections.value.forEach((closeConnection, taskId) => {
-    if (!currentTaskIds.has(taskId)) {
-      console.log('清理已不存在的任务连接:', taskId);
-      closeConnection();
-      sseConnections.value.delete(taskId);
-    }
-  });
-
-  // 为正在下载的任务建立连接
-  activeTasks.value.forEach(task => {
-    if (task.status === 'downloading' && !sseConnections.value.has(task.id)) {
-      startTaskStreaming(task.id);
-    }
-  });
-};
+  if (completedTasks.length > 0) {
+    // 延迟刷新历史记录
+    setTimeout(() => {
+      fetchHistory();
+    }, 1000);
+  }
+}, { deep: true });
 
 // 取消任务
 const cancelTask = async (taskId: string) => {
   try {
-    const response = await downloadService.cancelTask(taskId);
-    if (response.success) {
-      // 立即停止SSE连接
-      stopTaskStreaming(taskId);
-      await fetchTasks();
-    } else {
-      throw new Error(response.error || '取消任务失败');
-    }
+    await downloadStore.cancelTask(taskId);
   } catch (err) {
     error.value = err instanceof Error ? err.message : '取消任务失败';
     console.error('取消任务失败:', err);
@@ -445,14 +345,7 @@ const cancelTask = async (taskId: string) => {
 // 恢复任务
 const resumeTask = async (taskId: string) => {
   try {
-    const response = await downloadService.resumeTask(taskId);
-    if (response.success) {
-      await fetchTasks();
-      // 重新管理SSE连接
-      manageSSEConnections();
-    } else {
-      throw new Error(response.error || '恢复任务失败');
-    }
+    await downloadStore.resumeTask(taskId);
   } catch (err) {
     error.value = err instanceof Error ? err.message : '恢复任务失败';
     console.error('恢复任务失败:', err);
@@ -464,13 +357,9 @@ const cleanupHistory = async () => {
   if (confirm('确定要清理下载历史吗？这将保留最新的500条记录。')) {
     try {
       loading.value = true;
-      const response = await downloadService.cleanupHistory(500);
-      if (response.success) {
-        await fetchHistory(); // 重新获取历史记录
-        alert('下载历史已清理！');
-      } else {
-        throw new Error(response.error || '清理历史失败');
-      }
+      await downloadStore.cleanupHistory(500);
+      await fetchHistory(); // 重新获取历史记录
+      alert('下载历史已清理！');
     } catch (err) {
       error.value = err instanceof Error ? err.message : '清理历史失败';
       console.error('清理历史失败:', err);
@@ -485,13 +374,8 @@ const cleanupTasks = async () => {
   if (confirm('确定要清理已完成的任务吗？这将保留活跃任务和最新的100个已完成任务。')) {
     try {
       loading.value = true;
-      const response = await downloadService.cleanupTasks(true, 100);
-      if (response.success) {
-        await fetchTasks(); // 重新获取任务列表
-        alert('下载任务已清理！');
-      } else {
-        throw new Error(response.error || '清理任务失败');
-      }
+      await downloadStore.cleanupCompletedTasks(100);
+      alert('下载任务已清理！');
     } catch (err) {
       error.value = err instanceof Error ? err.message : '清理任务失败';
       console.error('清理任务失败:', err);
@@ -506,27 +390,14 @@ const clearError = () => {
   error.value = null;
 };
 
-// 清理所有SSE连接
-const cleanupSSEConnections = () => {
-  sseConnections.value.forEach(closeConnection => {
-    closeConnection();
-  });
-  sseConnections.value.clear();
-};
-
 onMounted(async () => {
   loading.value = true;
   try {
     // 先获取数据，不阻塞页面渲染
     await Promise.all([
-      fetchTasks(),
+      downloadStore.fetchTasks(),
       fetchHistory()
     ]);
-    
-    // 数据加载完成后，异步管理SSE连接
-    setTimeout(() => {
-      manageSSEConnections();
-    }, 100);
   } catch (err) {
     error.value = err instanceof Error ? err.message : '加载数据失败';
   } finally {
@@ -535,7 +406,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  cleanupSSEConnections();
+  // 组件卸载时不需要清理SSE连接，因为store会统一管理
 });
 </script>
 
