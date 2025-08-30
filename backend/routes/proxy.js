@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const ImageCacheService = require('../services/image-cache');
+const ApiCacheService = require('../services/api-cache');
 
 // 创建缓存服务实例
 const imageCache = new ImageCacheService();
+const apiCache = new ApiCacheService();
 
 /**
  * 图片代理
@@ -154,6 +156,123 @@ router.post('/cache/config/reset', async (req, res) => {
       success: true,
       data: config,
       message: '缓存配置已重置为默认值'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * API缓存管理 - 获取缓存统计信息
+ * GET /api/proxy/api-cache/stats
+ */
+router.get('/api-cache/stats', async (req, res) => {
+  try {
+    const stats = await apiCache.getCacheStats();
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * API缓存管理 - 清理所有缓存
+ * DELETE /api/proxy/api-cache
+ */
+router.delete('/api-cache', async (req, res) => {
+  try {
+    await apiCache.clearAllCache();
+    res.json({
+      success: true,
+      message: '所有API缓存已清理'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * API缓存管理 - 清理过期缓存
+ * DELETE /api/proxy/api-cache/expired
+ */
+router.delete('/api-cache/expired', async (req, res) => {
+  try {
+    await apiCache.cleanupExpiredCache();
+    res.json({
+      success: true,
+      message: '过期API缓存已清理'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * API缓存管理 - 获取缓存配置
+ * GET /api/proxy/api-cache/config
+ */
+router.get('/api-cache/config', async (req, res) => {
+  try {
+    const config = await apiCache.getConfig();
+    res.json({
+      success: true,
+      data: config
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * API缓存管理 - 更新缓存配置
+ * PUT /api/proxy/api-cache/config
+ */
+router.put('/api-cache/config', async (req, res) => {
+  try {
+    const updates = req.body;
+    const config = await apiCache.updateConfig(updates);
+    res.json({
+      success: true,
+      data: config,
+      message: 'API缓存配置已更新'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * API缓存管理 - 重置缓存配置
+ * POST /api/proxy/api-cache/config/reset
+ */
+router.post('/api-cache/config/reset', async (req, res) => {
+  try {
+    const config = await apiCache.resetConfig();
+    res.json({
+      success: true,
+      data: config,
+      message: 'API缓存配置已重置为默认值'
     });
   } catch (error) {
     res.status(500).json({

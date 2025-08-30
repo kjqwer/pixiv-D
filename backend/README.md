@@ -96,6 +96,15 @@ backend/
 - `PUT /api/proxy/cache/config` - 更新缓存配置
 - `POST /api/proxy/cache/config/reset` - 重置缓存配置为默认值
 
+### API缓存管理相关
+
+- `GET /api/proxy/api-cache/stats` - 获取API缓存统计信息
+- `DELETE /api/proxy/api-cache` - 清理所有API缓存
+- `DELETE /api/proxy/api-cache/expired` - 清理过期API缓存
+- `GET /api/proxy/api-cache/config` - 获取API缓存配置
+- `PUT /api/proxy/api-cache/config` - 更新API缓存配置
+- `POST /api/proxy/api-cache/config/reset` - 重置API缓存配置为默认值
+
 ### 仓库管理相关
 
 - `POST /api/repository/initialize` - 初始化仓库
@@ -165,6 +174,7 @@ backend/
 - **download.js**: 下载服务，处理文件下载
 - **repository.js**: 仓库管理服务，处理文件管理和配置
 - **image-cache.js**: 图片缓存服务，管理图片代理缓存
+- **api-cache.js**: API缓存服务，管理API请求缓存
 
 ### 工具类
 
@@ -217,6 +227,14 @@ backend/
 - 缓存大小限制管理
 - 缓存统计信息查看
 - 手动缓存清理功能
+
+### 8. API缓存管理
+- 作者相关API请求缓存功能
+- 自动缓存过期清理（默认5分钟）
+- 缓存大小限制管理（默认50MB）
+- 缓存统计信息查看
+- 手动缓存清理功能
+- 支持配置缓存策略和端点白名单
 
 ## 🔒 安全特性
 

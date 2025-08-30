@@ -1,10 +1,14 @@
 const axios = require('axios');
 const { stringify } = require('qs');
+const ApiCacheService = require('./api-cache');
 
 class ArtistService {
   constructor(auth) {
     this.auth = auth;
     this.baseURL = 'https://app-api.pixiv.net';
+    
+    // 创建API缓存服务实例
+    this.apiCache = new ApiCacheService();
   }
 
   /**
@@ -326,6 +330,19 @@ class ArtistService {
    * 发送API请求
    */
   async makeRequest(method, endpoint, data = null) {
+    // 对于GET请求，尝试从缓存获取
+    if (method === 'GET') {
+      try {
+        const cachedData = await this.apiCache.get(method, endpoint, data || {});
+        if (cachedData) {
+          console.log(`API缓存命中: ${method} ${endpoint}`);
+          return cachedData;
+        }
+      } catch (error) {
+        console.error('读取API缓存失败:', error);
+      }
+    }
+
     const headers = {
       Authorization: `Bearer ${this.auth.accessToken}`,
       'Accept-Language': 'en-us',
@@ -355,7 +372,19 @@ class ArtistService {
     try {
       // 发送API请求
       const response = await axios(config);
-      return response.data;
+      const responseData = response.data;
+      
+      // 对于GET请求，将响应数据缓存
+      if (method === 'GET') {
+        try {
+          await this.apiCache.set(method, endpoint, data || {}, responseData);
+          console.log(`API缓存已保存: ${method} ${endpoint}`);
+        } catch (error) {
+          console.error('保存API缓存失败:', error);
+        }
+      }
+      
+      return responseData;
     } catch (error) {
       console.error('API请求失败:', {
         method,
