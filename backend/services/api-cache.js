@@ -37,7 +37,13 @@ class ApiCacheService {
         '/v1/user/illusts',
         '/v1/user/following',
         '/v1/user/follower',
-        '/v1/search/user'
+        '/v1/search/user',
+        '/v1/search/illust',
+        '/v1/illust/detail',
+        '/v1/illust/recommended',
+        '/v1/illust/ranking',
+        '/v1/user/bookmarks/illust',
+        '/v1/user/bookmarks/novel'
       ],
       // 缓存键生成策略
       keyStrategy: {
@@ -66,7 +72,7 @@ class ApiCacheService {
       // 启动定期清理任务
       this.startCleanupTask();
       
-      console.log('API缓存服务初始化完成');
+    //   console.log('API缓存服务初始化完成');
     } catch (error) {
       console.error('API缓存服务初始化失败:', error);
     }
@@ -78,7 +84,7 @@ class ApiCacheService {
   async ensureCacheDir() {
     try {
       await fs.mkdir(this.cacheDir, { recursive: true });
-      console.log('API缓存目录创建成功:', this.cacheDir);
+    //   console.log('API缓存目录创建成功:', this.cacheDir);
     } catch (error) {
       console.error('创建API缓存目录失败:', error);
     }
@@ -98,9 +104,30 @@ class ApiCacheService {
     // 确保params是对象
     const safeParams = params || {};
     
-    // 如果endpoint已经包含查询参数（包含?），则直接使用endpoint作为键
+    // 如果endpoint已经包含查询参数（包含?），则解析endpoint中的参数
     if (endpoint.includes('?')) {
-      keyBase = `${method.toUpperCase()}:${endpoint}`;
+      // 分离endpoint和查询参数
+      const [baseEndpoint, queryString] = endpoint.split('?');
+      keyBase = `${method.toUpperCase()}:${baseEndpoint}`;
+      
+      // 解析查询字符串
+      const urlParams = new URLSearchParams(queryString);
+      const endpointParams = {};
+      for (const [key, value] of urlParams) {
+        endpointParams[key] = value;
+      }
+      
+      // 合并endpoint中的参数和传入的params
+      const allParams = { ...endpointParams, ...safeParams };
+      
+      // 如果有参数，添加到键中
+      if (Object.keys(allParams).length > 0) {
+        const sortedParams = Object.keys(allParams)
+          .sort()
+          .map(key => `${key}=${allParams[key]}`)
+          .join('&');
+        keyBase += `?${sortedParams}`;
+      }
     } else if (this.config.keyStrategy.includeQueryParams && Object.keys(safeParams).length > 0) {
       // 如果endpoint不包含查询参数，且params不为空，则添加查询参数
       const sortedParams = Object.keys(safeParams)

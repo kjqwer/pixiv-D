@@ -58,7 +58,7 @@ class CacheConfigManager {
       const configDir = path.dirname(this.configPath);
       if (!require('fs').existsSync(configDir)) {
         require('fs').mkdirSync(configDir, { recursive: true });
-        console.log('缓存配置目录创建成功:', configDir);
+        // console.log('缓存配置目录创建成功:', configDir);
       }
     } catch (error) {
       console.error('创建缓存配置目录失败:', error);
@@ -72,7 +72,7 @@ class CacheConfigManager {
     try {
       // 检查配置文件是否存在
       await fs.access(this.configPath);
-      console.log('缓存配置文件已存在');
+      // console.log('缓存配置文件已存在');
     } catch (error) {
       // 配置文件不存在，创建默认配置
       console.log('创建默认缓存配置文件...');
@@ -87,7 +87,7 @@ class CacheConfigManager {
     try {
       const configContent = JSON.stringify(this.defaultConfig, null, 2);
       await fs.writeFile(this.configPath, configContent, 'utf8');
-      console.log('默认缓存配置文件创建成功:', this.configPath);
+      // console.log('默认缓存配置文件创建成功:', this.configPath);
     } catch (error) {
       console.error('创建默认缓存配置文件失败:', error);
       throw error;

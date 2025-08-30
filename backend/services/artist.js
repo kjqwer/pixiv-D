@@ -335,7 +335,7 @@ class ArtistService {
       try {
         const cachedData = await this.apiCache.get(method, endpoint, data || {});
         if (cachedData) {
-          console.log(`API缓存命中: ${method} ${endpoint}`);
+          // console.log(`API缓存命中: ${method} ${endpoint}`);
           return cachedData;
         }
       } catch (error) {
