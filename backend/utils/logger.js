@@ -78,15 +78,33 @@ class Logger {
     this.level = options.level || LogLevel.INFO;
     this.enableConsole = options.enableConsole !== false;
     this.enableFile = options.enableFile || false;
-    this.logDir = options.logDir || path.join(__dirname, '../logs');
+    
+    // 动态设置日志目录，避免pkg静态分析问题
+    this.logDir = options.logDir || this._getLogDir();
+    
     this.maxFileSize = options.maxFileSize || 10 * 1024 * 1024; // 10MB
     this.maxFiles = options.maxFiles || 5;
     this.enableColors = options.enableColors !== false;
     this.module = options.module || 'App';
     
-    // 确保日志目录存在
-    if (this.enableFile) {
-      this.ensureLogDir();
+    // 延迟初始化，不在构造函数中创建目录
+    this._initialized = false;
+  }
+
+  /**
+   * 动态获取日志目录路径
+   */
+  _getLogDir() {
+    // 检测是否在pkg打包环境中运行
+    const isPkg = process.pkg !== undefined;
+    
+    if (isPkg) {
+      // 在打包环境中，使用可执行文件所在目录
+      return path.join(process.cwd(), 'logs');
+    } else {
+      // 在开发环境中，使用项目根目录的logs文件夹
+      // 使用相对路径避免pkg静态分析问题
+      return 'logs';
     }
   }
 
@@ -146,6 +164,12 @@ class Logger {
    */
   writeToFile(message) {
     if (!this.enableFile) return;
+
+    // 延迟初始化，只在第一次写入时创建目录
+    if (!this._initialized) {
+      this.ensureLogDir();
+      this._initialized = true;
+    }
 
     const dateStr = this.getDateString();
     const logFile = path.join(this.logDir, `${dateStr}.log`);

@@ -3,6 +3,7 @@ const path = require('path');
 const { defaultLogger } = require('../backend/utils/logger');
 
 // 创建logger实例
+const logger = defaultLogger.child('CreatePortable');
 
 async function createPortable() {
   const distDir = path.join(__dirname, '..', 'dist');
@@ -99,7 +100,7 @@ pause
     logger.info('📦 可以将整个文件夹打包分发给用户');
     
   } catch (error) {
-    console.error('❌ 创建便携版失败:', error);
+    logger.error('❌ 创建便携版失败', error);
   }
 }
 
