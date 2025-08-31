@@ -1,3 +1,9 @@
+const { defaultLogger } = require('../utils/logger');
+
+// 创建logger实例
+const logger = defaultLogger.child('ProgressManager');
+
+
 /**
  * 进度管理器 - 负责处理下载进度的监听和通知
  */
@@ -89,7 +95,7 @@ class ProgressManager {
         try {
           listener(task);
         } catch (error) {
-          console.error('进度监听器执行失败:', error);
+          logger.error('进度监听器执行失败:', error);
         }
       });
     }

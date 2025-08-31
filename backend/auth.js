@@ -4,6 +4,11 @@ const { Base64 } = require('js-base64');
 const { stringify } = require('qs');
 const moment = require('moment');
 const { ProxyAgent } = require('proxy-agent');
+const { defaultLogger } = require('./utils/logger');
+
+// 创建logger实例
+const logger = defaultLogger.child('PixivAuth');
+
 
 // OAuth 2.0 配置
 const CLIENT_ID = 'MOBrBDS8blbauoSck0ZfDbtuzpyT';
@@ -20,6 +25,8 @@ class PixivAuth {
     this.proxy = proxy;
     this.isRefreshing = false;
     this.failedQueue = [];
+    this.refreshTimer = null; // 添加定时器引用
+    this.onTokenUpdate = null; // 添加token更新回调
     
     // 创建 axios 实例，支持代理
     this.axiosInstance = this.createAxiosInstance();
@@ -39,13 +46,13 @@ class PixivAuth {
 
     // 如果设置了代理，添加代理配置
     if (this.proxy) {
-      console.log('使用代理:', this.proxy);
+      logger.info('使用代理:', this.proxy);
       config.httpsAgent = new ProxyAgent(this.proxy);
     } else {
       // 尝试使用系统代理
       const systemProxy = process.env.HTTP_PROXY || process.env.HTTPS_PROXY || process.env.http_proxy || process.env.https_proxy;
       if (systemProxy) {
-        console.log('使用系统代理:', systemProxy);
+        logger.info('使用系统代理:', systemProxy);
         config.httpsAgent = new ProxyAgent(systemProxy);
       }
     }
@@ -83,7 +90,7 @@ class PixivAuth {
           this.isRefreshing = true;
 
           try {
-            console.log('检测到token过期，正在自动刷新...');
+            logger.info('检测到token过期，正在自动刷新...'); 
             const result = await this.refreshAccessToken(this.refreshToken);
             
             if (result.success) {
@@ -93,6 +100,9 @@ class PixivAuth {
               if (result.user) {
                 this.user = result.user;
               }
+
+              // 触发token更新回调
+              this.triggerTokenUpdate();
 
               // 处理队列中的请求
               this.processQueue(null, result.access_token);
@@ -104,7 +114,7 @@ class PixivAuth {
               throw new Error('Token刷新失败');
             }
           } catch (refreshError) {
-            console.error('自动刷新token失败:', refreshError.message);
+            logger.error('自动刷新token失败:', refreshError.message);
             this.processQueue(refreshError, null);
             return Promise.reject(refreshError);
           } finally {
@@ -148,6 +158,101 @@ class PixivAuth {
     this.refreshToken = refreshToken;
     if (user) {
       this.user = user;
+    }
+    
+    // 启动主动定时刷新
+    this.startProactiveRefresh();
+  }
+
+  /**
+   * 设置token更新回调
+   */
+  setTokenUpdateCallback(callback) {
+    this.onTokenUpdate = callback;
+  }
+
+  /**
+   * 触发token更新回调
+   */
+  triggerTokenUpdate() {
+    if (this.onTokenUpdate && typeof this.onTokenUpdate === 'function') {
+      try {
+        this.onTokenUpdate({
+          access_token: this.accessToken,
+          refresh_token: this.refreshToken,
+          user: this.user
+        });
+      } catch (error) {
+        logger.error('Token更新回调执行失败:', error.message);
+      }
+    }
+  }
+
+  /**
+   * 启动主动定时刷新token
+   */
+  startProactiveRefresh() {
+    // 清除之前的定时器
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+
+    // 如果没有refreshToken，不启动定时刷新
+    if (!this.refreshToken) {
+      return;
+    }
+
+    // 计算下次刷新时间（在token过期前30分钟刷新）
+    // Pixiv的access_token通常有效期为1小时，我们提前30分钟刷新
+    const refreshInterval = 30 * 60 * 1000; // 30分钟
+
+    this.refreshTimer = setTimeout(async () => {
+      try {
+        logger.info('主动刷新token...');
+        const result = await this.refreshAccessToken(this.refreshToken);
+        
+        if (result.success) {
+          logger.info('主动刷新token成功');
+          // 更新token
+          this.accessToken = result.access_token;
+          this.refreshToken = result.refresh_token;
+          if (result.user) {
+            this.user = result.user;
+          }
+          
+          // 触发token更新回调
+          this.triggerTokenUpdate();
+          
+          // 重新启动定时刷新
+          this.startProactiveRefresh();
+        } else {
+          logger.error('主动刷新token失败:', result.error);
+          // 刷新失败，5分钟后重试
+          setTimeout(() => {
+            this.startProactiveRefresh();
+          }, 5 * 60 * 1000);
+        }
+      } catch (error) {
+        logger.error('主动刷新token异常:', error.message);
+        // 发生异常，5分钟后重试
+        setTimeout(() => {
+          this.startProactiveRefresh();
+        }, 5 * 60 * 1000);
+      }
+    }, refreshInterval);
+
+    logger.info(`主动刷新定时器已启动，${refreshInterval / 1000 / 60}分钟后刷新token`); 
+  }
+
+  /**
+   * 停止主动定时刷新
+   */
+  stopProactiveRefresh() {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+      logger.info('主动刷新定时器已停止');
     }
   }
 
@@ -205,9 +310,9 @@ class PixivAuth {
    */
   async getAccessToken(code, codeVerifier) {
     try {
-      console.log('正在获取访问令牌...');
-      console.log('Code:', code);
-      console.log('Code Verifier:', codeVerifier);
+      logger.info('正在获取访问令牌...');
+      logger.info('Code:', code);
+      logger.info('Code Verifier:', codeVerifier);
       
       const data = {
         client_id: CLIENT_ID,
@@ -235,7 +340,7 @@ class PixivAuth {
       this.refreshToken = tokenData.refresh_token;
       this.user = tokenData.user;
 
-      console.log('获取访问令牌成功');
+      logger.info('获取访问令牌成功');
       return {
         success: true,
         access_token: tokenData.access_token,
@@ -244,11 +349,11 @@ class PixivAuth {
       };
 
     } catch (error) {
-      console.error('获取访问令牌失败:');
-      console.error('错误对象:', error);
-      console.error('响应状态:', error.response?.status);
-      console.error('响应数据:', error.response?.data);
-      console.error('错误消息:', error.message);
+      logger.error('获取访问令牌失败:');
+      logger.error('错误对象:', error);
+      logger.error('响应状态:', error.response?.status);
+      logger.error('响应数据:', error.response?.data);
+      logger.error('错误消息:', error.message);
       
       return {
         success: false,
@@ -262,7 +367,7 @@ class PixivAuth {
    */
   async refreshAccessToken(refreshToken) {
     try {
-      console.log('正在刷新访问令牌...');
+      logger.info('正在刷新访问令牌...');
       
       const data = {
         client_id: CLIENT_ID,
@@ -293,7 +398,7 @@ class PixivAuth {
         this.user = tokenData.user;
       }
 
-      console.log('刷新访问令牌成功');
+      logger.info('刷新访问令牌成功');
       return {
         success: true,
         access_token: tokenData.access_token,
@@ -302,7 +407,7 @@ class PixivAuth {
       };
 
     } catch (error) {
-      console.error('刷新访问令牌失败:', error.response?.data || error.message);
+      logger.error('刷新访问令牌失败:', error.response?.data || error.message);
       return {
         success: false,
         error: error.response?.data || error.message
@@ -334,7 +439,7 @@ class PixivAuth {
       };
 
     } catch (error) {
-      console.error('获取用户信息失败:', error.response?.data || error.message);
+      logger.error('获取用户信息失败:', error.response?.data || error.message);
       return {
         success: false,
         error: error.response?.data || error.message
@@ -349,7 +454,11 @@ class PixivAuth {
     this.accessToken = null;
     this.refreshToken = null;
     this.user = null;
-    console.log('已登出');
+    
+    // 停止主动刷新
+    this.stopProactiveRefresh();
+    
+    logger.info('已登出');
     return { success: true };
   }
 

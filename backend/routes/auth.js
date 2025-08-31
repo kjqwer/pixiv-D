@@ -1,5 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const { defaultLogger } = require('../utils/logger');
+
+// 创建logger实例
+const logger = defaultLogger.child('AuthRouter');
+
 
 /**
  * 获取登录状态
@@ -152,7 +157,7 @@ router.post('/refresh-token', async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('手动刷新token失败:', error);
+    logger.error('手动刷新token失败:', error);
     res.status(500).json({
       success: false,
       error: error.message

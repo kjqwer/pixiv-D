@@ -2,10 +2,13 @@ const Fse = require('fs-extra');
 const Path = require('path');
 const PixivAuth = require('./auth');
 const DownloadService = require('./services/download');
-
+const { defaultLogger } = require('./utils/logger');
 // 配置文件路径
 const CONFIG_FILE_DIR = require('appdata-path').getAppDataPath('pmanager');
 const CONFIG_FILE = Path.resolve(CONFIG_FILE_DIR, 'config.json');
+
+// 创建logger实例
+const logger = defaultLogger.child('PixivBackend');
 
 // 默认配置
 const defaultConfig = {
@@ -32,7 +35,7 @@ class PixivBackend {
    * 初始化后端
    */
   async init() {
-    console.log('正在初始化 Pixiv 后端...');
+    logger.info('正在初始化 Pixiv 后端...');
     
     // 初始化配置
     this.initConfig();
@@ -40,6 +43,15 @@ class PixivBackend {
     
     // 创建认证实例，传入代理配置
     this.auth = new PixivAuth(this.config.proxy);
+    
+    // 设置token更新回调
+    this.auth.setTokenUpdateCallback((tokens) => {
+      this.config.access_token = tokens.access_token;
+      this.config.refresh_token = tokens.refresh_token;
+      this.config.user = tokens.user;
+      this.saveConfig();
+      logger.info('Token已更新并保存到配置文件');
+    });
     
     // 同步已保存的token状态
     if (this.config.access_token && this.config.refresh_token) {
@@ -56,10 +68,10 @@ class PixivBackend {
     
     // 检查登录状态
     if (this.config.refresh_token) {
-      console.log('检测到已保存的登录信息，正在验证...');
+      logger.info('检测到已保存的登录信息，正在验证...');
       await this.relogin();
     } else {
-      console.log('未检测到登录信息，需要先登录');
+      logger.info('未检测到登录信息，需要先登录');
     }
     
     // 启动token同步定时任务
@@ -79,7 +91,7 @@ class PixivBackend {
       }
     }, 5 * 60 * 1000); // 5分钟
     
-    console.log('Token同步定时任务已启动');
+    logger.info('Token同步定时任务已启动');
   }
 
   /**
@@ -101,7 +113,7 @@ class PixivBackend {
       // 合并默认配置
       return { ...defaultConfig, ...config };
     } catch (error) {
-      console.error('读取配置文件失败:', error.message);
+      logger.error('读取配置文件失败:', error.message);
       return { ...defaultConfig };
     }
   }
@@ -112,9 +124,9 @@ class PixivBackend {
   saveConfig() {
     try {
       Fse.writeJsonSync(CONFIG_FILE, this.config);
-      console.log('配置已保存');
+      logger.info('配置已保存');
     } catch (error) {
-      console.error('保存配置失败:', error.message);
+      logger.error('保存配置失败:', error.message);
     }
   }
 
@@ -137,7 +149,7 @@ class PixivBackend {
    */
   async handleLoginCallback(code) {
     try {
-      console.log('正在处理登录回调...');
+      logger.info('正在处理登录回调...');
       
       if (!this.config.code_verifier) {
         throw new Error('缺少 code_verifier，请重新获取登录URL');
@@ -152,13 +164,20 @@ class PixivBackend {
         this.config.access_token = result.access_token;
         this.config.user = result.user;
         
+        // 同步到auth实例并启动主动刷新
+        this.auth.syncTokens(
+          result.access_token,
+          result.refresh_token,
+          result.user
+        );
+        
         // 清理临时数据
         delete this.config.code_verifier;
         
         this.saveConfig();
         this.isLoggedIn = true;
         
-        console.log(`登录成功！用户: ${result.user.account}`);
+        logger.info(`登录成功！用户: ${result.user.account}`);
         return {
           success: true,
           user: result.user
@@ -168,7 +187,7 @@ class PixivBackend {
       }
       
     } catch (error) {
-      console.error('登录失败:', error.message);
+      logger.error('登录失败:', error.message);
       return {
         success: false,
         error: error.message
@@ -185,7 +204,7 @@ class PixivBackend {
         throw new Error('没有保存的登录信息');
       }
 
-      console.log('正在使用保存的登录信息重新登录...');
+      logger.info('正在使用保存的登录信息重新登录...');
       
       const result = await this.auth.refreshAccessToken(this.config.refresh_token);
       
@@ -199,7 +218,7 @@ class PixivBackend {
           this.config.user = result.user;
         }
         
-        // 同步到auth实例
+        // 同步到auth实例并启动主动刷新
         this.auth.syncTokens(
           result.access_token,
           result.refresh_token,
@@ -209,7 +228,7 @@ class PixivBackend {
         this.saveConfig();
         
         this.isLoggedIn = true;
-        console.log('重新登录成功！');
+        logger.info('重新登录成功！');
         
         return { success: true };
       } else {
@@ -217,7 +236,7 @@ class PixivBackend {
       }
       
     } catch (error) {
-      console.error('重新登录失败:', error.message);
+      logger.error('重新登录失败:', error.message);
       // 清除无效的登录信息
       this.config.refresh_token = null;
       this.config.access_token = null;
@@ -243,7 +262,7 @@ class PixivBackend {
     this.isLoggedIn = false;
     
     this.saveConfig();
-    console.log('已登出');
+    logger.info('已登出');
     
     return { success: true };
   }
@@ -266,7 +285,7 @@ class PixivBackend {
   setDownloadPath(path) {
     this.config.download.path = path;
     this.saveConfig();
-    console.log(`下载路径已设置为: ${path}`);
+    logger.info(`下载路径已设置为: ${path}`);
     return { success: true };
   }
 
@@ -288,7 +307,7 @@ class PixivBackend {
     this.config.proxy = proxy;
     this.auth.setProxy(proxy);
     this.saveConfig();
-    console.log(`代理已设置为: ${proxy}`);
+    logger.info(`代理已设置为: ${proxy}`);
     return { success: true };
   }
 

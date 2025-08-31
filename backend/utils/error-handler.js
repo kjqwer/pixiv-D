@@ -1,4 +1,9 @@
 const path = require('path');
+const { defaultLogger } = require('../utils/logger');
+
+// 创建logger实例
+const logger = defaultLogger.child('ErrorHandler');
+
 
 /**
  * 错误处理工具类 - 专门处理打包后的权限问题
@@ -19,7 +24,7 @@ class ErrorHandler {
     };
 
     // 记录错误信息
-    console.error(`文件系统错误 [${operation}]:`, {
+    logger.error(`文件系统错误 [${operation}]:`, {
       filePath: filePath,
       errorCode: error.code,
       errorMessage: error.message,
@@ -52,25 +57,25 @@ class ErrorHandler {
   static handlePermissionError(errorInfo) {
     const { filePath, isPkg, platform } = errorInfo;
     
-    console.error('权限错误 (EPERM) 解决方案:');
+    logger.error('权限错误 (EPERM) 解决方案:');
     
     if (platform === 'win32') {
-      console.error('Windows 权限问题解决方案:');
-      console.error('1. 以管理员身份运行程序');
-      console.error('2. 检查文件/目录权限');
-      console.error('3. 检查防病毒软件是否阻止访问');
-      console.error('4. 检查文件是否被其他程序占用');
+      logger.error('Windows 权限问题解决方案:');
+      logger.error('1. 以管理员身份运行程序');
+      logger.error('2. 检查文件/目录权限');
+      logger.error('3. 检查防病毒软件是否阻止访问');
+      logger.error('4. 检查文件是否被其他程序占用');
       
       if (isPkg) {
-        console.error('5. 打包环境特殊处理:');
-        console.error('   - 确保程序有写入权限');
-        console.error('   - 尝试使用用户目录而不是程序目录');
+        logger.error('5. 打包环境特殊处理:');
+        logger.error('   - 确保程序有写入权限');
+        logger.error('   - 尝试使用用户目录而不是程序目录');
       }
     } else {
-      console.error('Unix/Linux 权限问题解决方案:');
-      console.error('1. 检查文件权限: chmod 755 <file>');
-      console.error('2. 检查目录权限: chmod 755 <directory>');
-      console.error('3. 检查用户权限');
+      logger.error('Unix/Linux 权限问题解决方案:');
+      logger.error('1. 检查文件权限: chmod 755 <file>');
+      logger.error('2. 检查目录权限: chmod 755 <directory>');
+      logger.error('3. 检查用户权限');
     }
 
     return {
@@ -87,14 +92,14 @@ class ErrorHandler {
   static handleAccessError(errorInfo) {
     const { filePath, platform } = errorInfo;
     
-    console.error('访问错误 (EACCES) 解决方案:');
-    console.error('1. 检查文件/目录是否存在');
-    console.error('2. 检查用户是否有访问权限');
-    console.error('3. 检查文件系统权限');
+    logger.error('访问错误 (EACCES) 解决方案:');
+    logger.error('1. 检查文件/目录是否存在');
+    logger.error('2. 检查用户是否有访问权限');
+    logger.error('3. 检查文件系统权限');
     
     if (platform === 'win32') {
-      console.error('4. 检查 Windows 安全设置');
-      console.error('5. 尝试以管理员身份运行');
+      logger.error('4. 检查 Windows 安全设置');
+      logger.error('5. 尝试以管理员身份运行');
     }
 
     return {
@@ -111,11 +116,11 @@ class ErrorHandler {
   static handleBusyError(errorInfo) {
     const { filePath } = errorInfo;
     
-    console.error('文件占用错误 (EBUSY) 解决方案:');
-    console.error('1. 关闭可能占用文件的程序');
-    console.error('2. 等待文件释放后重试');
-    console.error('3. 重启相关程序');
-    console.error('4. 检查是否有其他进程在使用文件');
+    logger.error('文件占用错误 (EBUSY) 解决方案:');
+    logger.error('1. 关闭可能占用文件的程序');
+    logger.error('2. 等待文件释放后重试');
+    logger.error('3. 重启相关程序');
+    logger.error('4. 检查是否有其他进程在使用文件');
 
     return {
       type: 'BUSY_ERROR',
@@ -132,10 +137,10 @@ class ErrorHandler {
   static handleNotFoundError(errorInfo) {
     const { filePath } = errorInfo;
     
-    console.error('文件不存在错误 (ENOENT) 解决方案:');
-    console.error('1. 检查文件路径是否正确');
-    console.error('2. 确保目录存在');
-    console.error('3. 检查文件名是否正确');
+    logger.error('文件不存在错误 (ENOENT) 解决方案:');
+    logger.error('1. 检查文件路径是否正确');
+    logger.error('2. 确保目录存在');
+    logger.error('3. 检查文件名是否正确');
 
     return {
       type: 'NOT_FOUND_ERROR',
@@ -151,9 +156,9 @@ class ErrorHandler {
   static handleIsDirectoryError(errorInfo) {
     const { filePath } = errorInfo;
     
-    console.error('是目录错误 (EISDIR) 解决方案:');
-    console.error('1. 检查路径是否指向目录而不是文件');
-    console.error('2. 确保使用正确的文件路径');
+    logger.error('是目录错误 (EISDIR) 解决方案:');
+    logger.error('1. 检查路径是否指向目录而不是文件');
+    logger.error('2. 确保使用正确的文件路径');
 
     return {
       type: 'IS_DIRECTORY_ERROR',
@@ -169,9 +174,9 @@ class ErrorHandler {
   static handleNotDirectoryError(errorInfo) {
     const { filePath } = errorInfo;
     
-    console.error('不是目录错误 (ENOTDIR) 解决方案:');
-    console.error('1. 检查路径是否指向文件而不是目录');
-    console.error('2. 确保使用正确的目录路径');
+    logger.error('不是目录错误 (ENOTDIR) 解决方案:');
+    logger.error('1. 检查路径是否指向文件而不是目录');
+    logger.error('2. 确保使用正确的目录路径');
 
     return {
       type: 'NOT_DIRECTORY_ERROR',
@@ -187,10 +192,10 @@ class ErrorHandler {
   static handleGenericError(errorInfo) {
     const { filePath, errorCode, errorMessage } = errorInfo;
     
-    console.error(`通用文件系统错误 (${errorCode}): ${errorMessage}`);
-    console.error('1. 检查文件系统状态');
-    console.error('2. 检查磁盘空间');
-    console.error('3. 检查文件系统权限');
+    logger.error(`通用文件系统错误 (${errorCode}): ${errorMessage}`);
+    logger.error('1. 检查文件系统状态');
+    logger.error('2. 检查磁盘空间');
+    logger.error('3. 检查文件系统权限');
 
     return {
       type: 'GENERIC_ERROR',

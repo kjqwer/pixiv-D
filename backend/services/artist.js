@@ -1,6 +1,11 @@
 const axios = require('axios');
 const { stringify } = require('qs');
 const ApiCacheService = require('./api-cache');
+const { defaultLogger } = require('../utils/logger');
+
+// 创建logger实例
+const logger = defaultLogger.child('ArtistService');
+
 
 class ArtistService {
   constructor(auth) {
@@ -197,7 +202,7 @@ class ArtistService {
           limit,
         };
 
-        console.log(`请求关注列表: offset=${currentOffset}, limit=${limit}`);
+        logger.info(`请求关注列表: offset=${currentOffset}, limit=${limit}`);
         const response = await this.makeRequest('GET', `/v1/user/following?${stringify(params)}`);
 
         // 转换数据格式以匹配前端期望
@@ -210,12 +215,12 @@ class ArtistService {
         }));
 
         allArtists.push(...artists);
-        console.log(`本次获取到 ${artists.length} 个作者，累计 ${allArtists.length} 个`);
+        logger.info(`本次获取到 ${artists.length} 个作者，累计 ${allArtists.length} 个`);
 
         // 如果返回的数量少于limit，说明已经获取完所有数据
         if (artists.length < limit) {
           hasMore = false;
-          console.log('已获取完所有关注的作者');
+          logger.info('已获取完所有关注的作者');
         } else {
           currentOffset += artists.length;
         }
@@ -229,7 +234,7 @@ class ArtistService {
         },
       };
     } catch (error) {
-      console.error('获取关注作者列表失败:', error.message);
+      logger.error('获取关注作者列表失败:', error.message);
       return {
         success: false,
         error: error.message,
@@ -335,11 +340,11 @@ class ArtistService {
       try {
         const cachedData = await this.apiCache.get(method, endpoint, data || {});
         if (cachedData) {
-          // console.log(`API缓存命中: ${method} ${endpoint}`);
+          // logger.info(`API缓存命中: ${method} ${endpoint}`);
           return cachedData;
         }
       } catch (error) {
-        console.error('读取API缓存失败:', error);
+        logger.error('读取API缓存失败:', error);
       }
     }
 
@@ -378,15 +383,15 @@ class ArtistService {
       if (method === 'GET') {
         try {
           await this.apiCache.set(method, endpoint, data || {}, responseData);
-          console.log(`API缓存已保存: ${method} ${endpoint}`);
+          logger.info(`API缓存已保存: ${method} ${endpoint}`);
         } catch (error) {
-          console.error('保存API缓存失败:', error);
+          logger.error('保存API缓存失败:', error);
         }
       }
       
       return responseData;
     } catch (error) {
-      console.error('API请求失败:', {
+      logger.error('API请求失败:', {
         method,
         endpoint,
         status: error.response?.status,

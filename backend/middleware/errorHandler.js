@@ -1,8 +1,13 @@
 /**
  * 全局错误处理中间件
  */
+const { defaultLogger } = require('../utils/logger');
+
+// 创建logger实例
+const logger = defaultLogger.child('ErrorHandler');
+
 const errorHandler = (err, req, res, next) => {
-  console.error('错误详情:', err);
+  logger.error('错误详情', err);
   
   // 默认错误信息
   let statusCode = 500;

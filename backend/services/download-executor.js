@@ -1,5 +1,10 @@
 const path = require('path');
 const fs = require('fs-extra');
+const { defaultLogger } = require('../utils/logger');
+
+// 创建logger实例
+const logger = defaultLogger.child('DownloadExecutor');
+
 
 /**
  * 下载执行器 - 负责具体的下载逻辑执行
@@ -27,7 +32,7 @@ class DownloadExecutor {
 
         // 检查是否应该暂停
         if (this.shouldPause(task.id)) {
-          console.log('任务已暂停，停止下载:', task.id);
+          logger.info('任务已暂停，停止下载:', task.id);
           break;
         }
 
@@ -55,7 +60,7 @@ class DownloadExecutor {
 
         // 确保imageUrl是字符串
         if (typeof imageUrl !== 'string') {
-          console.error(`图片URL不是字符串:`, imageUrl);
+          logger.error(`图片URL不是字符串:`, imageUrl);
           task.failed_files++;
           this.progressManager.notifyProgressUpdate(task.id, task);
           results.push({ success: false, error: '图片URL格式错误' });
@@ -78,7 +83,7 @@ class DownloadExecutor {
             continue;
           } else {
             // 文件不完整，删除重新下载
-            console.log(`文件不完整，重新下载: ${filePath}`);
+            logger.info(`文件不完整，重新下载: ${filePath}`);
             await this.fileManager.safeDeleteFile(filePath);
           }
         }
@@ -104,7 +109,7 @@ class DownloadExecutor {
           results.push({ success: true, file: fileName });
         } catch (error) {
           task.failed_files++;
-          console.error(`下载图片失败 ${index + 1}: ${error.message}`);
+          logger.error(`下载图片失败 ${index + 1}: ${error.message}`);
           this.progressManager.notifyProgressUpdate(task.id, task);
           results.push({ success: false, error: error.message });
         }
@@ -139,7 +144,7 @@ class DownloadExecutor {
 
       await this.historyManager.addHistoryItem(historyItem);
     } catch (error) {
-      console.error('异步下载执行失败:', error);
+      logger.error('异步下载执行失败:', error);
       task.status = 'failed';
       task.error = error.message;
       task.end_time = new Date();
@@ -166,7 +171,7 @@ class DownloadExecutor {
 
         // 检查是否应该暂停
         if (this.shouldPause(task.id)) {
-          console.log('批量下载任务已暂停，停止下载:', task.id);
+          logger.info('批量下载任务已暂停，停止下载:', task.id);
           break;
         }
 
@@ -508,7 +513,7 @@ class DownloadExecutor {
    */
   getFileExtension(url) {
     if (typeof url !== 'string') {
-      console.warn('URL不是字符串，使用默认扩展名:', url);
+      logger.warn('URL不是字符串，使用默认扩展名:', url);
       return 'jpg';
     }
     
@@ -551,7 +556,7 @@ class DownloadExecutor {
     } else if (task.type === 'batch' || task.type === 'artist') {
       // 批量下载和作者下载的恢复逻辑
       // 这里需要根据具体实现来恢复
-      console.log('恢复批量下载任务:', taskId);
+      logger.info('恢复批量下载任务:', taskId);
       // TODO: 实现批量下载的恢复逻辑
     }
 

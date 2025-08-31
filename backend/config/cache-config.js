@@ -1,5 +1,10 @@
 const fs = require('fs').promises;
 const path = require('path');
+const { defaultLogger } = require('../utils/logger');
+
+// 创建logger实例
+const logger = defaultLogger.child('CacheConfigManager');
+
 
 /**
  * 缓存配置管理器
@@ -58,10 +63,10 @@ class CacheConfigManager {
       const configDir = path.dirname(this.configPath);
       if (!require('fs').existsSync(configDir)) {
         require('fs').mkdirSync(configDir, { recursive: true });
-        // console.log('缓存配置目录创建成功:', configDir);
+        // logger.info('缓存配置目录创建成功:', configDir);
       }
     } catch (error) {
-      console.error('创建缓存配置目录失败:', error);
+      logger.error('创建缓存配置目录失败:', error);
     }
   }
 
@@ -72,10 +77,10 @@ class CacheConfigManager {
     try {
       // 检查配置文件是否存在
       await fs.access(this.configPath);
-      // console.log('缓存配置文件已存在');
+      // logger.info('缓存配置文件已存在');
     } catch (error) {
       // 配置文件不存在，创建默认配置
-      console.log('创建默认缓存配置文件...');
+      logger.info('创建默认缓存配置文件...');
       await this.createDefaultConfig();
     }
   }
@@ -87,9 +92,9 @@ class CacheConfigManager {
     try {
       const configContent = JSON.stringify(this.defaultConfig, null, 2);
       await fs.writeFile(this.configPath, configContent, 'utf8');
-      // console.log('默认缓存配置文件创建成功:', this.configPath);
+      // logger.info('默认缓存配置文件创建成功:', this.configPath);
     } catch (error) {
-      console.error('创建默认缓存配置文件失败:', error);
+      logger.error('创建默认缓存配置文件失败:', error);
       throw error;
     }
   }
@@ -105,7 +110,7 @@ class CacheConfigManager {
       // 合并默认配置，确保所有字段都存在
       return { ...this.defaultConfig, ...config };
     } catch (error) {
-      console.error('加载缓存配置失败:', error);
+      logger.error('加载缓存配置失败:', error);
       return this.defaultConfig;
     }
   }
@@ -120,9 +125,9 @@ class CacheConfigManager {
       
       const configContent = JSON.stringify(config, null, 2);
       await fs.writeFile(this.configPath, configContent, 'utf8');
-      console.log('缓存配置保存成功');
+      logger.info('缓存配置保存成功');
     } catch (error) {
-      console.error('保存缓存配置失败:', error);
+      logger.error('保存缓存配置失败:', error);
       throw error;
     }
   }
@@ -137,7 +142,7 @@ class CacheConfigManager {
       await this.saveConfig(newConfig);
       return newConfig;
     } catch (error) {
-      console.error('更新缓存配置失败:', error);
+      logger.error('更新缓存配置失败:', error);
       throw error;
     }
   }
@@ -148,10 +153,10 @@ class CacheConfigManager {
   async resetToDefault() {
     try {
       await this.saveConfig(this.defaultConfig);
-      console.log('缓存配置已重置为默认值');
+      logger.info('缓存配置已重置为默认值');
       return this.defaultConfig;
     } catch (error) {
-      console.error('重置缓存配置失败:', error);
+      logger.error('重置缓存配置失败:', error);
       throw error;
     }
   }

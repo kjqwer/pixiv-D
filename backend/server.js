@@ -3,6 +3,9 @@ const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
 
+// 导入logger
+const { defaultLogger } = require('./utils/logger');
+
 // 导入路由模块
 const authRoutes = require('./routes/auth');
 const artworkRoutes = require('./routes/artwork');
@@ -19,6 +22,9 @@ const { authMiddleware } = require('./middleware/auth');
 // 导入核心模块
 const PixivBackend = require('./core');
 const proxyConfig = require('./config');
+
+// 创建logger实例
+const logger = defaultLogger.child('Server');
 
 // 自定义日志中间件
 function customLogger(req, res, next) {
@@ -43,10 +49,21 @@ function customLogger(req, res, next) {
   const isImageProxy = req.path === '/api/proxy/image';
 
   // 过滤掉下载任务状态查询请求
-  const isDownloadTasksQuery = req.path === '/api/download/tasks';
+  const isDownloadTasksQuery = 
+    req.path === '/api/download/tasks' ||
+    req.path === '/api/download/tasks/active' ||
+    req.path === '/api/download/tasks/summary' ||
+    req.path === '/api/download/tasks/changes' ||
+    req.path === '/api/download/tasks/completed';
 
-  // 只记录API请求和重要请求，排除静态资源、图片代理和下载任务查询
-  if (!isStaticResource && !isImageProxy && !isDownloadTasksQuery) {
+  // 过滤掉仓库预览请求（图片预览）
+  const isRepositoryPreview = req.path === '/api/repository/preview';
+
+  // 过滤掉健康检查请求
+  const isHealthCheck = req.path === '/health';
+
+  // 只记录重要的API请求，排除静态资源、图片代理、下载任务查询、仓库预览和健康检查
+  if (!isStaticResource && !isImageProxy && !isDownloadTasksQuery && !isRepositoryPreview && !isHealthCheck) {
     const start = Date.now();
 
     // 原始响应结束方法
@@ -110,7 +127,7 @@ function customLogger(req, res, next) {
       const logMessage = `${statusColor}${statusIcon} ${methodIcon} ${method} ${url} ${statusCode} ${duration}ms\x1b[0m`;
 
       // 输出日志
-      console.log(`[${timeStr}] ${logMessage}`);
+      logger.info(`${statusIcon} ${methodIcon} ${method} ${url} ${statusCode} ${duration}ms`);
 
       // 调用原始的end方法
       originalEnd.call(this, chunk, encoding);
@@ -131,7 +148,7 @@ class PixivServer {
    * 初始化服务器
    */
   async init() {
-    console.log('\x1b[34m🔧 正在初始化 Pixiv 后端服务器...\x1b[0m');
+    logger.info('🔧 正在初始化 Pixiv 后端服务器...');
 
     // 重新设置端口（从环境变量获取）
     this.port = process.env.PORT || 3000;
@@ -152,7 +169,7 @@ class PixivServer {
     // 配置错误处理 - 临时注释掉
     this.setupErrorHandling();
 
-    console.log('\x1b[32m✅ 服务器初始化完成\x1b[0m');
+    logger.info('✅ 服务器初始化完成');
   }
 
   /**
@@ -239,14 +256,14 @@ class PixivServer {
    */
   start() {
     this.app.listen(this.port, () => {
-      console.log('\x1b[32m✅ Pixiv 后端服务器已启动\x1b[0m');
-      console.log(`\x1b[36m📍 服务地址: http://localhost:${this.port}\x1b[0m`);
-      console.log(`\x1b[36m🔗 健康检查: http://localhost:${this.port}/health\x1b[0m`);
-      console.log(`\x1b[33m📊 登录状态: ${this.backend.isLoggedIn ? '已登录' : '未登录'}\x1b[0m`);
+      logger.info('✅ Pixiv 后端服务器已启动');
+      logger.info(`📍 服务地址: http://localhost:${this.port}`);
+      logger.info(`🔗 健康检查: http://localhost:${this.port}/health`);
+      logger.info(`📊 登录状态: ${this.backend.isLoggedIn ? '已登录' : '未登录'}`);
       if (this.backend.isLoggedIn) {
-        console.log(`\x1b[33m👤 用户: ${this.backend.config.user?.account}\x1b[0m`);
+        logger.info(`👤 用户: ${this.backend.config.user?.account}`);
       }
-      console.log('\x1b[90m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m');
+      logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     });
   }
 
@@ -254,10 +271,10 @@ class PixivServer {
    * 优雅关闭
    */
   async shutdown() {
-    console.log('\x1b[33m🔄 正在关闭服务器...\x1b[0m');
+    logger.info('🔄 正在关闭服务器...');
     // 清理代理环境变量
     proxyConfig.clearEnvironmentVariables();
-    console.log('\x1b[32m✅ 服务器已关闭\x1b[0m');
+    logger.info('✅ 服务器已关闭');
     process.exit(0);
   }
 }
@@ -274,7 +291,7 @@ if (require.main === module) {
   server
     .init()
     .then(() => server.start())
-    .catch(console.error);
+    .catch((error) => logger.error('服务器启动失败', error));
 }
 
 module.exports = PixivServer;

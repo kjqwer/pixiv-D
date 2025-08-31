@@ -7,6 +7,11 @@ const ProgressManager = require('./progress-manager');
 const HistoryManager = require('./history-manager');
 const DownloadExecutor = require('./download-executor');
 const fs = require('fs-extra'); // Added for fs-extra
+const { defaultLogger } = require('../utils/logger');
+
+// 创建logger实例
+const logger = defaultLogger.child('DownloadService');
+
 
 /**
  * 下载服务 - 主服务类，协调各个管理器
@@ -56,7 +61,7 @@ class DownloadService {
       this.initialized = true;
       // 下载服务初始化完成
     } catch (error) {
-      console.error('下载服务初始化失败:', error);
+      logger.error('下载服务初始化失败:', error);
       this.initialized = false;
     }
   }
@@ -352,7 +357,7 @@ class DownloadService {
 
       return files.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     } catch (error) {
-      console.error('获取下载文件列表失败:', error);
+      logger.error('获取下载文件列表失败:', error);
       return [];
     }
   }
@@ -396,7 +401,7 @@ class DownloadService {
 
       return Array.from(downloadedIds);
     } catch (error) {
-      console.error('获取已下载作品ID列表失败:', error);
+      logger.error('获取已下载作品ID列表失败:', error);
       return [];
     }
   }
@@ -430,7 +435,7 @@ class DownloadService {
               const infoContent = await fs.readFile(infoPath, 'utf8');
               artworkInfo = JSON.parse(infoContent);
             } catch (error) {
-              console.log(`作品 ${artworkId} 缺少信息文件，认为未下载`);
+              logger.info(`作品 ${artworkId} 缺少信息文件，认为未下载`);
               return false;
             }
 
@@ -439,19 +444,19 @@ class DownloadService {
             const imageFiles = files.filter(file => /\.(jpg|jpeg|png|gif|webp)$/i.test(file) && file !== 'artwork_info.json');
 
             if (imageFiles.length === 0) {
-              console.log(`作品 ${artworkId} 有信息文件但没有图片文件，认为未下载`);
+              logger.info(`作品 ${artworkId} 有信息文件但没有图片文件，认为未下载`);
               return false;
             }
 
             // 检查图片数量是否与artwork_info.json中记录的一致
             const expectedImageCount = artworkInfo.page_count || 1;
             if (imageFiles.length < expectedImageCount) {
-              console.log(`作品 ${artworkId} 图片数量不匹配: 期望 ${expectedImageCount} 个，实际 ${imageFiles.length} 个`);
+              logger.info(`作品 ${artworkId} 图片数量不匹配: 期望 ${expectedImageCount} 个，实际 ${imageFiles.length} 个`);
               return false;
             }
 
             // 有信息文件、有图片文件且数量匹配，认为已下载
-            // console.log(`作品 ${artworkId} 已完整下载，有信息文件和 ${imageFiles.length}/${expectedImageCount} 个图片文件`);
+            // logger.info(`作品 ${artworkId} 已完整下载，有信息文件和 ${imageFiles.length}/${expectedImageCount} 个图片文件`);
             return true;
           }
         }
@@ -459,7 +464,7 @@ class DownloadService {
 
       return false;
     } catch (error) {
-      console.error('检查作品下载状态失败:', error);
+      logger.error('检查作品下载状态失败:', error);
       return false;
     }
   }
@@ -508,7 +513,7 @@ class DownloadService {
 
       // 如果是重新下载，先删除现有目录
       if (!skipExisting && (await this.fileManager.directoryExists(artworkDir))) {
-        console.log(`删除现有作品目录: ${artworkDir}`);
+        logger.info(`删除现有作品目录: ${artworkDir}`);
         await this.fileManager.removeDirectory(artworkDir);
       }
 
@@ -553,7 +558,7 @@ class DownloadService {
         },
       };
     } catch (error) {
-      console.error('下载作品失败:', error);
+      logger.error('下载作品失败:', error);
       return {
         success: false,
         error: error.message,
@@ -630,7 +635,7 @@ class DownloadService {
         },
       };
     } catch (error) {
-      console.error('批量下载失败:', error);
+      logger.error('批量下载失败:', error);
       return {
         success: false,
         error: error.message,
@@ -678,7 +683,7 @@ class DownloadService {
 
       // 如果是重新下载，先删除现有目录
       if (!skipExisting && (await this.fileManager.directoryExists(artworkDir))) {
-        console.log(`删除现有作品目录: ${artworkDir}`);
+        logger.info(`删除现有作品目录: ${artworkDir}`);
         await this.fileManager.removeDirectory(artworkDir);
       }
 
@@ -719,7 +724,7 @@ class DownloadService {
 
         // 确保imageUrl是字符串
         if (typeof imageUrl !== 'string') {
-          console.error(`图片URL不是字符串:`, imageUrl);
+          logger.error(`图片URL不是字符串:`, imageUrl);
           results.push({ success: false, error: '图片URL格式错误' });
           continue;
         }
@@ -739,7 +744,7 @@ class DownloadService {
           await this.fileManager.downloadFile(imageUrl, filePath);
           results.push({ success: true, file: fileName });
         } catch (error) {
-          console.error(`下载图片失败 ${index + 1}: ${error.message}`);
+          logger.error(`下载图片失败 ${index + 1}: ${error.message}`);
           results.push({ success: false, error: error.message });
         }
       }
@@ -763,7 +768,7 @@ class DownloadService {
         results: results,
       };
     } catch (error) {
-      console.error(`下载作品 ${artworkId} 失败:`, error);
+      logger.error(`下载作品 ${artworkId} 失败:`, error);
       return {
         success: false,
         error: error.message,
@@ -777,7 +782,7 @@ class DownloadService {
    */
   getFileExtension(url) {
     if (typeof url !== 'string') {
-      console.warn('URL不是字符串，使用默认扩展名:', url);
+      logger.warn('URL不是字符串，使用默认扩展名:', url);
       return 'jpg';
     }
     
@@ -800,7 +805,7 @@ class DownloadService {
           artistName = artistResult.data.name || `作者 ${artistId}`;
         }
       } catch (err) {
-        console.warn(`获取作者 ${artistId} 信息失败:`, err.message);
+        logger.warn(`获取作者 ${artistId} 信息失败:`, err.message);
       }
 
       // 创建任务记录
@@ -901,7 +906,7 @@ class DownloadService {
         },
       };
     } catch (error) {
-      console.error('作者作品下载失败:', error);
+      logger.error('作者作品下载失败:', error);
       return {
         success: false,
         error: error.message,
@@ -1013,7 +1018,7 @@ class DownloadService {
         },
       };
     } catch (error) {
-      console.error('排行榜作品下载失败:', error);
+      logger.error('排行榜作品下载失败:', error);
       return {
         success: false,
         error: error.message,
@@ -1046,7 +1051,7 @@ class DownloadService {
         },
       };
     } catch (error) {
-      console.error('获取排行榜失败:', error);
+      logger.error('获取排行榜失败:', error);
       return {
         success: false,
         error: error.message,

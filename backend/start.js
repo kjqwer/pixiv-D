@@ -5,6 +5,10 @@
  */
 
 const PixivServer = require('./server');
+const { defaultLogger } = require('./utils/logger');
+
+// 创建logger实例
+const logger = defaultLogger.child('Start');
 
 // 解析命令行参数
 function parseArguments() {
@@ -54,39 +58,39 @@ process.env.NODE_ENV = process.env.NODE_ENV || 'development';
 // 如果提供了代理端口，设置环境变量
 if (cliOptions.proxyPort) {
   process.env.PROXY_PORT = cliOptions.proxyPort.toString();
-  console.log(`\x1b[36m📡 代理端口已设置为: ${cliOptions.proxyPort}\x1b[0m`);
+  logger.info(`📡 代理端口已设置为: ${cliOptions.proxyPort}`);
 }
 
 // 如果提供了服务器端口，设置环境变量
 if (cliOptions.serverPort) {
   process.env.PORT = cliOptions.serverPort.toString();
-  console.log(`\x1b[36m🌐 服务器端口已设置为: ${cliOptions.serverPort}\x1b[0m`);
+  logger.info(`🌐 服务器端口已设置为: ${cliOptions.serverPort}`);
 }
 
-console.log('\x1b[35m🚀 启动 Pixiv 后端服务器...\x1b[0m');
+logger.info('🚀 启动 Pixiv 后端服务器...');
 
 // 创建服务器实例
 const server = new PixivServer();
 
 // 处理进程信号
 process.on('SIGINT', async () => {
-  console.log('\n\x1b[33m🛑 收到 SIGINT 信号，正在关闭服务器...\x1b[0m');
+  logger.info('🛑 收到 SIGINT 信号，正在关闭服务器...');
   await server.shutdown();
 });
 
 process.on('SIGTERM', async () => {
-  console.log('\n\x1b[33m🛑 收到 SIGTERM 信号，正在关闭服务器...\x1b[0m');
+  logger.info('🛑 收到 SIGTERM 信号，正在关闭服务器...');
   await server.shutdown();
 });
 
 // 处理未捕获的异常
 process.on('uncaughtException', error => {
-  console.error('\x1b[31m❌ 未捕获的异常:\x1b[0m', error);
+  logger.error('❌ 未捕获的异常', error);
   process.exit(1);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('\x1b[31m❌ 未处理的 Promise 拒绝:\x1b[0m', reason);
+  logger.error('❌ 未处理的 Promise 拒绝', reason);
   process.exit(1);
 });
 
@@ -95,6 +99,6 @@ server
   .init()
   .then(() => server.start())
   .catch(error => {
-    console.error('\x1b[31m❌ 服务器启动失败:\x1b[0m', error);
+    logger.error('❌ 服务器启动失败', error);
     process.exit(1);
   });

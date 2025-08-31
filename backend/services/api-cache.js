@@ -2,6 +2,11 @@ const fs = require('fs').promises;
 const path = require('path');
 const crypto = require('crypto');
 const CacheConfigManager = require('../config/cache-config');
+const { defaultLogger } = require('../utils/logger');
+
+// 创建logger实例
+const logger = defaultLogger.child('ApiCacheService');
+
 
 /**
  * API缓存服务
@@ -72,9 +77,9 @@ class ApiCacheService {
       // 启动定期清理任务
       this.startCleanupTask();
       
-    //   console.log('API缓存服务初始化完成');
+    //   logger.info('API缓存服务初始化完成');
     } catch (error) {
-      console.error('API缓存服务初始化失败:', error);
+      logger.error('API缓存服务初始化失败:', error);
     }
   }
 
@@ -84,9 +89,9 @@ class ApiCacheService {
   async ensureCacheDir() {
     try {
       await fs.mkdir(this.cacheDir, { recursive: true });
-    //   console.log('API缓存目录创建成功:', this.cacheDir);
+    //   logger.info('API缓存目录创建成功:', this.cacheDir);
     } catch (error) {
-      console.error('创建API缓存目录失败:', error);
+      logger.error('创建API缓存目录失败:', error);
     }
   }
 
@@ -188,7 +193,7 @@ class ApiCacheService {
       
       return JSON.parse(data);
     } catch (error) {
-      console.error('读取API缓存失败:', error);
+      logger.error('读取API缓存失败:', error);
       return null;
     }
   }
@@ -208,7 +213,7 @@ class ApiCacheService {
       // 检查缓存大小，如果超过限制则清理
       await this.checkCacheSize();
     } catch (error) {
-      console.error('保存API缓存失败:', error);
+      logger.error('保存API缓存失败:', error);
     }
   }
 
@@ -303,7 +308,7 @@ class ApiCacheService {
 
       // 如果超过最大大小，删除最旧的文件
       if (totalSize > this.config.maxSize) {
-        console.log(`API缓存大小 ${totalSize} 超过限制 ${this.config.maxSize}，开始清理...`);
+        logger.info(`API缓存大小 ${totalSize} 超过限制 ${this.config.maxSize}，开始清理...`);
         
         // 按修改时间排序，删除最旧的文件
         fileStats.sort((a, b) => a.mtime.getTime() - b.mtime.getTime());
@@ -317,10 +322,10 @@ class ApiCacheService {
           }
         }
         
-        console.log(`API缓存清理完成，当前大小: ${totalSize}`);
+        logger.info(`API缓存清理完成，当前大小: ${totalSize}`);
       }
     } catch (error) {
-      console.error('检查API缓存大小失败:', error);
+      logger.error('检查API缓存大小失败:', error);
     }
   }
 
@@ -345,10 +350,10 @@ class ApiCacheService {
       }
 
       if (cleanedCount > 0) {
-        console.log(`清理了 ${cleanedCount} 个过期API缓存文件`);
+        logger.info(`清理了 ${cleanedCount} 个过期API缓存文件`);
       }
     } catch (error) {
-      console.error('清理过期API缓存失败:', error);
+      logger.error('清理过期API缓存失败:', error);
     }
   }
 
@@ -358,7 +363,7 @@ class ApiCacheService {
   startCleanupTask() {
     setInterval(() => {
       this.cleanupExpiredCache().catch(error => {
-        console.error('定期清理API缓存任务失败:', error);
+        logger.error('定期清理API缓存任务失败:', error);
       });
     }, this.config.cleanupInterval);
   }
@@ -376,9 +381,9 @@ class ApiCacheService {
         await fs.unlink(filePath);
       }
       
-      console.log('所有API缓存已清理');
+      logger.info('所有API缓存已清理');
     } catch (error) {
-      console.error('清理所有API缓存失败:', error);
+      logger.error('清理所有API缓存失败:', error);
       throw error;
     }
   }
@@ -410,7 +415,7 @@ class ApiCacheService {
         config: this.config
       };
     } catch (error) {
-      console.error('获取API缓存统计失败:', error);
+      logger.error('获取API缓存统计失败:', error);
       return {
         fileCount: 0,
         totalSize: 0,

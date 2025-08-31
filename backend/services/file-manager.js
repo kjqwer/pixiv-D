@@ -5,6 +5,10 @@ const crypto = require('crypto');
 const ConfigManager = require('../config/config-manager');
 const FileUtils = require('../utils/file-utils');
 const ErrorHandler = require('../utils/error-handler');
+const { defaultLogger } = require('../utils/logger');
+
+// 创建logger实例
+const logger = defaultLogger.child('FileManager');
 
 /**
  * 文件管理器 - 负责文件下载、检查和目录管理
@@ -36,7 +40,7 @@ class FileManager {
         ? downloadDir 
         : path.resolve(process.cwd(), downloadDir);
     } catch (error) {
-      console.error('获取下载路径失败:', error);
+      logger.error('获取下载路径失败:', error);
       // 返回默认路径
       return path.resolve(process.cwd(), 'downloads');
     }
@@ -141,7 +145,7 @@ class FileManager {
             fs.access(filePath)
               .then(() => resolve())
               .catch(error => {
-                console.error(`文件写入验证失败: ${filePath}`, error.message);
+                logger.error(`文件写入验证失败: ${filePath}`, error.message);
                 reject(error);
               });
           });
@@ -150,7 +154,7 @@ class FileManager {
             try {
               await this.safeDeleteFile(filePath);
             } catch (removeError) {
-              console.warn('清理失败文件时出错:', removeError.message);
+              logger.warn('清理失败文件时出错:', removeError.message);
             }
             reject(error);
           });
@@ -161,7 +165,7 @@ class FileManager {
         // 处理文件系统错误
         const errorResult = ErrorHandler.handleFileSystemError(error, filePath, 'download');
         
-        console.error(`下载文件失败 (尝试 ${attempt}/${maxRetries}): ${filePath}`, error.message);
+        logger.error(`下载文件失败 (尝试 ${attempt}/${maxRetries}): ${filePath}`, error.message);
         
         // 如果不是可重试的错误，直接抛出
         if (!errorResult.retryable) {
@@ -170,13 +174,13 @@ class FileManager {
         
         // 如果是最后一次尝试，抛出错误
         if (attempt === maxRetries) {
-          console.error(`下载文件最终失败: ${filePath}`, error.message);
+          logger.error(`下载文件最终失败: ${filePath}`, error.message);
           throw error;
         }
         
         // 等待后重试
         const retryDelay = ErrorHandler.getRetryDelay(error, attempt);
-        console.log(`等待 ${retryDelay}ms 后重试下载: ${filePath}`);
+        logger.info(`等待 ${retryDelay}ms 后重试下载: ${filePath}`);
         await new Promise(resolve => setTimeout(resolve, retryDelay));
       }
     }
@@ -323,7 +327,7 @@ class FileManager {
         await fs.unlink(filePath);
       }
     } catch (error) {
-      console.error(`文件删除失败: ${filePath}`, error.message);
+      logger.error(`文件删除失败: ${filePath}`, error.message);
       // 不抛出错误，避免影响其他操作
     }
   }

@@ -2,6 +2,11 @@ const express = require('express');
 const router = express.Router();
 const ImageCacheService = require('../services/image-cache');
 const ApiCacheService = require('../services/api-cache');
+const { defaultLogger } = require('../utils/logger');
+
+// 创建logger实例
+const logger = defaultLogger.child('ProxyRouter');  
+
 
 // 创建缓存服务实例
 const imageCache = new ImageCacheService();
@@ -40,7 +45,7 @@ router.get('/image', async (req, res) => {
     res.send(imageData);
 
   } catch (error) {
-    console.error('Image proxy error:', error.message);
+    logger.error('Image proxy error:', error.message);
     res.status(500).json({
       success: false,
       error: 'Failed to load image'

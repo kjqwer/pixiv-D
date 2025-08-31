@@ -1,5 +1,10 @@
 const fs = require('fs-extra');
 const path = require('path');
+const { defaultLogger } = require('../utils/logger');
+
+// 创建logger实例
+const logger = defaultLogger.child('HistoryManager');
+
 
 /**
  * 历史记录管理器 - 负责下载历史的管理
@@ -28,9 +33,9 @@ class HistoryManager {
       await this.cleanupHistory();
       
       this.initialized = true;
-      console.log('历史记录管理器初始化完成');
+      logger.info('历史记录管理器初始化完成');
     } catch (error) {
-      console.error('历史记录管理器初始化失败:', error);
+      logger.error('历史记录管理器初始化失败:', error);
       this.initialized = false;
     }
   }
@@ -44,7 +49,7 @@ class HistoryManager {
         this.history = await fs.readJson(this.historyFile);
       }
     } catch (error) {
-      console.error('加载下载历史失败:', error);
+      logger.error('加载下载历史失败:', error);
       this.history = [];
     }
   }
@@ -56,7 +61,7 @@ class HistoryManager {
     try {
       await fs.writeJson(this.historyFile, this.history, { spaces: 2 });
     } catch (error) {
-      console.error('保存下载历史失败:', error);
+      logger.error('保存下载历史失败:', error);
     }
   }
 
@@ -98,7 +103,7 @@ class HistoryManager {
       return;
     }
 
-    console.log(`清理历史记录: ${this.history.length} -> ${this.maxHistoryItems}`);
+    logger.info(`清理历史记录: ${this.history.length} -> ${this.maxHistoryItems}`);
     
     // 保留最新的记录
     this.history = this.history.slice(0, this.maxHistoryItems);

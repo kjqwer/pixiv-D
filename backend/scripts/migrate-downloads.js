@@ -1,6 +1,11 @@
 const fs = require('fs').promises
 const path = require('path')
 const fsExtra = require('fs-extra')
+const { defaultLogger } = require('../utils/logger');
+
+// 创建logger实例
+const logger = defaultLogger.child('MigrateDownloads');
+
 
 /**
  * 转换现有的下载格式为仓库管理格式
@@ -11,7 +16,7 @@ async function migrateDownloads() {
   const downloadsPath = path.join(__dirname, '../../downloads')
   
   try {
-    console.log('开始转换下载格式...')
+    logger.info('开始转换下载格式...')
     
     // 读取downloads目录
     const entries = await fs.readdir(downloadsPath, { withFileTypes: true })
@@ -20,12 +25,12 @@ async function migrateDownloads() {
       if (!entry.isDirectory()) continue
       
       const oldDirName = entry.name
-      console.log(`处理目录: ${oldDirName}`)
+      logger.info(`处理目录: ${oldDirName}`)
       
       // 解析目录名: {artistName}_{artworkId}
       const match = oldDirName.match(/^(.+)_(\d+)$/)
       if (!match) {
-        console.log(`跳过不符合格式的目录: ${oldDirName}`)
+        logger.info(`跳过不符合格式的目录: ${oldDirName}`)
         continue
       }
       
@@ -46,7 +51,7 @@ async function migrateDownloads() {
         const newArtworkDirName = `${artworkId}_${artworkTitle}`
         const newArtworkPath = path.join(newArtistDir, newArtworkDirName)
         
-        console.log(`转换: ${oldArtworkPath} -> ${newArtworkPath}`)
+        logger.info(`转换: ${oldArtworkPath} -> ${newArtworkPath}`)
         
         try {
           // 创建新的作者目录
@@ -55,9 +60,9 @@ async function migrateDownloads() {
           // 移动作品目录
           await fsExtra.move(oldArtworkPath, newArtworkPath)
           
-          console.log(`✓ 成功转换: ${artworkTitle}`)
+          logger.info(`✓ 成功转换: ${artworkTitle}`)
         } catch (error) {
-          console.error(`✗ 转换失败: ${artworkTitle}`, error.message)
+          logger.error(`✗ 转换失败: ${artworkTitle}`, error.message)
         }
       }
       
@@ -66,17 +71,17 @@ async function migrateDownloads() {
         const remainingEntries = await fs.readdir(oldDirPath)
         if (remainingEntries.length === 0) {
           await fsExtra.remove(oldDirPath)
-          console.log(`删除空目录: ${oldDirPath}`)
+          logger.info(`删除空目录: ${oldDirPath}`)
         }
       } catch (error) {
-        console.error(`删除目录失败: ${oldDirPath}`, error.message)
+        logger.error(`删除目录失败: ${oldDirPath}`, error.message)
       }
     }
     
-    console.log('转换完成！')
+    logger.info('转换完成！')
     
   } catch (error) {
-    console.error('转换过程中发生错误:', error)
+    logger.error('转换过程中发生错误:', error)
   }
 }
 

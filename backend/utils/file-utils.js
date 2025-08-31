@@ -1,5 +1,10 @@
 const fs = require('fs-extra');
 const path = require('path');
+const { defaultLogger } = require('./logger');
+
+// 创建logger实例
+const logger = defaultLogger.child('FileUtils');
+
 
 /**
  * 文件操作工具类 - 确保与 pkg 打包兼容
@@ -22,7 +27,7 @@ class FileUtils {
         await nativeFs.unlink(filePath);
         return true;
       } catch (nativeError) {
-        console.error(`文件删除失败: ${filePath}`, nativeError.message);
+        logger.error(`文件删除失败: ${filePath}`, nativeError.message);
         return false;
       }
     }
@@ -44,7 +49,7 @@ class FileUtils {
         await nativeFs.mkdir(dirPath, { recursive: true });
         return true;
       } catch (nativeError) {
-        console.error(`目录创建失败: ${dirPath}`, nativeError.message);
+        logger.error(`目录创建失败: ${dirPath}`, nativeError.message);
         return false;
       }
     }
@@ -70,7 +75,7 @@ class FileUtils {
         return true;
       }
     } catch (error) {
-      console.error(`增强目录创建失败: ${dirPath}`, error.message);
+      logger.error(`增强目录创建失败: ${dirPath}`, error.message);
       return false;
     }
   }
@@ -102,7 +107,7 @@ class FileUtils {
               // 验证创建是否成功
               await fs.access(currentPath);
             } catch (mkdirError) {
-              console.error(`创建目录失败: ${currentPath}`, mkdirError.message);
+              logger.error(`创建目录失败: ${currentPath}`, mkdirError.message);
               throw mkdirError;
             }
           } else {
@@ -113,7 +118,7 @@ class FileUtils {
       
       return true;
     } catch (error) {
-      console.error(`递归创建目录失败: ${dirPath}`, error.message);
+      logger.error(`递归创建目录失败: ${dirPath}`, error.message);
       return false;
     }
   }
@@ -137,7 +142,7 @@ class FileUtils {
           // 尝试删除现有文件
           await fs.remove(filePath);
         } catch (removeError) {
-          console.warn(`删除现有文件失败: ${filePath}`, removeError.message);
+          logger.warn(`删除现有文件失败: ${filePath}`, removeError.message);
           // 继续尝试写入，可能会覆盖
         }
       }
@@ -150,7 +155,7 @@ class FileUtils {
       
       return true;
     } catch (error) {
-      console.error(`安全写入文件失败: ${filePath}`, error.message);
+      logger.error(`安全写入文件失败: ${filePath}`, error.message);
       return false;
     }
   }
@@ -173,14 +178,14 @@ class FileUtils {
         try {
           await fs.remove(filePath);
         } catch (removeError) {
-          console.warn(`删除现有文件失败: ${filePath}`, removeError.message);
+          logger.warn(`删除现有文件失败: ${filePath}`, removeError.message);
         }
       }
       
       // 创建写入流
       return fs.createWriteStream(filePath);
     } catch (error) {
-      console.error(`创建写入流失败: ${filePath}`, error.message);
+      logger.error(`创建写入流失败: ${filePath}`, error.message);
       throw error;
     }
   }
@@ -217,7 +222,7 @@ class FileUtils {
         const nativeFs = require('fs').promises;
         return await nativeFs.readdir(dirPath);
       } catch (nativeError) {
-        console.error(`读取目录失败: ${dirPath}`, nativeError.message);
+        logger.error(`读取目录失败: ${dirPath}`, nativeError.message);
         return [];
       }
     }
@@ -239,7 +244,7 @@ class FileUtils {
         await nativeFs.writeFile(filePath, jsonString, 'utf8');
         return true;
       } catch (nativeError) {
-        console.error(`JSON 写入失败: ${filePath}`, nativeError.message);
+        logger.error(`JSON 写入失败: ${filePath}`, nativeError.message);
         return false;
       }
     }

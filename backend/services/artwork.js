@@ -1,6 +1,11 @@
 const axios = require('axios');
 const { stringify } = require('qs');
 const ApiCacheService = require('./api-cache');
+const { defaultLogger } = require('../utils/logger');
+
+// 创建logger实例
+const logger = defaultLogger.child('ArtworkService');
+
 
 class ArtworkService {
   constructor(auth) {
@@ -205,8 +210,8 @@ class ArtworkService {
         },
       };
     } catch (error) {
-      console.error('Search error:', error.message);
-      console.error('Search error details:', error.response?.data);
+      logger.error('Search error:', error.message);
+      logger.error('Search error details:', error.response?.data);
 
       return {
         success: false,
@@ -293,7 +298,7 @@ class ArtworkService {
     try {
       // TODO: 需要研究新的 Pixiv API 端点
       // 当前所有收藏相关的 API 端点都返回 404 错误
-      console.log(`尝试${action === 'add' ? '添加' : '删除'}收藏 ${artworkId}，但API端点不可用`);
+      logger.info(`尝试${action === 'add' ? '添加' : '删除'}收藏 ${artworkId}，但API端点不可用`);
       
       return {
         success: false,
@@ -348,7 +353,7 @@ class ArtworkService {
         },
       };
     } catch (error) {
-      console.error('获取收藏列表失败:', {
+      logger.error('获取收藏列表失败:', {
         message: error.message,
         status: error.response?.status,
         data: error.response?.data,
@@ -370,11 +375,11 @@ class ArtworkService {
       try {
         const cachedData = await this.apiCache.get(method, endpoint, data || {});
         if (cachedData) {
-          // console.log(`API缓存命中: ${method} ${endpoint}`);
+          // logger.info(`API缓存命中: ${method} ${endpoint}`);
           return cachedData;
         }
       } catch (error) {
-        console.error('读取API缓存失败:', error);
+        logger.error('读取API缓存失败:', error);
       }
     }
 
@@ -415,15 +420,15 @@ class ArtworkService {
       if (method === 'GET') {
         try {
           await this.apiCache.set(method, endpoint, data || {}, responseData);
-          // console.log(`API缓存已保存: ${method} ${endpoint}`);
+          // logger.info(`API缓存已保存: ${method} ${endpoint}`);
         } catch (error) {
-          console.error('保存API缓存失败:', error);
+          logger.error('保存API缓存失败:', error);
         }
       }
       
       return responseData;
     } catch (error) {
-      console.error('API request failed:', {
+      logger.error('API request failed:', {
         method,
         endpoint,
         error: error.message,

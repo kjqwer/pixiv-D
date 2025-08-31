@@ -4,6 +4,12 @@ const { promisify } = require('util')
 const { exec } = require('child_process')
 const ConfigManager = require('../config/config-manager')
 const execAsync = promisify(exec)
+const { defaultLogger } = require('../utils/logger');
+
+// 创建logger实例
+const logger = defaultLogger.child('RepositoryService');
+
+
 
 class RepositoryService {
   constructor() {
@@ -64,7 +70,7 @@ class RepositoryService {
     try {
       this.config = await this.configManager.readConfig()
     } catch (error) {
-      console.error('加载配置失败:', error)
+      logger.error('加载配置失败:', error)
       // 如果加载失败，使用默认配置对象
       this.config = {
         downloadDir: "./downloads",
@@ -266,10 +272,10 @@ class RepositoryService {
             usagePercent: Math.round((used / total) * 100)
           }
         } catch (statfsError) {
-          console.log('fs.statfs 调用失败:', statfsError.message)
+          logger.info('fs.statfs 调用失败:', statfsError.message)
         }
       } else {
-        console.log('fs.statfs 在打包环境中不可用，尝试使用系统命令')
+        logger.info('fs.statfs 在打包环境中不可用，尝试使用系统命令')
       }
       
       // 如果 fs.statfs 不可用，尝试使用系统命令
@@ -305,7 +311,7 @@ class RepositoryService {
                 }
               }
             } catch (error) {
-              console.log('PowerShell 方法失败:', error.message)
+              logger.info('PowerShell 方法失败:', error.message)
               throw error
             }
           },
@@ -340,7 +346,7 @@ class RepositoryService {
                 }
               }
             } catch (error) {
-              console.log('wmic 方法失败:', error.message)
+              logger.info('wmic 方法失败:', error.message)
               throw error
             }
           }
@@ -357,7 +363,7 @@ class RepositoryService {
               return result
             }
           } catch (error) {
-            console.log(`磁盘使用情况获取方法失败:`, error.message)
+            logger.info(`磁盘使用情况获取方法失败:`, error.message)
             continue
           }
         }
@@ -383,7 +389,7 @@ class RepositoryService {
             }
           }
         } catch (dfError) {
-          console.log('df 命令失败:', dfError.message)
+          logger.info('df 命令失败:', dfError.message)
         }
       }
       
@@ -391,7 +397,7 @@ class RepositoryService {
       return await this.getCachedDiskUsage(currentBaseDir, forceRefresh)
       
     } catch (error) {
-      console.error('获取磁盘使用情况失败:', error)
+      logger.error('获取磁盘使用情况失败:', error)
       return { 
         total: 0, 
         used: 0, 
@@ -486,12 +492,12 @@ class RepositoryService {
             const expectedImageCount = artworkInfo.page_count || 1
             if (files.length < expectedImageCount) {
               // 图片文件数量不足，认为下载不完整
-              console.log(`作品 ${artworkId} 图片数量不匹配: 期望 ${expectedImageCount} 个，实际 ${files.length} 个`)
+              logger.info(`作品 ${artworkId} 图片数量不匹配: 期望 ${expectedImageCount} 个，实际 ${files.length} 个`)
               return false
             }
             
             // 有信息文件、有图片文件且数量匹配，认为已下载
-            // console.log(`作品 ${artworkId} 已完整下载: ${files.length}/${expectedImageCount} 个图片文件`)
+            // logger.info(`作品 ${artworkId} 已完整下载: ${files.length}/${expectedImageCount} 个图片文件`)
             return true
           }
         }
@@ -499,7 +505,7 @@ class RepositoryService {
       
       return false
     } catch (error) {
-      console.error('检查作品下载状态失败:', error)
+      logger.error('检查作品下载状态失败:', error)
       return false
     }
   }
@@ -772,12 +778,12 @@ class RepositoryService {
       if (cacheAge < maxCacheAge) {
         this.diskUsageCache.data = cache.data
         this.diskUsageCache.timestamp = cache.timestamp
-        console.log('已加载持久化缓存，缓存年龄:', Math.round(cacheAge / 1000 / 60), '分钟')
+        logger.info('已加载持久化缓存，缓存年龄:', Math.round(cacheAge / 1000 / 60), '分钟')
       } else {
-        console.log('持久化缓存已过期，将重新计算')
+        logger.info('持久化缓存已过期，将重新计算')
       }
     } catch (error) {
-      console.log('加载持久化缓存失败，将使用内存缓存:', error.message)
+      logger.info('加载持久化缓存失败，将使用内存缓存:', error.message)
     }
   }
 
@@ -795,9 +801,9 @@ class RepositoryService {
       }
       
       await fs.writeFile(this.cacheFilePath, JSON.stringify(cacheData, null, 2), 'utf8')
-      console.log('持久化缓存已保存')
+      logger.info('持久化缓存已保存')
     } catch (error) {
-      console.error('保存持久化缓存失败:', error.message)
+      logger.error('保存持久化缓存失败:', error.message)
     }
   }
 
@@ -812,9 +818,9 @@ class RepositoryService {
       if (this.cacheFilePath) {
         try {
           await fs.unlink(this.cacheFilePath)
-          console.log('持久化缓存文件已删除')
+          logger.info('持久化缓存文件已删除')
         } catch (error) {
-          console.log('删除持久化缓存文件失败:', error.message)
+          logger.info('删除持久化缓存文件失败:', error.message)
         }
       }
       
@@ -831,7 +837,7 @@ class RepositoryService {
     // 检查内存缓存是否有效（除非强制刷新）
     if (!forceRefresh && this.diskUsageCache.data && 
         (now - this.diskUsageCache.timestamp) < this.diskUsageCache.cacheDuration) {
-      console.log('使用内存缓存的磁盘使用情况')
+      logger.info('使用内存缓存的磁盘使用情况')
       return this.diskUsageCache.data
     }
     
@@ -862,7 +868,7 @@ class RepositoryService {
       
       return result
     } catch (error) {
-      console.log('快速估算失败，返回默认值:', error.message)
+      logger.info('快速估算失败，返回默认值:', error.message)
       return { 
         total: 0, 
         used: 0, 
@@ -916,7 +922,7 @@ class RepositoryService {
       
       return totalSize
     } catch (error) {
-      console.error('快速目录大小估算失败:', error)
+      logger.error('快速目录大小估算失败:', error)
       return 0
     }
   }
@@ -938,14 +944,14 @@ class RepositoryService {
             totalSize += stats.size
           } catch (error) {
             // 忽略无法访问的文件
-            console.log(`无法访问文件: ${fullPath}`)
+            logger.info(`无法访问文件: ${fullPath}`)
           }
         }
       }
       
       return totalSize
     } catch (error) {
-      console.error('计算目录大小失败:', error)
+      logger.error('计算目录大小失败:', error)
       return 0
     }
   }

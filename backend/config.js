@@ -1,3 +1,8 @@
+const { defaultLogger } = require('./utils/logger');
+
+// 创建logger实例
+const logger = defaultLogger.child('ProxyConfig');
+
 // 代理配置
 const proxyConfig = {
   // 系统代理配置
@@ -19,7 +24,7 @@ const proxyConfig = {
     process.env.http_proxy = this.proxyUrl;
     process.env.https_proxy = this.proxyUrl;
     
-    console.log('代理环境变量已设置:', this.proxyUrl);
+    logger.info('代理环境变量已设置:', this.proxyUrl);
   },
   
   // 清除环境变量
@@ -29,7 +34,7 @@ const proxyConfig = {
     delete process.env.http_proxy;
     delete process.env.https_proxy;
     
-    console.log('代理环境变量已清除');
+    logger.info('代理环境变量已清除');
   }
 };
 

@@ -1,6 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const DownloadService = require('../services/download');
+const { defaultLogger } = require('../utils/logger');
+
+// 创建logger实例
+const logger = defaultLogger.child('DownloadRouter');
+
 
 /**
  * 下载单个作品
@@ -43,7 +48,7 @@ router.post('/artwork/:id', async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('下载路由错误:', error);
+    logger.error('下载路由错误:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -655,7 +660,7 @@ router.get('/stream/:taskId', async (req, res) => {
       }
           }
         } catch (error) {
-          console.error('SSE写入失败:', error);
+          logger.error('SSE写入失败:', error);
           // 连接可能已断开，清理监听器
           downloadService.removeProgressListener(taskId, progressListener);
         }

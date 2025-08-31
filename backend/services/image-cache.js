@@ -3,6 +3,10 @@ const path = require('path');
 const crypto = require('crypto');
 const axios = require('axios');
 const CacheConfigManager = require('../config/cache-config');
+const { defaultLogger } = require('../utils/logger');
+
+// 创建logger实例
+const logger = defaultLogger.child('ImageCache');
 
 /**
  * 图片缓存服务
@@ -61,9 +65,9 @@ class ImageCacheService {
       // 启动定期清理任务
       this.startCleanupTask();
       
-      console.log('图片缓存服务初始化完成');
+      logger.info('图片缓存服务初始化完成');
     } catch (error) {
-      console.error('图片缓存服务初始化失败:', error);
+      logger.error('图片缓存服务初始化失败', error);
     }
   }
 
@@ -73,9 +77,9 @@ class ImageCacheService {
   async ensureCacheDir() {
     try {
       await fs.mkdir(this.cacheDir, { recursive: true });
-      console.log('图片缓存目录创建成功:', this.cacheDir);
+      logger.info('图片缓存目录创建成功', { cacheDir: this.cacheDir });
     } catch (error) {
-      console.error('创建图片缓存目录失败:', error);
+      logger.error('创建图片缓存目录失败', error);
     }
   }
 
@@ -153,7 +157,7 @@ class ImageCacheService {
       
       return data;
     } catch (error) {
-      console.error('读取缓存失败:', error);
+      logger.error('读取缓存失败:', error);
       return null;
     }
   }
@@ -172,7 +176,7 @@ class ImageCacheService {
       // 检查缓存大小，如果超过限制则清理
       await this.checkCacheSize();
     } catch (error) {
-      console.error('保存缓存失败:', error);
+      logger.error('保存缓存失败:', error);
     }
   }
 
@@ -202,7 +206,7 @@ class ImageCacheService {
         // 异步保存到缓存（不等待完成）
         if (this.config.enabled) {
           this.saveToCache(url, data).catch(error => {
-            console.error('异步保存缓存失败:', error);
+            logger.error('异步保存缓存失败:', error);
           });
         }
 
@@ -270,7 +274,7 @@ class ImageCacheService {
 
       // 如果超过最大大小，删除最旧的文件
       if (totalSize > this.config.maxSize) {
-        console.log(`缓存大小 ${totalSize} 超过限制 ${this.config.maxSize}，开始清理...`);
+        logger.info(`缓存大小 ${totalSize} 超过限制 ${this.config.maxSize}，开始清理...`);
         
         // 按修改时间排序，删除最旧的文件
         fileStats.sort((a, b) => a.mtime.getTime() - b.mtime.getTime());
@@ -284,10 +288,10 @@ class ImageCacheService {
           }
         }
         
-        console.log(`缓存清理完成，当前大小: ${totalSize}`);
+        logger.info(`缓存清理完成，当前大小: ${totalSize}`);
       }
     } catch (error) {
-      console.error('检查缓存大小失败:', error);
+      logger.error('检查缓存大小失败:', error);
     }
   }
 
@@ -312,10 +316,10 @@ class ImageCacheService {
       }
 
       if (cleanedCount > 0) {
-        console.log(`清理了 ${cleanedCount} 个过期缓存文件`);
+        logger.info(`清理了 ${cleanedCount} 个过期缓存文件`);
       }
     } catch (error) {
-      console.error('清理过期缓存失败:', error);
+      logger.error('清理过期缓存失败:', error);
     }
   }
 
@@ -325,7 +329,7 @@ class ImageCacheService {
   startCleanupTask() {
     setInterval(() => {
       this.cleanupExpiredCache().catch(error => {
-        console.error('定期清理任务失败:', error);
+        logger.error('定期清理任务失败:', error);
       });
     }, this.config.cleanupInterval);
   }
@@ -343,9 +347,9 @@ class ImageCacheService {
         await fs.unlink(filePath);
       }
       
-      console.log('所有缓存已清理');
+      logger.info('所有缓存已清理');
     } catch (error) {
-      console.error('清理所有缓存失败:', error);
+      logger.error('清理所有缓存失败:', error);
       throw error;
     }
   }
@@ -376,7 +380,7 @@ class ImageCacheService {
         config: this.config
       };
     } catch (error) {
-      console.error('获取缓存统计失败:', error);
+      logger.error('获取缓存统计失败:', error);
       return {
         fileCount: 0,
         totalSize: 0,

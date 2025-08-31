@@ -1,6 +1,10 @@
 const fs = require('fs-extra');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const { defaultLogger } = require('../utils/logger');
+
+// 创建logger实例
+const logger = defaultLogger.child('TaskManager');
 
 /**
  * 任务管理器 - 负责下载任务的生命周期管理
@@ -29,9 +33,9 @@ class TaskManager {
       await this.cleanupCompletedTasks();
       
       this.initialized = true;
-      console.log('任务管理器初始化完成');
+      logger.info('任务管理器初始化完成');
     } catch (error) {
-      console.error('任务管理器初始化失败:', error);
+      logger.error('任务管理器初始化失败', error);
       this.initialized = false;
     }
   }
@@ -53,7 +57,7 @@ class TaskManager {
         }
       }
     } catch (error) {
-      console.error('加载任务状态失败:', error);
+      logger.error('加载任务状态失败', error);
       this.tasks = new Map();
     }
   }
@@ -66,7 +70,7 @@ class TaskManager {
       const tasksData = Object.fromEntries(this.tasks);
       await fs.writeJson(this.tasksFile, tasksData, { spaces: 2 });
     } catch (error) {
-      console.error('保存任务状态失败:', error);
+      logger.error('保存任务状态失败', error);
     }
   }
 
@@ -199,7 +203,7 @@ class TaskManager {
 
     if (cleanedCount > 0) {
       await this.saveTasks();
-      console.log(`清理已完成任务: ${cleanedCount} 个`);
+      logger.info(`清理已完成任务: ${cleanedCount} 个`);
     }
 
     return cleanedCount;

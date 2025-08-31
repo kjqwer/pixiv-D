@@ -1,8 +1,11 @@
 const express = require('express');
 const ArtworkService = require('../services/artwork');
 const ResponseUtil = require('../utils/response');
+const { defaultLogger } = require('../utils/logger');
 
 const router = express.Router();
+const logger = defaultLogger.child('RankingRouter');
+
 
 /**
  * 获取排行榜数据
@@ -34,7 +37,7 @@ router.get('/', async (req, res) => {
     
     res.json(ResponseUtil.success(result));
   } catch (error) {
-    console.error('获取排行榜失败:', error);
+    logger.error('获取排行榜失败:', error);
     res.status(500).json(ResponseUtil.error(error.message));
   }
 });

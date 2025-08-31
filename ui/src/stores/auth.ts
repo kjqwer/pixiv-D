@@ -10,6 +10,7 @@ export const useAuthStore = defineStore('auth', () => {
   });
   const loading = ref(false);
   const error = ref<string | null>(null);
+  const statusCheckTimer = ref<number | null>(null); // 添加状态检查定时器
 
   // 计算属性
   const isLoggedIn = computed(() => loginStatus.value.isLoggedIn);
@@ -24,12 +25,59 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await authService.getLoginStatus();
       if (response.success && response.data) {
         loginStatus.value = response.data;
+        
+        // 如果登录状态发生变化，启动或停止状态检查
+        if (response.data.isLoggedIn) {
+          startStatusCheck();
+        } else {
+          stopStatusCheck();
+        }
       }
     } catch (err) {
       error.value = err instanceof Error ? err.message : '获取登录状态失败';
       console.error('获取登录状态失败:', err);
+      
+      // 如果获取状态失败，可能是token过期，停止状态检查
+      stopStatusCheck();
     } finally {
       loading.value = false;
+    }
+  };
+
+  // 启动定期状态检查
+  const startStatusCheck = () => {
+    // 清除之前的定时器
+    stopStatusCheck();
+    
+    // 每5分钟检查一次登录状态
+    statusCheckTimer.value = window.setInterval(async () => {
+      try {
+        const response = await authService.getLoginStatus();
+        if (response.success && response.data) {
+          // 更新登录状态
+          loginStatus.value = response.data;
+          
+          // 如果已登出，停止检查
+          if (!response.data.isLoggedIn) {
+            stopStatusCheck();
+          }
+        }
+      } catch (err) {
+        console.error('定期检查登录状态失败:', err);
+        // 检查失败，可能是网络问题或token过期，停止检查
+        stopStatusCheck();
+      }
+    }, 5 * 60 * 1000); // 5分钟
+    
+    console.log('登录状态定期检查已启动');
+  };
+
+  // 停止定期状态检查
+  const stopStatusCheck = () => {
+    if (statusCheckTimer.value) {
+      clearInterval(statusCheckTimer.value);
+      statusCheckTimer.value = null;
+      console.log('登录状态定期检查已停止');
     }
   };
 
@@ -100,6 +148,7 @@ export const useAuthStore = defineStore('auth', () => {
       const response = await authService.logout();
       if (response.success) {
         loginStatus.value = { isLoggedIn: false };
+        stopStatusCheck(); // 停止状态检查
         return true;
       }
       throw new Error(response.error || '登出失败');
@@ -134,6 +183,8 @@ export const useAuthStore = defineStore('auth', () => {
     handleLoginCallback,
     relogin,
     logout,
-    clearError
+    clearError,
+    startStatusCheck,
+    stopStatusCheck
   };
 }); 
