@@ -20,13 +20,16 @@ class ImageCacheService {
     if (isPkg) {
       // 在打包环境中，使用可执行文件所在目录
       this.cacheDir = path.join(process.cwd(), 'data', 'image-cache');
+      this.indexPath = path.join(process.cwd(), 'data', 'image-cache-index.json');
     } else {
       // 在开发环境中，使用项目根目录的data文件夹
       this.cacheDir = path.join(__dirname, '..', '..', 'data', 'image-cache');
+      this.indexPath = path.join(__dirname, '..', '..', 'data', 'image-cache-index.json');
     }
     
     // 确保路径是绝对路径
     this.cacheDir = path.resolve(this.cacheDir);
+    this.indexPath = path.resolve(this.indexPath);
     
     // 创建配置管理器
     this.configManager = new CacheConfigManager();
@@ -46,6 +49,9 @@ class ImageCacheService {
       allowedExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'],
     };
     
+    // 缓存索引
+    this.cacheIndex = new Map();
+    
     // 初始化配置
     this.initializeConfig();
   }
@@ -61,6 +67,12 @@ class ImageCacheService {
       
       // 确保缓存目录存在
       await this.ensureCacheDir();
+      
+      // 加载缓存索引
+      await this.loadCacheIndex();
+      
+      // 验证并同步缓存索引
+      await this.validateAndSyncIndex();
       
       // 启动定期清理任务
       this.startCleanupTask();
@@ -170,8 +182,20 @@ class ImageCacheService {
    */
   async saveToCache(url, data) {
     try {
+      const cacheKey = this.generateCacheKey(url);
       const cachePath = this.getCacheFilePath(url);
+      const filename = path.basename(cachePath);
+      
       await fs.writeFile(cachePath, data);
+      
+      // 获取文件信息并添加到索引
+      const stats = await fs.stat(cachePath);
+      this.addToIndex(cacheKey, filename, stats.size, stats.mtime.getTime());
+      
+      // 异步保存索引
+      this.saveCacheIndex().catch(error => {
+        logger.error('异步保存缓存索引失败:', error);
+      });
       
       // 检查缓存大小，如果超过限制则清理
       await this.checkCacheSize();
@@ -256,25 +280,27 @@ class ImageCacheService {
    */
   async checkCacheSize() {
     try {
-      const files = await fs.readdir(this.cacheDir);
       let totalSize = 0;
       const fileStats = [];
 
-      // 计算总大小和收集文件信息
-      for (const file of files) {
-        const filePath = path.join(this.cacheDir, file);
+      // 使用索引计算总大小和收集文件信息
+      for (const [cacheKey, fileInfo] of this.cacheIndex.entries()) {
+        const filePath = path.join(this.cacheDir, fileInfo.filename);
         try {
+          // 验证文件是否实际存在
           const stats = await fs.stat(filePath);
           totalSize += stats.size;
           fileStats.push({
             path: filePath,
             size: stats.size,
-            mtime: stats.mtime
+            mtime: new Date(fileInfo.mtime),
+            cacheKey: cacheKey
           });
         } catch (error) {
-          // 如果文件不存在，记录日志但继续处理其他文件
+          // 如果文件不存在，从索引中移除
           if (error.code === 'ENOENT') {
-            logger.warn(`缓存文件不存在，跳过: ${filePath}`);
+            logger.warn(`缓存文件不存在，从索引中移除: ${filePath}`);
+            this.removeFromIndex(cacheKey);
           } else {
             logger.error(`检查缓存文件失败: ${filePath}`, error);
           }
@@ -293,6 +319,9 @@ class ImageCacheService {
             await fs.unlink(file.path);
             totalSize -= file.size;
             
+            // 从索引中移除
+            this.removeFromIndex(file.cacheKey);
+            
             if (totalSize <= this.config.maxSize * 0.8) { // 清理到80%
               break;
             }
@@ -300,11 +329,16 @@ class ImageCacheService {
             // 如果删除文件失败，记录日志但继续处理其他文件
             if (error.code === 'ENOENT') {
               logger.warn(`删除缓存文件时文件不存在: ${file.path}`);
+              // 从索引中移除
+              this.removeFromIndex(file.cacheKey);
             } else {
               logger.error(`删除缓存文件失败: ${file.path}`, error);
             }
           }
         }
+        
+        // 保存更新后的索引
+        await this.saveCacheIndex();
         
         logger.info(`缓存清理完成，当前大小: ${totalSize}`);
       }
@@ -319,31 +353,35 @@ class ImageCacheService {
    */
   async cleanupExpiredCache() {
     try {
-      const files = await fs.readdir(this.cacheDir);
       let cleanedCount = 0;
+      const now = Date.now();
 
-      for (const file of files) {
-        const filePath = path.join(this.cacheDir, file);
+      // 使用索引检查过期文件
+      for (const [cacheKey, fileInfo] of this.cacheIndex.entries()) {
+        const filePath = path.join(this.cacheDir, fileInfo.filename);
         try {
           const stats = await fs.stat(filePath);
           
-          const age = Date.now() - stats.mtime.getTime();
+          const age = now - stats.mtime.getTime();
           if (age > this.config.maxAge) {
             try {
               await fs.unlink(filePath);
+              this.removeFromIndex(cacheKey);
               cleanedCount++;
             } catch (deleteError) {
               if (deleteError.code === 'ENOENT') {
                 logger.warn(`删除过期缓存文件时文件不存在: ${filePath}`);
+                this.removeFromIndex(cacheKey);
               } else {
                 logger.error(`删除过期缓存文件失败: ${filePath}`, deleteError);
               }
             }
           }
         } catch (error) {
-          // 如果文件不存在，记录日志但继续处理其他文件
+          // 如果文件不存在，从索引中移除
           if (error.code === 'ENOENT') {
-            logger.warn(`过期缓存文件不存在，跳过: ${filePath}`);
+            logger.warn(`过期缓存文件不存在，从索引中移除: ${filePath}`);
+            this.removeFromIndex(cacheKey);
           } else {
             logger.error(`检查过期缓存文件失败: ${filePath}`, error);
           }
@@ -351,6 +389,8 @@ class ImageCacheService {
       }
 
       if (cleanedCount > 0) {
+        // 保存更新后的索引
+        await this.saveCacheIndex();
         logger.info(`清理了 ${cleanedCount} 个过期缓存文件`);
       }
     } catch (error) {
@@ -375,12 +415,12 @@ class ImageCacheService {
    */
   async clearAllCache() {
     try {
-      const files = await fs.readdir(this.cacheDir);
       let deletedCount = 0;
       let errorCount = 0;
       
-      for (const file of files) {
-        const filePath = path.join(this.cacheDir, file);
+      // 使用索引清理所有文件
+      for (const [cacheKey, fileInfo] of this.cacheIndex.entries()) {
+        const filePath = path.join(this.cacheDir, fileInfo.filename);
         try {
           await fs.unlink(filePath);
           deletedCount++;
@@ -393,6 +433,10 @@ class ImageCacheService {
           }
         }
       }
+      
+      // 清空索引
+      this.cacheIndex.clear();
+      await this.saveCacheIndex();
       
       if (errorCount === 0) {
         logger.info(`所有缓存已清理，共删除 ${deletedCount} 个文件`);
@@ -411,13 +455,14 @@ class ImageCacheService {
    */
   async getCacheStats() {
     try {
-      const files = await fs.readdir(this.cacheDir);
       let totalSize = 0;
       let fileCount = 0;
       let errorCount = 0;
+      let indexSize = this.cacheIndex.size;
 
-      for (const file of files) {
-        const filePath = path.join(this.cacheDir, file);
+      // 使用索引获取统计信息
+      for (const [cacheKey, fileInfo] of this.cacheIndex.entries()) {
+        const filePath = path.join(this.cacheDir, fileInfo.filename);
         try {
           const stats = await fs.stat(filePath);
           totalSize += stats.size;
@@ -425,11 +470,18 @@ class ImageCacheService {
         } catch (error) {
           if (error.code === 'ENOENT') {
             logger.warn(`统计缓存时文件不存在: ${filePath}`);
+            // 从索引中移除不存在的文件
+            this.removeFromIndex(cacheKey);
           } else {
             logger.error(`获取缓存文件统计失败: ${filePath}`, error);
           }
           errorCount++;
         }
+      }
+
+      // 如果有文件被移除，保存索引
+      if (errorCount > 0) {
+        await this.saveCacheIndex();
       }
 
       return {
@@ -439,7 +491,8 @@ class ImageCacheService {
         maxAge: this.config.maxAge,
         enabled: this.config.enabled,
         config: this.config,
-        errorCount
+        errorCount,
+        indexSize
       };
     } catch (error) {
       logger.error('获取缓存统计失败:', error);
@@ -450,7 +503,8 @@ class ImageCacheService {
         maxAge: this.config.maxAge,
         enabled: this.config.enabled,
         config: this.config,
-        errorCount: 0
+        errorCount: 0,
+        indexSize: this.cacheIndex.size
       };
     }
   }
@@ -482,6 +536,123 @@ class ImageCacheService {
     const defaultConfig = await this.configManager.resetToDefault();
     this.config = { ...this.config, ...defaultConfig };
     return defaultConfig;
+  }
+
+  /**
+   * 加载缓存索引
+   */
+  async loadCacheIndex() {
+    try {
+      if (await fs.access(this.indexPath).then(() => true).catch(() => false)) {
+        const indexData = await fs.readFile(this.indexPath, 'utf8');
+        const index = JSON.parse(indexData);
+        this.cacheIndex = new Map(Object.entries(index));
+        logger.info(`已加载缓存索引，包含 ${this.cacheIndex.size} 个文件记录`);
+      } else {
+        logger.info('缓存索引文件不存在，将创建新的索引');
+        this.cacheIndex = new Map();
+      }
+    } catch (error) {
+      logger.warn('加载缓存索引失败，将创建新的索引:', error.message);
+      this.cacheIndex = new Map();
+    }
+  }
+
+  /**
+   * 保存缓存索引
+   */
+  async saveCacheIndex() {
+    try {
+      const indexData = Object.fromEntries(this.cacheIndex);
+      await fs.writeFile(this.indexPath, JSON.stringify(indexData, null, 2));
+    } catch (error) {
+      logger.error('保存缓存索引失败:', error);
+    }
+  }
+
+  /**
+   * 验证并同步缓存索引
+   */
+  async validateAndSyncIndex() {
+    try {
+      const files = await fs.readdir(this.cacheDir);
+      const fileSet = new Set(files);
+      let removedCount = 0;
+      let addedCount = 0;
+
+      // 检查索引中的文件是否实际存在
+      for (const [cacheKey, fileInfo] of this.cacheIndex.entries()) {
+        if (!fileSet.has(fileInfo.filename)) {
+          this.cacheIndex.delete(cacheKey);
+          removedCount++;
+        }
+      }
+
+      // 检查实际文件是否在索引中
+      for (const filename of files) {
+        const filePath = path.join(this.cacheDir, filename);
+        try {
+          const stats = await fs.stat(filePath);
+          const cacheKey = this.findCacheKeyByFilename(filename);
+          
+          if (!cacheKey) {
+            // 文件存在但不在索引中，添加到索引
+            this.cacheIndex.set(filename, {
+              filename: filename,
+              size: stats.size,
+              mtime: stats.mtime.getTime(),
+              added: Date.now()
+            });
+            addedCount++;
+          }
+        } catch (error) {
+          // 文件不存在，从索引中移除
+          const cacheKey = this.findCacheKeyByFilename(filename);
+          if (cacheKey) {
+            this.cacheIndex.delete(cacheKey);
+            removedCount++;
+          }
+        }
+      }
+
+      if (removedCount > 0 || addedCount > 0) {
+        logger.info(`缓存索引同步完成: 移除 ${removedCount} 个无效记录，添加 ${addedCount} 个新记录`);
+        await this.saveCacheIndex();
+      }
+    } catch (error) {
+      logger.error('验证缓存索引失败:', error);
+    }
+  }
+
+  /**
+   * 根据文件名查找缓存键
+   */
+  findCacheKeyByFilename(filename) {
+    for (const [cacheKey, fileInfo] of this.cacheIndex.entries()) {
+      if (fileInfo.filename === filename) {
+        return cacheKey;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * 添加文件到缓存索引
+   */
+  addToIndex(cacheKey, filename, size, mtime) {
+    this.cacheIndex.set(cacheKey, {
+      filename: filename,
+      size: size,
+      mtime: mtime,
+      added: Date.now()
+    });
+  }
+
+  /**
+   * 从缓存索引中移除文件
+   */
+  removeFromIndex(cacheKey) {
+    this.cacheIndex.delete(cacheKey);
   }
 }
 

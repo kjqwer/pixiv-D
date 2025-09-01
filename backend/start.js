@@ -86,12 +86,21 @@ process.on('SIGTERM', async () => {
 // 处理未捕获的异常
 process.on('uncaughtException', error => {
   logger.error('❌ 未捕获的异常', error);
+  logger.error('❌ 异常堆栈:', error.stack);
   process.exit(1);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  logger.error('❌ 未处理的 Promise 拒绝', reason);
-  process.exit(1);
+  logger.error('❌ 未处理的 Promise 拒绝');
+  logger.error('❌ 拒绝原因:', reason);
+  if (reason instanceof Error) {
+    logger.error('❌ 错误堆栈:', reason.stack);
+  }
+  logger.error('❌ Promise:', promise);
+  
+  // 不要立即退出进程，而是记录错误并继续运行
+  // 这样可以避免因为自动恢复任务的小错误而停止整个服务
+  logger.warn('⚠️ 继续运行服务器，但建议检查上述错误');
 });
 
 // 启动服务器

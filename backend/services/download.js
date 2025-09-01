@@ -224,32 +224,67 @@ class DownloadService {
       return { success: false, error: '任务不存在' };
     }
 
+    // 只允许暂停正在下载的任务
+    if (task.status !== 'downloading') {
+      return { success: false, error: '只能暂停正在下载的任务' };
+    }
+
     await this.taskManager.updateTask(taskId, { status: 'paused' });
-    this.progressManager.notifyProgressUpdate(taskId, task);
-    return { success: true };
+    
+    // 获取更新后的任务
+    const updatedTask = this.taskManager.getTask(taskId);
+    this.progressManager.notifyProgressUpdate(taskId, updatedTask);
+    
+    return { success: true, data: updatedTask };
   }
 
   async resumeTask(taskId) {
     const task = this.taskManager.getTask(taskId);
     if (!task) {
+      logger.error('恢复任务失败：任务不存在', { taskId });
       return { success: false, error: '任务不存在' };
     }
 
+    // logger.info('尝试恢复任务', { 
+    //   taskId, 
+    //   currentStatus: task.status, 
+    //   type: task.type,
+    //   artwork_id: task.artwork_id 
+    // });
+
+    // 只允许恢复暂停的任务
     if (task.status !== 'paused') {
-      return { success: false, error: '任务状态不是暂停状态' };
+      logger.warn('恢复任务失败：任务状态不是暂停状态', { 
+        taskId, 
+        currentStatus: task.status 
+      });
+      return { success: false, error: '只能恢复暂停的任务' };
     }
 
-    // 更新任务状态为下载中
-    await this.taskManager.updateTask(taskId, { status: 'downloading' });
-    
-    // 通知进度更新
-    const updatedTask = this.taskManager.getTask(taskId);
-    this.progressManager.notifyProgressUpdate(taskId, updatedTask);
-
     // 重新开始下载执行
-    this.downloadExecutor.resumeTask(taskId);
+    try {
+      logger.info('开始恢复任务执行', { taskId });
+      await this.downloadExecutor.resumeTask(taskId);
+      
+      // 获取更新后的任务状态
+      const updatedTask = this.taskManager.getTask(taskId);
+      this.progressManager.notifyProgressUpdate(taskId, updatedTask);
+      
+      logger.info('任务恢复成功', { 
+        taskId, 
+        newStatus: updatedTask.status 
+      });
+    } catch (error) {
+      logger.error('恢复任务执行失败', { 
+        taskId, 
+        error: error.message,
+        stack: error.stack 
+      });
+      // 如果恢复失败，保持暂停状态
+      return { success: false, error: `恢复任务失败: ${error.message}` };
+    }
 
-    return { success: true, data: updatedTask };
+    return { success: true, data: this.taskManager.getTask(taskId) };
   }
 
   // 代理方法 - 历史记录管理

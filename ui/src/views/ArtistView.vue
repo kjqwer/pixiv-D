@@ -38,18 +38,37 @@
             </button>
             <div class="download-section">
               <div class="download-input-group">
-                <label for="downloadLimit">下载数量:</label>
-                <select v-model="downloadLimit" id="downloadLimit" class="download-select">
-                  <option value="10">10个</option>
-                  <option value="30">30个</option>
-                  <option value="50">50个</option>
-                  <option value="100">100个</option>
-                  <option value="200">200个</option>
-                  <option value="500">500个</option>
-                  <option value="9999">全部</option>
+                <label for="downloadType">下载方式:</label>
+                <select v-model="downloadType" id="downloadType" class="download-select"
+                  @change="handleDownloadTypeChange">
+                  <option value="custom">自定义数量</option>
+                  <option value="pages">按页数选择</option>
+                  <option value="all">全部下载</option>
                 </select>
               </div>
-              <button @click="handleDownloadAll" class="btn btn-secondary" :disabled="downloading">
+
+              <!-- 自定义数量输入 -->
+              <div v-if="downloadType === 'custom'" class="download-input-group">
+                <label for="customLimit">数量:</label>
+                <input v-model="customLimit" type="number" id="customLimit" class="download-input" :min="1" :max="9999"
+                  placeholder="输入数量" />
+              </div>
+
+              <!-- 按页数选择 -->
+              <div v-if="downloadType === 'pages'" class="download-input-group">
+                <label for="pageLimit">页数:</label>
+                <select v-model="pageLimit" id="pageLimit" class="download-select">
+                  <option value="1">1页 (30个)</option>
+                  <option value="2">2页 (60个)</option>
+                  <option value="3">3页 (90个)</option>
+                  <option value="5">5页 (150个)</option>
+                  <option value="10">10页 (300个)</option>
+                  <option value="20">20页 (600个)</option>
+                  <option value="50">50页 (1500个)</option>
+                </select>
+              </div>
+
+              <button @click="handleDownloadAll" class="btn btn-secondary" :disabled="downloading || !isDownloadValid">
                 {{ downloading ? '下载中...' : '下载作品' }}
               </button>
             </div>
@@ -178,7 +197,10 @@ const totalCount = ref(0);
 const totalPages = ref(0);
 
 // 下载设置
-const downloadLimit = ref('50');
+const downloadType = ref<'custom' | 'pages' | 'all'>('custom');
+const customLimit = ref('50');
+const pageLimit = ref('1');
+const downloadLimit = ref('50'); // 保留用于兼容性
 
 // 缓存相关
 const cache = ref<Map<string, any>>(new Map());
@@ -202,6 +224,29 @@ const visiblePages = computed(() => {
 
   return pages;
 });
+
+// 下载验证
+const isDownloadValid = computed(() => {
+  if (downloadType.value === 'custom') {
+    const limit = parseInt(customLimit.value);
+    return !isNaN(limit) && limit > 0 && limit <= 9999;
+  }
+  return true;
+});
+
+// 获取实际下载数量
+const getActualDownloadLimit = () => {
+  switch (downloadType.value) {
+    case 'custom':
+      return parseInt(customLimit.value) || 50;
+    case 'pages':
+      return parseInt(pageLimit.value) * 30;
+    case 'all':
+      return 9999;
+    default:
+      return 50;
+  }
+};
 
 // 缓存键生成
 const getCacheKey = (type: string, page: number) => {
@@ -369,6 +414,16 @@ const handleTypeChange = () => {
   fetchArtworks(1);
 };
 
+// 处理下载类型切换
+const handleDownloadTypeChange = () => {
+  // 重置相关值
+  if (downloadType.value === 'custom') {
+    customLimit.value = '50';
+  } else if (downloadType.value === 'pages') {
+    pageLimit.value = '1';
+  }
+};
+
 // 跳转到指定页面
 const goToPage = (page: number) => {
   if (page < 1 || page === currentPage.value) return;
@@ -412,15 +467,30 @@ const handleDownloadAll = async () => {
 
   try {
     downloading.value = true;
+    const actualLimit = getActualDownloadLimit();
+
     const response = await downloadService.downloadArtistArtworks(artist.value.id, {
       type: artworkType.value,
-      limit: parseInt(downloadLimit.value)
+      limit: actualLimit
     });
 
     if (response.success) {
       console.log('下载任务已创建:', response.data);
-      const limitText = downloadLimit.value === '9999' ? '全部' : downloadLimit.value;
-      downloadSuccess.value = `下载任务已创建，将下载 ${limitText} 个作品`;
+
+      let limitText = '';
+      switch (downloadType.value) {
+        case 'custom':
+          limitText = `${actualLimit} 个`;
+          break;
+        case 'pages':
+          limitText = `${pageLimit.value} 页 (${actualLimit} 个)`;
+          break;
+        case 'all':
+          limitText = '全部';
+          break;
+      }
+
+      downloadSuccess.value = `下载任务已创建，将下载 ${limitText} 作品`;
 
       // 3秒后清除成功提示
       setTimeout(() => {
@@ -674,6 +744,23 @@ onMounted(async () => {
   font-size: 0.875rem;
   color: #374151;
   min-width: 100px;
+}
+
+.download-input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  background: white;
+  font-size: 0.875rem;
+  color: #374151;
+  min-width: 100px;
+  transition: border-color 0.2s;
+}
+
+.download-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .btn {

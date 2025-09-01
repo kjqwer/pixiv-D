@@ -112,12 +112,16 @@
             <div class="description-content" v-html="artwork.description"></div>
         </div>
 
-        <!-- 创建时间 -->
+        <!-- 时间信息 -->
         <div class="artwork-meta">
-            <p>创建时间: {{ formatDate(artwork.create_date) }}</p>
-            <p v-if="artwork.update_date !== artwork.create_date">
-                更新时间: {{ formatDate(artwork.update_date) }}
-            </p>
+            <div class="meta-item">
+                <span class="meta-label">创建时间:</span>
+                <span class="meta-value">{{ formatDate(artwork.create_date) }}</span>
+            </div>
+            <div v-if="isValidUpdateDate && artwork.update_date !== artwork.create_date" class="meta-item">
+                <span class="meta-label">更新时间:</span>
+                <span class="meta-value">{{ formatDate(artwork.update_date) }}</span>
+            </div>
         </div>
     </div>
 </template>
@@ -159,9 +163,33 @@ const emit = defineEmits<{
 // 使用统一的图片代理函数
 const getImageUrl = getImageProxyUrl;
 
+// 检查更新时间是否有效
+const isValidUpdateDate = computed(() => {
+    if (!props.artwork.update_date) return false;
+
+    try {
+        const date = new Date(props.artwork.update_date);
+        return !isNaN(date.getTime());
+    } catch (error) {
+        return false;
+    }
+});
+
 // 格式化日期
 const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('zh-CN');
+    if (!dateString) return '未知时间';
+
+    try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) {
+            console.warn('无效的日期格式:', dateString);
+            return '时间格式错误';
+        }
+        return date.toLocaleDateString('zh-CN');
+    } catch (error) {
+        console.error('日期格式化错误:', error);
+        return '时间解析失败';
+    }
 };
 
 // 处理标签点击
@@ -374,12 +402,29 @@ const handleTagClick = (event: MouseEvent, tagName: string) => {
 .artwork-meta {
     padding-top: 1.5rem;
     border-top: 1px solid #e5e7eb;
-}
-
-.artwork-meta p {
     color: #6b7280;
     font-size: 0.875rem;
-    margin: 0.25rem 0;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.meta-item:last-child {
+    margin-bottom: 0;
+}
+
+.meta-label {
+    font-weight: 500;
+    color: #374151;
+    min-width: 80px;
+    margin-right: 0.5rem;
+}
+
+.meta-value {
+    color: #6b7280;
 }
 
 .artwork-navigation {
