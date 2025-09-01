@@ -263,13 +263,22 @@ class ImageCacheService {
       // 计算总大小和收集文件信息
       for (const file of files) {
         const filePath = path.join(this.cacheDir, file);
-        const stats = await fs.stat(filePath);
-        totalSize += stats.size;
-        fileStats.push({
-          path: filePath,
-          size: stats.size,
-          mtime: stats.mtime
-        });
+        try {
+          const stats = await fs.stat(filePath);
+          totalSize += stats.size;
+          fileStats.push({
+            path: filePath,
+            size: stats.size,
+            mtime: stats.mtime
+          });
+        } catch (error) {
+          // 如果文件不存在，记录日志但继续处理其他文件
+          if (error.code === 'ENOENT') {
+            logger.warn(`缓存文件不存在，跳过: ${filePath}`);
+          } else {
+            logger.error(`检查缓存文件失败: ${filePath}`, error);
+          }
+        }
       }
 
       // 如果超过最大大小，删除最旧的文件
@@ -280,11 +289,20 @@ class ImageCacheService {
         fileStats.sort((a, b) => a.mtime.getTime() - b.mtime.getTime());
         
         for (const file of fileStats) {
-          await fs.unlink(file.path);
-          totalSize -= file.size;
-          
-          if (totalSize <= this.config.maxSize * 0.8) { // 清理到80%
-            break;
+          try {
+            await fs.unlink(file.path);
+            totalSize -= file.size;
+            
+            if (totalSize <= this.config.maxSize * 0.8) { // 清理到80%
+              break;
+            }
+          } catch (error) {
+            // 如果删除文件失败，记录日志但继续处理其他文件
+            if (error.code === 'ENOENT') {
+              logger.warn(`删除缓存文件时文件不存在: ${file.path}`);
+            } else {
+              logger.error(`删除缓存文件失败: ${file.path}`, error);
+            }
           }
         }
         
@@ -306,12 +324,29 @@ class ImageCacheService {
 
       for (const file of files) {
         const filePath = path.join(this.cacheDir, file);
-        const stats = await fs.stat(filePath);
-        
-        const age = Date.now() - stats.mtime.getTime();
-        if (age > this.config.maxAge) {
-          await fs.unlink(filePath);
-          cleanedCount++;
+        try {
+          const stats = await fs.stat(filePath);
+          
+          const age = Date.now() - stats.mtime.getTime();
+          if (age > this.config.maxAge) {
+            try {
+              await fs.unlink(filePath);
+              cleanedCount++;
+            } catch (deleteError) {
+              if (deleteError.code === 'ENOENT') {
+                logger.warn(`删除过期缓存文件时文件不存在: ${filePath}`);
+              } else {
+                logger.error(`删除过期缓存文件失败: ${filePath}`, deleteError);
+              }
+            }
+          }
+        } catch (error) {
+          // 如果文件不存在，记录日志但继续处理其他文件
+          if (error.code === 'ENOENT') {
+            logger.warn(`过期缓存文件不存在，跳过: ${filePath}`);
+          } else {
+            logger.error(`检查过期缓存文件失败: ${filePath}`, error);
+          }
         }
       }
 
@@ -341,13 +376,29 @@ class ImageCacheService {
   async clearAllCache() {
     try {
       const files = await fs.readdir(this.cacheDir);
+      let deletedCount = 0;
+      let errorCount = 0;
       
       for (const file of files) {
         const filePath = path.join(this.cacheDir, file);
-        await fs.unlink(filePath);
+        try {
+          await fs.unlink(filePath);
+          deletedCount++;
+        } catch (error) {
+          if (error.code === 'ENOENT') {
+            logger.warn(`清理缓存时文件不存在: ${filePath}`);
+          } else {
+            logger.error(`删除缓存文件失败: ${filePath}`, error);
+            errorCount++;
+          }
+        }
       }
       
-      logger.info('所有缓存已清理');
+      if (errorCount === 0) {
+        logger.info(`所有缓存已清理，共删除 ${deletedCount} 个文件`);
+      } else {
+        logger.warn(`缓存清理完成，成功删除 ${deletedCount} 个文件，失败 ${errorCount} 个文件`);
+      }
     } catch (error) {
       logger.error('清理所有缓存失败:', error);
       throw error;
@@ -363,12 +414,22 @@ class ImageCacheService {
       const files = await fs.readdir(this.cacheDir);
       let totalSize = 0;
       let fileCount = 0;
+      let errorCount = 0;
 
       for (const file of files) {
         const filePath = path.join(this.cacheDir, file);
-        const stats = await fs.stat(filePath);
-        totalSize += stats.size;
-        fileCount++;
+        try {
+          const stats = await fs.stat(filePath);
+          totalSize += stats.size;
+          fileCount++;
+        } catch (error) {
+          if (error.code === 'ENOENT') {
+            logger.warn(`统计缓存时文件不存在: ${filePath}`);
+          } else {
+            logger.error(`获取缓存文件统计失败: ${filePath}`, error);
+          }
+          errorCount++;
+        }
       }
 
       return {
@@ -377,7 +438,8 @@ class ImageCacheService {
         maxSize: this.config.maxSize,
         maxAge: this.config.maxAge,
         enabled: this.config.enabled,
-        config: this.config
+        config: this.config,
+        errorCount
       };
     } catch (error) {
       logger.error('获取缓存统计失败:', error);
@@ -387,7 +449,8 @@ class ImageCacheService {
         maxSize: this.config.maxSize,
         maxAge: this.config.maxAge,
         enabled: this.config.enabled,
-        config: this.config
+        config: this.config,
+        errorCount: 0
       };
     }
   }
