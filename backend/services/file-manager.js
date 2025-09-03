@@ -107,6 +107,9 @@ class FileManager {
     let lastError = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      let writer = null;
+      let response = null;
+      
       try {
         // 使用增强的文件工具类确保目录存在
         const dirPath = path.dirname(filePath);
@@ -124,7 +127,7 @@ class FileManager {
           }
         }
 
-        const response = await axios({
+        response = await axios({
           method: 'GET',
           url: url,
           responseType: 'stream',
@@ -136,30 +139,76 @@ class FileManager {
         });
 
         // 使用增强的写入流创建方法
-        const writer = await FileUtils.safeCreateWriteStream(filePath);
+        writer = await FileUtils.safeCreateWriteStream(filePath);
         response.data.pipe(writer);
 
         return new Promise((resolve, reject) => {
-          writer.on('finish', () => {
-            // 验证文件是否写入成功
-            fs.access(filePath)
-              .then(() => resolve())
-              .catch(error => {
-                logger.error(`文件写入验证失败: ${filePath}`, error.message);
-                reject(error);
-              });
+          let isResolved = false;
+          
+          const cleanup = () => {
+            if (writer && !writer.destroyed) {
+              writer.destroy();
+            }
+            if (response && response.data && !response.data.destroyed) {
+              response.data.destroy();
+            }
+          };
+
+          writer.on('finish', async () => {
+            if (isResolved) return;
+            isResolved = true;
+            
+            try {
+              // 验证文件是否写入成功
+              await fs.access(filePath);
+              cleanup();
+              resolve();
+            } catch (error) {
+              logger.error(`文件写入验证失败: ${filePath}`, error.message);
+              cleanup();
+              reject(error);
+            }
           });
+          
           writer.on('error', async (error) => {
+            if (isResolved) return;
+            isResolved = true;
+            
             // 下载失败时删除文件
             try {
               await this.safeDeleteFile(filePath);
             } catch (removeError) {
               logger.warn('清理失败文件时出错:', removeError.message);
             }
+            
+            cleanup();
             reject(error);
           });
+          
+          // 添加超时处理
+          const timeout = setTimeout(() => {
+            if (isResolved) return;
+            isResolved = true;
+            
+            const timeoutError = new Error('下载超时');
+            cleanup();
+            reject(timeoutError);
+          }, 120000); // 2分钟超时
+          
+          // 清理超时定时器
+          writer.on('finish', () => clearTimeout(timeout));
+          writer.on('error', () => clearTimeout(timeout));
         });
+        
       } catch (error) {
+        // 确保清理资源
+        if (writer && !writer.destroyed) {
+          writer.destroy();
+        }
+        if (response && response.data && !response.data.destroyed) {
+          response.data.destroy();
+        }
+        
         lastError = error;
         
         // 处理文件系统错误

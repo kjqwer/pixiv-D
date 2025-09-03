@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const axios = require('axios');
 const CacheConfigManager = require('../config/cache-config');
 const { defaultLogger } = require('../utils/logger');
+const FileUtils = require('../utils/file-utils');
 
 // 创建logger实例
 const logger = defaultLogger.child('ImageCache');
@@ -354,6 +355,8 @@ class ImageCacheService {
   async cleanupExpiredCache() {
     try {
       let cleanedCount = 0;
+      let errorCount = 0;
+      let skippedCount = 0;
       const now = Date.now();
 
       // 使用索引检查过期文件
@@ -364,34 +367,55 @@ class ImageCacheService {
           
           const age = now - stats.mtime.getTime();
           if (age > this.config.maxAge) {
-            try {
-              await fs.unlink(filePath);
+            // 简单的文件占用检查（仅在Windows上）
+            if (process.platform === 'win32') {
+              try {
+                // 尝试以独占模式打开文件来检查是否被占用
+                const handle = await fs.open(filePath, 'r');
+                await handle.close();
+              } catch (openError) {
+                if (openError.code === 'EBUSY' || openError.code === 'EPERM') {
+                  logger.debug(`跳过被占用的过期缓存文件: ${filePath}`);
+                  skippedCount++;
+                  continue;
+                }
+              }
+            }
+            
+            // 使用改进的安全删除方法
+            const deleteSuccess = await FileUtils.safeDeleteFile(filePath);
+            if (deleteSuccess) {
               this.removeFromIndex(cacheKey);
               cleanedCount++;
-            } catch (deleteError) {
-              if (deleteError.code === 'ENOENT') {
-                logger.warn(`删除过期缓存文件时文件不存在: ${filePath}`);
-                this.removeFromIndex(cacheKey);
-              } else {
-                logger.error(`删除过期缓存文件失败: ${filePath}`, deleteError);
-              }
+              logger.debug(`成功删除过期缓存文件: ${filePath}`);
+            } else {
+              errorCount++;
+              // 减少日志噪音，只在debug级别记录
+              logger.debug(`删除过期缓存文件失败: ${filePath}`);
+              // 即使删除失败，也从索引中移除，避免重复尝试
+              this.removeFromIndex(cacheKey);
             }
           }
         } catch (error) {
           // 如果文件不存在，从索引中移除
           if (error.code === 'ENOENT') {
-            logger.warn(`过期缓存文件不存在，从索引中移除: ${filePath}`);
+            logger.debug(`过期缓存文件不存在，从索引中移除: ${filePath}`);
             this.removeFromIndex(cacheKey);
           } else {
-            logger.error(`检查过期缓存文件失败: ${filePath}`, error);
+            logger.debug(`检查过期缓存文件失败: ${filePath}`, error.message);
+            errorCount++;
           }
         }
       }
 
-      if (cleanedCount > 0) {
+      if (cleanedCount > 0 || errorCount > 0 || skippedCount > 0) {
         // 保存更新后的索引
         await this.saveCacheIndex();
-        logger.info(`清理了 ${cleanedCount} 个过期缓存文件`);
+        if (errorCount === 0 && skippedCount === 0) {
+          logger.info(`清理了 ${cleanedCount} 个过期缓存文件`);
+        } else {
+          logger.info(`缓存清理完成，成功删除 ${cleanedCount} 个文件，失败 ${errorCount} 个文件，跳过 ${skippedCount} 个被占用文件`);
+        }
       }
     } catch (error) {
       logger.error('清理过期缓存失败:', error);
@@ -399,11 +423,35 @@ class ImageCacheService {
   }
 
   /**
+   * 检查是否有活跃的下载任务
+   */
+  hasActiveDownloads() {
+    // 这里可以集成任务管理器来检查下载状态
+    // 暂时返回false，避免过于复杂的依赖
+    return false;
+  }
+
+  /**
+   * 智能清理过期缓存
+   * 避免在下载过程中清理
+   */
+  async smartCleanupExpiredCache() {
+    // 检查是否有活跃下载
+    if (this.hasActiveDownloads()) {
+      logger.info('检测到活跃下载任务，跳过缓存清理');
+      return;
+    }
+
+    // 执行正常的清理
+    await this.cleanupExpiredCache();
+  }
+
+  /**
    * 启动定期清理任务
    */
   startCleanupTask() {
     setInterval(() => {
-      this.cleanupExpiredCache().catch(error => {
+      this.smartCleanupExpiredCache().catch(error => {
         logger.error('定期清理任务失败:', error);
       });
     }, this.config.cleanupInterval);
@@ -421,16 +469,15 @@ class ImageCacheService {
       // 使用索引清理所有文件
       for (const [cacheKey, fileInfo] of this.cacheIndex.entries()) {
         const filePath = path.join(this.cacheDir, fileInfo.filename);
-        try {
-          await fs.unlink(filePath);
+        
+        // 使用改进的安全删除方法
+        const deleteSuccess = await FileUtils.safeDeleteFile(filePath);
+        if (deleteSuccess) {
           deletedCount++;
-        } catch (error) {
-          if (error.code === 'ENOENT') {
-            logger.warn(`清理缓存时文件不存在: ${filePath}`);
-          } else {
-            logger.error(`删除缓存文件失败: ${filePath}`, error);
-            errorCount++;
-          }
+          logger.debug(`成功删除缓存文件: ${filePath}`);
+        } else {
+          errorCount++;
+          logger.debug(`删除缓存文件失败: ${filePath}`);
         }
       }
       
@@ -441,7 +488,7 @@ class ImageCacheService {
       if (errorCount === 0) {
         logger.info(`所有缓存已清理，共删除 ${deletedCount} 个文件`);
       } else {
-        logger.warn(`缓存清理完成，成功删除 ${deletedCount} 个文件，失败 ${errorCount} 个文件`);
+        logger.info(`缓存清理完成，成功删除 ${deletedCount} 个文件，失败 ${errorCount} 个文件`);
       }
     } catch (error) {
       logger.error('清理所有缓存失败:', error);

@@ -11,27 +11,58 @@ const logger = defaultLogger.child('FileUtils');
  */
 class FileUtils {
   /**
-   * 安全删除文件（兼容 pkg 打包）
+   * 安全删除文件（兼容 pkg 打包，增强Windows权限处理）
    */
   static async safeDeleteFile(filePath) {
     try {
-      // 首先尝试使用 fs-extra
-      if (await fs.pathExists(filePath)) {
-        await fs.remove(filePath);
+      // 首先检查文件是否存在
+      if (!(await fs.pathExists(filePath))) {
+        logger.debug(`文件不存在，无需删除: ${filePath}`);
         return true;
       }
+
+      // 尝试删除文件
+      await fs.remove(filePath);
+      logger.debug(`文件删除成功: ${filePath}`);
+      return true;
     } catch (error) {
-      try {
-        // 降级到原生 fs
-        const nativeFs = require('fs').promises;
-        await nativeFs.unlink(filePath);
-        return true;
-      } catch (nativeError) {
-        logger.error(`文件删除失败: ${filePath}`, nativeError.message);
-        return false;
+      // 如果是权限错误，尝试Windows特定的删除方法
+      if (error.code === 'EPERM' || error.code === 'EACCES') {
+        if (process.platform === 'win32') {
+          try {
+            // 尝试修改文件属性后删除
+            const nativeFs = require('fs').promises;
+            
+            try {
+              await nativeFs.chmod(filePath, 0o666);
+            } catch (chmodError) {
+              // 忽略chmod错误
+              logger.debug(`修改文件权限失败: ${filePath}`, chmodError.message);
+            }
+
+            // 再次尝试删除
+            await nativeFs.unlink(filePath);
+            logger.info(`修改权限后删除成功: ${filePath}`);
+            return true;
+          } catch (forceError) {
+            logger.warn(`Windows权限删除失败: ${filePath}`, forceError.message);
+            return false;
+          }
+        } else {
+          logger.warn(`删除文件权限不足: ${filePath}`, error.message);
+          return false;
+        }
       }
+
+      // 其他错误类型
+      if (error.code === 'ENOENT') {
+        logger.debug(`文件不存在，删除成功: ${filePath}`);
+        return true;
+      }
+
+      logger.warn(`删除文件失败: ${filePath}`, error.message);
+      return false;
     }
-    return false;
   }
 
   /**

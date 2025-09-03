@@ -26,29 +26,27 @@ class CacheConfigManager {
     // 确保路径是绝对路径
     this.configPath = path.resolve(this.configPath);
     
-    // 默认配置
-    this.defaultConfig = {
-      // 缓存配置
+    // 默认缓存配置
+    this.config = {
       maxAge: 24 * 60 * 60 * 1000, // 24小时缓存
       maxSize: 100 * 1024 * 1024, // 100MB最大缓存大小
-      cleanupInterval: 60 * 60 * 1000, // 1小时清理一次
-      
-      // 缓存启用状态
+      cleanupInterval: 2 * 60 * 60 * 1000, // 2小时清理一次（原来是1小时）
       enabled: true,
-      
-      // 代理配置
       proxy: {
         enabled: true,
-        timeout: 30000, // 30秒超时
-        retryCount: 3, // 重试次数
-        retryDelay: 1000, // 重试延迟（毫秒）
+        timeout: 30000,
+        retryCount: 3,
+        retryDelay: 1000,
       },
-      
-      // 文件类型过滤
       allowedExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'],
-      
-      // 最后更新时间
-      lastUpdated: new Date().toISOString()
+      // 新增Windows特定配置
+      windows: {
+        skipInUseFiles: true, // 跳过被占用的文件
+        maxRetries: 3, // 最大重试次数
+        retryDelay: 2000, // 重试延迟（毫秒）
+        waitForRelease: true, // 等待文件释放
+        maxWaitTime: 10000, // 最大等待时间（毫秒）
+      }
     };
     
     // 确保配置目录存在
@@ -90,7 +88,7 @@ class CacheConfigManager {
    */
   async createDefaultConfig() {
     try {
-      const configContent = JSON.stringify(this.defaultConfig, null, 2);
+      const configContent = JSON.stringify(this.config, null, 2);
       await fs.writeFile(this.configPath, configContent, 'utf8');
       // logger.info('默认缓存配置文件创建成功:', this.configPath);
     } catch (error) {
@@ -108,10 +106,10 @@ class CacheConfigManager {
       const config = JSON.parse(configContent);
       
       // 合并默认配置，确保所有字段都存在
-      return { ...this.defaultConfig, ...config };
+      return { ...this.config, ...config };
     } catch (error) {
       logger.error('加载缓存配置失败:', error);
-      return this.defaultConfig;
+      return this.config;
     }
   }
 
@@ -152,9 +150,9 @@ class CacheConfigManager {
    */
   async resetToDefault() {
     try {
-      await this.saveConfig(this.defaultConfig);
+      await this.saveConfig(this.config);
       logger.info('缓存配置已重置为默认值');
-      return this.defaultConfig;
+      return this.config;
     } catch (error) {
       logger.error('重置缓存配置失败:', error);
       throw error;
