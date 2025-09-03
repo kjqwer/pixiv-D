@@ -172,6 +172,7 @@ import { useAuthStore } from '@/stores/auth';
 import artistService from '@/services/artist';
 import downloadService from '@/services/download';
 import { getImageProxyUrl } from '@/services/api';
+import { saveScrollPosition, restoreScrollPosition } from '@/utils/scrollManager';
 import type { Artist, Artwork } from '@/types';
 
 import ArtworkCard from '@/components/artwork/ArtworkCard.vue';
@@ -512,6 +513,9 @@ const getImageUrl = getImageProxyUrl;
 
 // 点击作品
 const handleArtworkClick = (artwork: Artwork) => {
+  // 保存当前页面的滚动位置
+  saveScrollPosition(route.fullPath);
+  
   // 传递作者ID、作品类型和当前页面信息，用于导航
   router.push({
     path: `/artwork/${artwork.id}`,
@@ -519,7 +523,8 @@ const handleArtworkClick = (artwork: Artwork) => {
       artistId: artist.value?.id.toString(),
       artworkType: artworkType.value,
       page: currentPage.value.toString(),
-      returnUrl: route.fullPath
+      returnUrl: route.fullPath,
+      scrollTop: (window.scrollY || document.documentElement.scrollTop).toString()
     }
   });
 };
@@ -602,6 +607,11 @@ onMounted(async () => {
   } else {
     await fetchArtworks(1);
   }
+  
+  // 恢复滚动位置（延迟执行确保页面内容完全加载）
+  setTimeout(() => {
+    restoreScrollPosition(route.fullPath);
+  }, 200);
 });
 </script>
 

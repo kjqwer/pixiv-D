@@ -197,10 +197,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import artworkService from '@/services/artwork';
+import { saveScrollPosition, restoreScrollPosition } from '@/utils/scrollManager';
 import type { Artwork, SearchParams } from '@/types';
 
 import ArtworkCard from '@/components/artwork/ArtworkCard.vue';
@@ -348,7 +349,16 @@ const goToPage = (page: number) => {
 };
 
 const handleArtworkClick = (artwork: Artwork) => {
-  router.push(`/artwork/${artwork.id}`);
+  // 保存当前页面的滚动位置
+  saveScrollPosition(route.fullPath);
+  
+  router.push({
+    path: `/artwork/${artwork.id}`,
+    query: {
+      returnUrl: route.fullPath,
+      scrollTop: (window.scrollY || document.documentElement.scrollTop).toString()
+    }
+  });
 };
 
 // 作品ID搜索
@@ -740,6 +750,13 @@ watch(() => route.query, () => {
   if (urlSort) searchSort.value = urlSort as 'date_desc' | 'date_asc' | 'popular_desc';
   if (urlDuration) searchDuration.value = urlDuration as 'all' | 'within_last_day' | 'within_last_week' | 'within_last_month';
 }, { immediate: true });
+
+// 组件挂载时恢复滚动位置
+onMounted(() => {
+  setTimeout(() => {
+    restoreScrollPosition(route.fullPath);
+  }, 200);
+});
 </script>
 
 <style scoped>

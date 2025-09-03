@@ -43,6 +43,7 @@ import artworkService from '@/services/artwork';
 import artistService from '@/services/artist';
 import downloadService from '@/services/download';
 import { getApiBaseUrl, getImageProxyUrl } from '@/services/api';
+import { saveScrollPositionForPath } from '@/utils/scrollManager';
 import type { Artwork, DownloadTask } from '@/types';
 import ErrorMessage from '@/components/common/ErrorMessage.vue';
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
@@ -360,10 +361,24 @@ const navigateToNext = () => {
 
 // 返回作者页面
 const goBackToArtist = () => {
-  if (route.query.returnUrl) {
-    router.push(route.query.returnUrl as string);
-  } else if (route.query.artistId) {
-    router.push(`/artist/${route.query.artistId}`);
+  const returnUrl = route.query.returnUrl as string;
+  const targetPath = returnUrl || `/artist/${route.query.artistId}`;
+  
+  if (targetPath) {
+    // 获取当前保存的滚动位置（如果有的话）
+    const savedScrollKey = `scroll_${targetPath}`;
+    const savedPosition = sessionStorage.getItem(savedScrollKey);
+    
+    // 如果没有保存的滚动位置，设置一个默认位置（通常是之前访问时的位置）
+    if (!savedPosition && route.query.scrollTop) {
+      const scrollPosition = {
+        top: parseInt(route.query.scrollTop as string) || 0,
+        left: 0
+      };
+      saveScrollPositionForPath(targetPath, scrollPosition);
+    }
+    
+    router.push(targetPath);
   }
 };
 

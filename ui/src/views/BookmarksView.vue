@@ -57,14 +57,16 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { artworkService } from '@/services/artwork';
 import { getImageProxyUrl } from '@/services/api';
+import { saveScrollPosition, restoreScrollPosition } from '@/utils/scrollManager';
 import type { Artwork } from '@/types';
 
 import ArtworkCard from '@/components/artwork/ArtworkCard.vue';
 
 const router = useRouter();
+const route = useRoute();
 
 // 响应式数据
 const artworks = ref<(Artwork & { loaded?: boolean; error?: boolean })[]>([]);
@@ -138,7 +140,16 @@ const loadMore = () => {
 
 // 处理作品点击
 const handleArtworkClick = (artwork: Artwork) => {
-    router.push(`/artwork/${artwork.id}`);
+    // 保存当前页面的滚动位置
+    saveScrollPosition(route.fullPath);
+    
+    router.push({
+        path: `/artwork/${artwork.id}`,
+        query: {
+            returnUrl: route.fullPath,
+            scrollTop: (window.scrollY || document.documentElement.scrollTop).toString()
+        }
+    });
 };
 
 // 清除错误
@@ -147,8 +158,13 @@ const clearError = () => {
 };
 
 // 页面加载时获取数据
-onMounted(() => {
-    fetchBookmarks();
+onMounted(async () => {
+    await fetchBookmarks();
+    
+    // 恢复滚动位置
+    setTimeout(() => {
+        restoreScrollPosition(route.fullPath);
+    }, 200);
 });
 </script>
 

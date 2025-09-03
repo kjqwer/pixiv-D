@@ -75,6 +75,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import rankingService from '@/services/ranking';
 import downloadService from '@/services/download';
+import { saveScrollPosition, restoreScrollPosition } from '@/utils/scrollManager';
 import type { Artwork } from '@/types';
 
 import ArtworkCard from '@/components/artwork/ArtworkCard.vue';
@@ -291,13 +292,17 @@ const goToPage = (page: number) => {
 
 // 点击作品
 const handleArtworkClick = (artwork: Artwork) => {
+  // 保存当前页面的滚动位置
+  saveScrollPosition(route.fullPath);
+  
   router.push({
     path: `/artwork/${artwork.id}`,
     query: {
       rankingMode: currentMode.value,
       rankingType: currentType.value,
       page: currentPage.value.toString(),
-      returnUrl: route.fullPath
+      returnUrl: route.fullPath,
+      scrollTop: (window.scrollY || document.documentElement.scrollTop).toString()
     }
   });
 };
@@ -411,6 +416,11 @@ onMounted(async () => {
   } else {
     await fetchRankingData(1);
   }
+  
+  // 恢复滚动位置
+  setTimeout(() => {
+    restoreScrollPosition(route.fullPath);
+  }, 200);
 });
 </script>
 
