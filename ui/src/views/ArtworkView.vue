@@ -18,13 +18,14 @@
       <!-- 作品内容 -->
       <div v-if="artwork" class="artwork-content" :class="{ 'content-loading': loading }">
         <!-- 左侧图片组件 -->
-        <ArtworkGallery :artwork="artwork" :current-page="currentPage" :loading="loading"
-          @page-change="currentPage = $event" />
+        <ArtworkGallery :artwork="artwork" :current-page="currentImagePage" :loading="loading"
+          @page-change="currentImagePage = $event" />
 
         <!-- 右侧信息面板组件 -->
         <ArtworkInfoPanel :artwork="artwork" :downloading="downloading" :is-downloaded="isDownloaded"
           :current-task="currentTask" :loading="loading" :show-navigation="showNavigation"
-          :previous-artwork="previousArtwork" :next-artwork="nextArtwork" :selected-tags="selectedTags"
+          :previous-artwork="previousArtwork" :next-artwork="nextArtwork" :canNavigatePrevious="canNavigateToPrevious"
+          :canNavigateNext="canNavigateToNext" :selected-tags="selectedTags"
           @download="handleDownload" @bookmark="handleBookmark"
           @go-back="goBackToArtist" @navigate-previous="navigateToPrevious" @navigate-next="navigateToNext"
           @tag-click="handleTagClick" />
@@ -61,7 +62,7 @@ const downloadStore = useDownloadStore();
 const artwork = ref<Artwork | null>(null);
 const loading = ref(false);
 const error = ref<string | null>(null);
-const currentPage = ref(0);
+const currentImagePage = ref(0); // 当前图片页面
 const downloading = ref(false);
 const isDownloaded = ref(false);
 
@@ -78,6 +79,11 @@ const bookmarkError = ref<string | null>(null);
 const artistArtworks = ref<Artwork[]>([]);
 const currentArtworkIndex = ref(-1);
 const navigationLoading = ref(false);
+const navigationCurrentPage = ref(1); // 当前导航页码
+const hasMorePages = ref(true); // 是否还有更多页面
+const hasPreviousPages = ref(false); // 是否还有上一页
+const isLoadingMore = ref(false); // 是否正在加载更多页面
+const isLoadingPrevious = ref(false); // 是否正在加载上一页
 
 // 导航相关计算属性
 const showNavigation = computed(() => {
@@ -85,9 +91,16 @@ const showNavigation = computed(() => {
 });
 
 const previousArtwork = computed(() => {
+  // 如果当前作品在当前页的第一个位置，但还有上一页，返回null但按钮仍然可用
+  if (currentArtworkIndex.value === 0 && hasPreviousPages.value) {
+    return null; // 返回null，但hasPreviousPages会控制按钮状态
+  }
+  
+  // 如果当前作品不在第一个位置，返回前一个作品
   if (currentArtworkIndex.value > 0) {
     return artistArtworks.value[currentArtworkIndex.value - 1];
   }
+  
   return null;
 });
 
@@ -96,6 +109,30 @@ const nextArtwork = computed(() => {
     return artistArtworks.value[currentArtworkIndex.value + 1];
   }
   return null;
+});
+
+// 新增计算属性：是否可以导航到上一个作品
+const canNavigateToPrevious = computed(() => {
+  const result = previousArtwork.value !== null || hasPreviousPages.value;
+  console.log('canNavigateToPrevious:', {
+    previousArtwork: previousArtwork.value,
+    hasPreviousPages: hasPreviousPages.value,
+    currentArtworkIndex: currentArtworkIndex.value,
+    result
+  });
+  return result;
+});
+
+// 新增计算属性：是否可以导航到下一个作品
+const canNavigateToNext = computed(() => {
+  const result = nextArtwork.value !== null || hasMorePages.value;
+  console.log('canNavigateToNext:', {
+    nextArtwork: nextArtwork.value,
+    hasMorePages: hasMorePages.value,
+    currentArtworkIndex: currentArtworkIndex.value,
+    result
+  });
+  return result;
 });
 
 // 获取作品详情
@@ -117,13 +154,19 @@ const fetchArtworkDetail = async () => {
 
     if (response.success && response.data) {
       // 重置页面状态
-      currentPage.value = 0;
+      currentImagePage.value = 0;
 
       // 更新作品数据
       artwork.value = response.data;
 
       // 检查下载状态
       await checkDownloadStatus(artworkId);
+
+      // 如果导航数据还没有加载，且当前作品不在列表中，重新加载导航数据
+      if (showNavigation.value && currentArtworkIndex.value === -1) {
+        const page = parseInt(route.query.page as string) || 1;
+        fetchArtistArtworks(page);
+      }
     } else {
       throw new Error(response.error || '获取作品详情失败');
     }
@@ -284,19 +327,23 @@ const clearBookmarkError = () => {
 };
 
 // 获取作者作品列表用于导航
-const fetchArtistArtworks = async () => {
+const fetchArtistArtworks = async (page = 1, append = false, prepend = false) => {
   const artistId = route.query.artistId;
   const artworkType = route.query.artworkType;
 
   if (!artistId || !artworkType) return;
 
   try {
-    navigationLoading.value = true;
+    if (append) {
+      isLoadingMore.value = true;
+    } else if (prepend) {
+      isLoadingPrevious.value = true;
+    } else {
+      navigationLoading.value = true;
+    }
 
-    // 获取当前页面信息
-    const currentPage = parseInt(route.query.page as string) || 1;
     const pageSize = 30;
-    const offset = (currentPage - 1) * pageSize;
+    const offset = (page - 1) * pageSize;
 
     const response = await artistService.getArtistArtworks(parseInt(artistId as string), {
       type: artworkType as 'art' | 'manga' | 'novel',
@@ -305,64 +352,197 @@ const fetchArtistArtworks = async () => {
     });
 
     if (response.success && response.data) {
-      artistArtworks.value = response.data.artworks;
+      if (append) {
+        // 追加模式：将新作品添加到现有列表末尾
+        artistArtworks.value.push(...response.data.artworks);
+      } else if (prepend) {
+        // 前置模式：将新作品添加到现有列表开头
+        artistArtworks.value.unshift(...response.data.artworks);
+        // 更新当前作品索引，因为前面插入了新作品
+        currentArtworkIndex.value += response.data.artworks.length;
+      } else {
+        // 替换模式：替换整个列表
+        artistArtworks.value = response.data.artworks;
+        navigationCurrentPage.value = page;
+      }
+
+      // 检查是否还有更多页面
+      hasMorePages.value = response.data.artworks.length === pageSize;
+      // 检查是否还有上一页
+      hasPreviousPages.value = page > 1;
+      
+      // 更新当前导航页码
+      if (!append && !prepend) {
+        navigationCurrentPage.value = page;
+      }
+
       // 找到当前作品在列表中的位置
       const currentId = parseInt(route.params.id as string);
       currentArtworkIndex.value = artistArtworks.value.findIndex(art => art.id === currentId);
+
+      console.log('fetchArtistArtworks 完成:', {
+        page,
+        append,
+        prepend,
+        artworksCount: response.data.artworks.length,
+        hasMorePages: hasMorePages.value,
+        hasPreviousPages: hasPreviousPages.value,
+        navigationCurrentPage: navigationCurrentPage.value,
+        currentArtworkIndex: currentArtworkIndex.value,
+        currentId,
+        currentArtworkId: artwork.value?.id,
+        firstArtworkId: artistArtworks.value[0]?.id,
+        lastArtworkId: artistArtworks.value[artistArtworks.value.length - 1]?.id,
+        allArtworkIds: artistArtworks.value.map(art => art.id)
+      });
     }
   } catch (err) {
     console.error('获取作者作品列表失败:', err);
   } finally {
-    navigationLoading.value = false;
+    if (append) {
+      isLoadingMore.value = false;
+    } else if (prepend) {
+      isLoadingPrevious.value = false;
+    } else {
+      navigationLoading.value = false;
+    }
   }
 };
 
-// 导航到上一个作品
-const navigateToPrevious = () => {
-  if (previousArtwork.value && !loading.value) {
-    // 清理下载状态
-    downloading.value = false;
+// 加载下一页作品
+const loadNextPage = async () => {
+  if (!hasMorePages.value || isLoadingMore.value) return;
+  
+  const nextPage = navigationCurrentPage.value + 1;
+  await fetchArtistArtworks(nextPage, true, false);
+  // 更新当前导航页码
+  navigationCurrentPage.value = nextPage;
+};
 
-    // 立即设置加载状态
-    loading.value = true;
+// 加载上一页作品
+const loadPreviousPage = async () => {
+  if (!hasPreviousPages.value || isLoadingPrevious.value) return;
+  
+  const previousPage = navigationCurrentPage.value - 1;
+  await fetchArtistArtworks(previousPage, false, true);
+  // 更新当前导航页码
+  navigationCurrentPage.value = previousPage;
+};
 
-    router.push({
-      path: `/artwork/${previousArtwork.value.id}`,
-      query: {
-        artistId: route.query.artistId,
-        artworkType: route.query.artworkType,
-        page: route.query.page,
-        returnUrl: route.query.returnUrl
-      }
-    });
+// 辅助函数：更新returnUrl中的页码
+const updateReturnUrlPage = (returnUrl: string, newPage: number): string => {
+  if (!returnUrl) return returnUrl;
+  
+  // 如果returnUrl包含页码，更新它
+  if (returnUrl.includes('page=')) {
+    return returnUrl.replace(/page=\d+/, `page=${newPage}`);
+  } else {
+    // 如果returnUrl没有页码，添加页码
+    const separator = returnUrl.includes('?') ? '&' : '?';
+    return returnUrl + `${separator}page=${newPage}`;
   }
 };
 
 // 导航到下一个作品
-const navigateToNext = () => {
-  if (nextArtwork.value && !loading.value) {
-    // 清理下载状态
-    downloading.value = false;
+const navigateToNext = async () => {
+  if (!loading.value) {
+    // 如果当前作品是当前页的最后一个，且还有更多页面，先加载下一页
+    if (currentArtworkIndex.value === artistArtworks.value.length - 1 && hasMorePages.value) {
+      await loadNextPage();
+    }
 
-    // 立即设置加载状态
-    loading.value = true;
+    // 检查是否真的有下一个作品
+    if (nextArtwork.value) {
+      // 清理下载状态
+      downloading.value = false;
 
-    router.push({
-      path: `/artwork/${nextArtwork.value.id}`,
-      query: {
-        artistId: route.query.artistId,
-        artworkType: route.query.artworkType,
-        page: route.query.page,
-        returnUrl: route.query.returnUrl
+      // 立即设置加载状态
+      loading.value = true;
+
+      // 计算返回链接的页码和当前导航页码
+      let returnPage = parseInt(route.query.page as string) || 1;
+      let currentNavPage = navigationCurrentPage.value;
+      
+      if (currentArtworkIndex.value === artistArtworks.value.length - 1) {
+        // 如果跳转到下一页的作品，返回链接应该指向当前页，当前导航页码递增
+        returnPage = currentNavPage; // 返回时应该在第x页
+        currentNavPage = currentNavPage + 1;
+      } else {
+        // 如果是在同一页内导航，返回链接指向当前页
+        returnPage = currentNavPage;
       }
-    });
+
+      // 构建新的returnUrl，更新页码
+      const newReturnUrl = updateReturnUrlPage(route.query.returnUrl as string, returnPage);
+
+      router.push({
+        path: `/artwork/${nextArtwork.value.id}`,
+        query: {
+          artistId: route.query.artistId,
+          artworkType: route.query.artworkType,
+          page: currentNavPage,
+          returnUrl: newReturnUrl
+        }
+      });
+    }
+  }
+};
+
+// 导航到上一个作品
+const navigateToPrevious = async () => {
+  if (!loading.value) {
+    // 如果当前作品是当前页的第一个，且还有上一页，先加载上一页
+    if (currentArtworkIndex.value === 0 && hasPreviousPages.value) {
+      await loadPreviousPage();
+    }
+
+    // 检查是否真的有上一个作品
+    if (previousArtwork.value) {
+      // 清理下载状态
+      downloading.value = false;
+
+      // 立即设置加载状态
+      loading.value = true;
+
+      // 计算返回链接的页码和当前导航页码
+      let returnPage = parseInt(route.query.page as string) || 1;
+      let currentNavPage = navigationCurrentPage.value;
+      
+      if (currentArtworkIndex.value === 0) {
+        // 如果跳转到上一页的作品，返回链接应该指向当前页，当前导航页码递减
+        returnPage = currentNavPage; // 返回时应该在第x页
+        currentNavPage = currentNavPage - 1;
+      } else {
+        // 如果是在同一页内导航，返回链接指向当前页
+        returnPage = currentNavPage;
+      }
+
+      // 构建新的returnUrl，更新页码
+      const newReturnUrl = updateReturnUrlPage(route.query.returnUrl as string, returnPage);
+
+      router.push({
+        path: `/artwork/${previousArtwork.value.id}`,
+        query: {
+          artistId: route.query.artistId,
+          artworkType: route.query.artworkType,
+          page: currentNavPage,
+          returnUrl: newReturnUrl
+        }
+      });
+    }
   }
 };
 
 // 返回作者页面
 const goBackToArtist = () => {
   const returnUrl = route.query.returnUrl as string;
-  const targetPath = returnUrl || `/artist/${route.query.artistId}`;
+  let targetPath = returnUrl || `/artist/${route.query.artistId}`;
+  
+  // 如果返回链接不包含页码，添加当前页码
+  if (targetPath && !targetPath.includes('page=')) {
+    const separator = targetPath.includes('?') ? '&' : '?';
+    targetPath += `${separator}page=${navigationCurrentPage.value}`;
+  }
   
   if (targetPath) {
     // 获取当前保存的滚动位置（如果有的话）
@@ -482,15 +662,20 @@ watch(() => route.params.id, (newId, oldId) => {
   // 确保页面滚动到顶部
   window.scrollTo(0, 0);
 
-      // 清理下载状态
-    downloading.value = false;
+  // 清理下载状态
+  downloading.value = false;
 
   // 重新获取作品详情
   fetchArtworkDetail();
 
   // 如果是从作者页面来的，重新获取导航数据
   if (showNavigation.value) {
-    fetchArtistArtworks();
+    // 从路由查询参数获取页码
+    const page = parseInt(route.query.page as string) || 1;
+    // 延迟获取导航数据，确保artwork已经更新
+    setTimeout(() => {
+      fetchArtistArtworks(page);
+    }, 100);
   }
 });
 
@@ -498,10 +683,10 @@ watch(() => route.params.id, (newId, oldId) => {
 const handleKeydown = (event: KeyboardEvent) => {
   if (!showNavigation.value) return;
 
-  if (event.key === 'ArrowLeft' && previousArtwork.value) {
+  if (event.key === 'ArrowLeft' && canNavigateToPrevious.value) {
     event.preventDefault();
     navigateToPrevious();
-  } else if (event.key === 'ArrowRight' && nextArtwork.value) {
+  } else if (event.key === 'ArrowRight' && canNavigateToNext.value) {
     event.preventDefault();
     navigateToNext();
   } else if (event.key === 'Escape') {
@@ -516,7 +701,9 @@ onMounted(() => {
 
   fetchArtworkDetail();
   if (showNavigation.value) {
-    fetchArtistArtworks();
+    // 从路由查询参数获取页码
+    const page = parseInt(route.query.page as string) || 1;
+    fetchArtistArtworks(page);
   }
 
   // 添加键盘事件监听

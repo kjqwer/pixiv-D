@@ -53,15 +53,15 @@
                 </svg>
                 <span>返回</span>
             </button>
-            <button @click="$emit('navigatePrevious')" class="nav-btn nav-prev" :disabled="!previousArtwork || loading"
-                :title="previousArtwork ? `上一个: ${previousArtwork.title}` : '没有上一个作品'">
+            <button @click="$emit('navigatePrevious')" class="nav-btn nav-prev" :disabled="!canNavigatePrevious || loading"
+                :title="canNavigatePrevious ? (previousArtwork ? `上一个: ${previousArtwork.title}` : '加载上一页') : '没有上一个作品'">
                 <svg viewBox="0 0 24 24" fill="currentColor">
                     <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
                 </svg>
                 <span>{{ loading ? '切换中...' : '上一个' }}</span>
             </button>
-            <button @click="$emit('navigateNext')" class="nav-btn nav-next" :disabled="!nextArtwork || loading"
-                :title="nextArtwork ? `下一个: ${nextArtwork.title}` : '没有下一个作品'">
+            <button @click="$emit('navigateNext')" class="nav-btn nav-next" :disabled="!canNavigateNext || loading"
+                :title="canNavigateNext ? (nextArtwork ? `下一个: ${nextArtwork.title}` : '加载下一页') : '没有下一个作品'">
                 <span>{{ loading ? '切换中...' : '下一个' }}</span>
                 <svg viewBox="0 0 24 24" fill="currentColor">
                     <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z" />
@@ -144,6 +144,8 @@ interface Props {
     showNavigation: boolean;
     previousArtwork: Artwork | null;
     nextArtwork: Artwork | null;
+    canNavigatePrevious: boolean;
+    canNavigateNext: boolean;
     selectedTags: string[];
 }
 
