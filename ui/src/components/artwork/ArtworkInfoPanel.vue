@@ -112,15 +112,26 @@
             <div class="description-content" v-html="artwork.description"></div>
         </div>
 
-        <!-- 时间信息 -->
+        <!-- 时间信息和推荐开关 -->
         <div class="artwork-meta">
-            <div class="meta-item">
-                <span class="meta-label">创建时间:</span>
-                <span class="meta-value">{{ formatDate(artwork.create_date) }}</span>
+            <div class="meta-content">
+                <div class="meta-item">
+                    <span class="meta-label">创建时间:</span>
+                    <span class="meta-value">{{ formatDate(artwork.create_date) }}</span>
+                </div>
+                <div v-if="isValidUpdateDate && artwork.update_date !== artwork.create_date" class="meta-item">
+                    <span class="meta-label">更新时间:</span>
+                    <span class="meta-value">{{ formatDate(artwork.update_date) }}</span>
+                </div>
             </div>
-            <div v-if="isValidUpdateDate && artwork.update_date !== artwork.create_date" class="meta-item">
-                <span class="meta-label">更新时间:</span>
-                <span class="meta-value">{{ formatDate(artwork.update_date) }}</span>
+            
+            <!-- 推荐作品开关 -->
+            <div class="toggle-container">
+                <span class="toggle-label">相关推荐</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" :checked="showRecommendations" @change="handleToggleChange" />
+                    <span class="slider"></span>
+                </label>
             </div>
         </div>
     </div>
@@ -147,6 +158,7 @@ interface Props {
     canNavigatePrevious: boolean;
     canNavigateNext: boolean;
     selectedTags: string[];
+    showRecommendations: boolean;
 }
 
 const props = defineProps<Props>();
@@ -160,6 +172,7 @@ const emit = defineEmits<{
     navigatePrevious: [];
     navigateNext: [];
     tagClick: [event: MouseEvent, tagName: string];
+    toggleRecommendations: [checked: boolean];
 }>();
 
 // 使用统一的图片代理函数
@@ -197,6 +210,12 @@ const formatDate = (dateString: string) => {
 // 处理标签点击
 const handleTagClick = (event: MouseEvent, tagName: string) => {
     emit('tagClick', event, tagName);
+};
+
+// 处理推荐开关切换
+const handleToggleChange = (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    emit('toggleRecommendations', target.checked);
 };
 </script>
 
@@ -406,6 +425,14 @@ const handleTagClick = (event: MouseEvent, tagName: string) => {
     border-top: 1px solid #e5e7eb;
     color: #6b7280;
     font-size: 0.875rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.meta-content {
+    flex: 1;
 }
 
 .meta-item {
@@ -532,6 +559,80 @@ const handleTagClick = (event: MouseEvent, tagName: string) => {
     color: #059669;
 }
 
+.toggle-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 1rem;
+    padding: 0.25rem 0.5rem;
+    width: fit-content;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    height: 1.5rem;
+}
+
+.toggle-container:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+}
+
+.toggle-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #6b7280;
+    line-height: 1;
+}
+
+.toggle-switch {
+    position: relative;
+    width: 28px;
+    height: 14px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #e5e7eb;
+    transition: .3s;
+    border-radius: 14px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 10px;
+    width: 10px;
+    left: 2px;
+    bottom: 2px;
+    border-radius: 50%;
+    background-color: white;
+    transition: .3s;
+}
+
+input:checked + .slider {
+    background-color: #3b82f6;
+}
+
+input:focus + .slider {
+    box-shadow: 0 0 1px #3b82f6;
+}
+
+input:checked + .slider:before {
+    transform: translateX(14px);
+}
+
 @media (max-width: 768px) {
     .artwork-actions {
         flex-direction: column;
@@ -560,6 +661,15 @@ const handleTagClick = (event: MouseEvent, tagName: string) => {
     .nav-prev,
     .nav-next {
         min-width: auto;
+    }
+
+    .artwork-meta {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .toggle-container {
+        align-self: flex-end;
     }
 }
 </style>

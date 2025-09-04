@@ -25,25 +25,15 @@
         <ArtworkInfoPanel :artwork="artwork" :downloading="downloading" :is-downloaded="isDownloaded"
           :current-task="currentTask" :loading="loading" :show-navigation="showNavigation"
           :previous-artwork="previousArtwork" :next-artwork="nextArtwork" :canNavigatePrevious="canNavigateToPrevious"
-          :canNavigateNext="canNavigateToNext" :selected-tags="selectedTags" @download="handleDownload"
-          @bookmark="handleBookmark" @go-back="goBackToArtist" @navigate-previous="navigateToPrevious"
-          @navigate-next="navigateToNext" @tag-click="handleTagClick" />
+          :canNavigateNext="canNavigateToNext" :selected-tags="selectedTags" :show-recommendations="showRecommendations"
+          @download="handleDownload" @bookmark="handleBookmark" @go-back="goBackToArtist"
+          @navigate-previous="navigateToPrevious" @navigate-next="navigateToNext" @tag-click="handleTagClick"
+          @toggle-recommendations="showRecommendations = $event" />
       </div>
 
-      <!-- 推荐作品开关和组件 -->
-      <div v-if="artwork" class="recommendations-section">
-        <div class="recommendations-toggle">
-          <label class="toggle-label">
-            <input type="checkbox" v-model="showRecommendations" class="toggle-checkbox" />
-            <span class="toggle-switch"></span>
-            <span class="toggle-text">显示相关推荐</span>
-          </label>
-        </div>
-
-        <!-- 推荐作品组件 -->
-        <div v-if="showRecommendations" class="recommendations-container">
-          <ArtworkRecommendations :artwork-id="artwork.id" />
-        </div>
+      <!-- 推荐作品组件 -->
+      <div v-if="artwork && showRecommendations" class="recommendations-section">
+        <ArtworkRecommendations :artwork-id="artwork.id" />
       </div>
     </div>
   </div>
@@ -795,63 +785,6 @@ onUnmounted(() => {
   background-color: #f0f2f5;
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.recommendations-toggle {
-  display: flex;
-  align-items: center;
-  margin-bottom: 1.5rem;
-  padding-left: 0.5rem;
-}
-
-.toggle-label {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  font-size: 0.9rem;
-  color: #333;
-}
-
-.toggle-checkbox {
-  display: none;
-  /* Hide the default checkbox */
-}
-
-.toggle-switch {
-  position: relative;
-  width: 40px;
-  height: 20px;
-  background-color: #ccc;
-  border-radius: 10px;
-  margin: 0 10px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-.toggle-switch::before {
-  content: "";
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background-color: white;
-  top: 2px;
-  left: 2px;
-  transition: transform 0.3s ease;
-}
-
-.toggle-checkbox:checked+.toggle-switch {
-  background-color: #4caf50;
-  /* Green color for checked */
-}
-
-.toggle-checkbox:checked+.toggle-switch::before {
-  transform: translateX(20px);
-}
-
-.toggle-text {
-  font-size: 0.9rem;
-  color: #333;
 }
 
 @media (max-width: 1024px) {
