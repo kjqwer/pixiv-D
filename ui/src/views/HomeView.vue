@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import RandomRecommendations from '@/components/home/RandomRecommendations.vue';
 
 const authStore = useAuthStore();
 
@@ -33,6 +34,11 @@ onMounted(async () => {
           </router-link>
         </div>
       </div>
+    </div>
+
+    <!-- 随机推荐区域 -->
+    <div class="recommendations-section">
+      <RandomRecommendations v-if="isLoggedIn" />
     </div>
 
     <div class="features-section">
@@ -205,6 +211,11 @@ onMounted(async () => {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 2rem;
+}
+
+.recommendations-section {
+  padding: 2rem 0;
+  background: white;
 }
 
 .features-section {
