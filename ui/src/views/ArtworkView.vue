@@ -25,10 +25,25 @@
         <ArtworkInfoPanel :artwork="artwork" :downloading="downloading" :is-downloaded="isDownloaded"
           :current-task="currentTask" :loading="loading" :show-navigation="showNavigation"
           :previous-artwork="previousArtwork" :next-artwork="nextArtwork" :canNavigatePrevious="canNavigateToPrevious"
-          :canNavigateNext="canNavigateToNext" :selected-tags="selectedTags"
-          @download="handleDownload" @bookmark="handleBookmark"
-          @go-back="goBackToArtist" @navigate-previous="navigateToPrevious" @navigate-next="navigateToNext"
-          @tag-click="handleTagClick" />
+          :canNavigateNext="canNavigateToNext" :selected-tags="selectedTags" @download="handleDownload"
+          @bookmark="handleBookmark" @go-back="goBackToArtist" @navigate-previous="navigateToPrevious"
+          @navigate-next="navigateToNext" @tag-click="handleTagClick" />
+      </div>
+
+      <!-- 推荐作品开关和组件 -->
+      <div v-if="artwork" class="recommendations-section">
+        <div class="recommendations-toggle">
+          <label class="toggle-label">
+            <input type="checkbox" v-model="showRecommendations" class="toggle-checkbox" />
+            <span class="toggle-switch"></span>
+            <span class="toggle-text">显示相关推荐</span>
+          </label>
+        </div>
+
+        <!-- 推荐作品组件 -->
+        <div v-if="showRecommendations" class="recommendations-container">
+          <ArtworkRecommendations :artwork-id="artwork.id" />
+        </div>
       </div>
     </div>
   </div>
@@ -51,6 +66,7 @@ import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
 import DownloadProgress from '@/components/download/DownloadProgress.vue';
 import ArtworkGallery from '@/components/artwork/ArtworkGallery.vue';
 import ArtworkInfoPanel from '@/components/artwork/ArtworkInfoPanel.vue';
+import ArtworkRecommendations from '@/components/artwork/ArtworkRecommendations.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -85,6 +101,22 @@ const hasPreviousPages = ref(false); // 是否还有上一页
 const isLoadingMore = ref(false); // 是否正在加载更多页面
 const isLoadingPrevious = ref(false); // 是否正在加载上一页
 
+// 推荐作品开关状态
+const showRecommendations = ref(true);
+
+// 初始化推荐开关状态（从localStorage读取）
+const initializeRecommendationsState = () => {
+  const saved = localStorage.getItem('artwork-show-recommendations');
+  if (saved !== null) {
+    showRecommendations.value = JSON.parse(saved);
+  }
+};
+
+// 监听推荐开关状态变化并保存到localStorage
+watch(showRecommendations, (newValue) => {
+  localStorage.setItem('artwork-show-recommendations', JSON.stringify(newValue));
+});
+
 // 导航相关计算属性
 const showNavigation = computed(() => {
   return !!(route.query.artistId && route.query.artworkType);
@@ -95,12 +127,12 @@ const previousArtwork = computed(() => {
   if (currentArtworkIndex.value === 0 && hasPreviousPages.value) {
     return null; // 返回null，但hasPreviousPages会控制按钮状态
   }
-  
+
   // 如果当前作品不在第一个位置，返回前一个作品
   if (currentArtworkIndex.value > 0) {
     return artistArtworks.value[currentArtworkIndex.value - 1];
   }
-  
+
   return null;
 });
 
@@ -370,7 +402,7 @@ const fetchArtistArtworks = async (page = 1, append = false, prepend = false) =>
       hasMorePages.value = response.data.artworks.length === pageSize;
       // 检查是否还有上一页
       hasPreviousPages.value = page > 1;
-      
+
       // 更新当前导航页码
       if (!append && !prepend) {
         navigationCurrentPage.value = page;
@@ -412,7 +444,7 @@ const fetchArtistArtworks = async (page = 1, append = false, prepend = false) =>
 // 加载下一页作品
 const loadNextPage = async () => {
   if (!hasMorePages.value || isLoadingMore.value) return;
-  
+
   const nextPage = navigationCurrentPage.value + 1;
   await fetchArtistArtworks(nextPage, true, false);
   // 更新当前导航页码
@@ -422,7 +454,7 @@ const loadNextPage = async () => {
 // 加载上一页作品
 const loadPreviousPage = async () => {
   if (!hasPreviousPages.value || isLoadingPrevious.value) return;
-  
+
   const previousPage = navigationCurrentPage.value - 1;
   await fetchArtistArtworks(previousPage, false, true);
   // 更新当前导航页码
@@ -432,7 +464,7 @@ const loadPreviousPage = async () => {
 // 辅助函数：更新returnUrl中的页码
 const updateReturnUrlPage = (returnUrl: string, newPage: number): string => {
   if (!returnUrl) return returnUrl;
-  
+
   // 如果returnUrl包含页码，更新它
   if (returnUrl.includes('page=')) {
     return returnUrl.replace(/page=\d+/, `page=${newPage}`);
@@ -462,7 +494,7 @@ const navigateToNext = async () => {
       // 计算返回链接的页码和当前导航页码
       let returnPage = parseInt(route.query.page as string) || 1;
       let currentNavPage = navigationCurrentPage.value;
-      
+
       if (currentArtworkIndex.value === artistArtworks.value.length - 1) {
         // 如果跳转到下一页的作品，返回链接应该指向当前页，当前导航页码递增
         returnPage = currentNavPage; // 返回时应该在第x页
@@ -507,7 +539,7 @@ const navigateToPrevious = async () => {
       // 计算返回链接的页码和当前导航页码
       let returnPage = parseInt(route.query.page as string) || 1;
       let currentNavPage = navigationCurrentPage.value;
-      
+
       if (currentArtworkIndex.value === 0) {
         // 如果跳转到上一页的作品，返回链接应该指向当前页，当前导航页码递减
         returnPage = currentNavPage; // 返回时应该在第x页
@@ -537,18 +569,18 @@ const navigateToPrevious = async () => {
 const goBackToArtist = () => {
   const returnUrl = route.query.returnUrl as string;
   let targetPath = returnUrl || `/artist/${route.query.artistId}`;
-  
+
   // 如果返回链接不包含页码，添加当前页码
   if (targetPath && !targetPath.includes('page=')) {
     const separator = targetPath.includes('?') ? '&' : '?';
     targetPath += `${separator}page=${navigationCurrentPage.value}`;
   }
-  
+
   if (targetPath) {
     // 获取当前保存的滚动位置（如果有的话）
     const savedScrollKey = `scroll_${targetPath}`;
     const savedPosition = sessionStorage.getItem(savedScrollKey);
-    
+
     // 如果没有保存的滚动位置，设置一个默认位置（通常是之前访问时的位置）
     if (!savedPosition && route.query.scrollTop) {
       const scrollPosition = {
@@ -557,7 +589,7 @@ const goBackToArtist = () => {
       };
       saveScrollPositionForPath(targetPath, scrollPosition);
     }
-    
+
     router.push(targetPath);
   }
 };
@@ -710,6 +742,9 @@ onMounted(() => {
   document.addEventListener('keydown', handleKeydown);
   document.addEventListener('keydown', handleKeyDown);
   document.addEventListener('keyup', handleKeyUp);
+
+  // 初始化推荐开关状态
+  initializeRecommendationsState();
 });
 
 // 组件卸载时移除事件监听
@@ -754,7 +789,70 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
+.recommendations-section {
+  margin-top: 3rem;
+  padding: 2rem;
+  background-color: #f0f2f5;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
 
+.recommendations-toggle {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-left: 0.5rem;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.toggle-checkbox {
+  display: none;
+  /* Hide the default checkbox */
+}
+
+.toggle-switch {
+  position: relative;
+  width: 40px;
+  height: 20px;
+  background-color: #ccc;
+  border-radius: 10px;
+  margin: 0 10px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.toggle-switch::before {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: white;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.3s ease;
+}
+
+.toggle-checkbox:checked+.toggle-switch {
+  background-color: #4caf50;
+  /* Green color for checked */
+}
+
+.toggle-checkbox:checked+.toggle-switch::before {
+  transform: translateX(20px);
+}
+
+.toggle-text {
+  font-size: 0.9rem;
+  color: #333;
+}
 
 @media (max-width: 1024px) {
   .artwork-content {

@@ -95,7 +95,7 @@
             <select v-model="searchSort" @change="updateFiltersInUrl" class="filter-select">
               <option value="date_desc">最新</option>
               <option value="date_asc">最旧</option>
-              <option value="popular_desc">最受欢迎</option>
+              <option value="popular_desc">最受欢迎（会员专属，这里不生效）</option>
             </select>
 
             <select v-model="searchDuration" @change="updateFiltersInUrl" class="filter-select">
@@ -351,7 +351,7 @@ const goToPage = (page: number) => {
 const handleArtworkClick = (artwork: Artwork) => {
   // 保存当前页面的滚动位置
   saveScrollPosition(route.fullPath);
-  
+
   router.push({
     path: `/artwork/${artwork.id}`,
     query: {

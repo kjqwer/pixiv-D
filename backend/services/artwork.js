@@ -367,6 +367,48 @@ class ArtworkService {
   }
 
   /**
+   * 获取相关推荐作品
+   */
+  async getRelatedArtworks(artworkId, options = {}) {
+    try {
+      const { offset = 0, limit = 30 } = options;
+      
+      if (!artworkId || isNaN(parseInt(artworkId))) {
+        return {
+          success: false,
+          error: 'Invalid artwork ID'
+        };
+      }
+
+      const params = {
+        illust_id: parseInt(artworkId),
+        offset: parseInt(offset),
+        filter: 'for_ios'
+      };
+
+      const response = await this.makeRequest('GET', '/v2/illust/related', params);
+
+      return {
+        success: true,
+        data: {
+          artworks: response.illusts || [],
+          next_url: response.next_url,
+          total: response.illusts ? response.illusts.length : 0,
+          source_artwork_id: artworkId
+        }
+      };
+    } catch (error) {
+      logger.error('Get related artworks error:', error.message);
+      logger.error('Get related artworks error details:', error.response?.data);
+
+      return {
+        success: false,
+        error: error.message || 'Failed to get related artworks'
+      };
+    }
+  }
+
+  /**
    * 发送API请求
    */
   async makeRequest(method, endpoint, data = null) {

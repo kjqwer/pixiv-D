@@ -1,6 +1,6 @@
 {
-  "name": "pixivdownload",
-  "version": "0.0.0",
+  "name": "pixivmanager",
+  "version": "1.0.4",
   "private": true,
   "type": "module",
   "engines": {

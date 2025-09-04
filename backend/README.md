@@ -51,6 +51,8 @@ backend/
 - `GET /api/artwork/:id/preview` - 获取作品预览
 - `GET /api/artwork/:id/images` - 获取作品图片URL
   - 参数: `size` (small/medium/large/original)
+- `GET /api/artwork/:id/related` - 获取相关推荐作品
+  - 参数: `offset`, `limit`
 
 ### 排行榜相关
 

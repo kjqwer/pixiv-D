@@ -97,6 +97,18 @@ class ArtworkService {
 
     return apiService.get<{ artworks: Artwork[]; next_url?: string; total: number }>(`/api/artwork/bookmarks?${queryParams.toString()}`);
   }
+
+  /**
+   * 获取相关推荐作品
+   */
+  async getRelatedArtworks(artworkId: number, params: { offset?: number; limit?: number } = {}): Promise<ApiResponse<{ artworks: Artwork[]; next_url?: string; total: number; source_artwork_id: number }>> {
+    const queryParams = new URLSearchParams();
+    
+    if (params.offset !== undefined) queryParams.append('offset', params.offset.toString());
+    if (params.limit !== undefined) queryParams.append('limit', params.limit.toString());
+
+    return apiService.get<{ artworks: Artwork[]; next_url?: string; total: number; source_artwork_id: number }>(`/api/artwork/${artworkId}/related?${queryParams.toString()}`);
+  }
 }
 
 export const artworkService = new ArtworkService();

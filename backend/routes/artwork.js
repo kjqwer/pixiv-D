@@ -266,4 +266,45 @@ router.post('/:id/bookmark', async (req, res) => {
   }
 });
 
+/**
+ * 获取相关推荐作品
+ * GET /api/artwork/:id/related
+ */
+router.get('/:id/related', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { offset = 0, limit = 30 } = req.query;
+    
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid artwork ID'
+      });
+    }
+    
+    const artworkService = new ArtworkService(req.backend.getAuth());
+    const result = await artworkService.getRelatedArtworks(parseInt(id), {
+      offset: parseInt(offset),
+      limit: parseInt(limit)
+    });
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        data: result.data
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        error: result.error
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router; 
