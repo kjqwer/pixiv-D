@@ -255,15 +255,17 @@ const getCurrentPageUrl = () => {
   return window.location.href;
 };
 
+// 当前页面URL的响应式变量
+const currentPageUrl = ref(getCurrentPageUrl());
+
 // 检查当前页面是否已添加
 const isCurrentPageAdded = computed(() => {
-  const currentUrl = getCurrentPageUrl();
-  return watchlistStore.hasUrl(currentUrl);
+  return watchlistStore.hasUrl(currentPageUrl.value);
 });
 
 // 检查是否为当前URL
 const isCurrentUrl = (url: string) => {
-  const currentUrl = getCurrentPageUrl();
+  const currentUrl = currentPageUrl.value;
 
   // 直接比较完整URL
   if (currentUrl === url) {
@@ -354,12 +356,11 @@ const addCurrentPage = async () => {
   if (addLoading.value || isCurrentPageAdded.value) return;
 
   addLoading.value = true;
-  const currentUrl = getCurrentPageUrl();
+  const currentUrl = currentPageUrl.value;
 
   try {
     const success = await watchlistStore.addItem({ url: currentUrl });
     if (success) {
-      // 可以添加一个成功提示
       console.log('页面已添加到待看名单');
     }
   } finally {
@@ -550,9 +551,10 @@ onMounted(() => {
   fetchItems();
 });
 
-// 监听路由变化，更新当前页面状态
+// 监听路由变化，更新当前页面URL
 watch(() => route.fullPath, () => {
-  // 路由变化时可能需要更新当前页面的状态
+  // 路由变化时更新当前页面URL
+  currentPageUrl.value = getCurrentPageUrl();
 });
 </script>
 
