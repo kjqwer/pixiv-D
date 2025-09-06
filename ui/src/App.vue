@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useDownloadStore } from '@/stores/download'
 import SettingsWidget from '@/components/common/SettingsWidget.vue'
 import DownloadProgressWidget from '@/components/common/DownloadProgressWidget.vue'
+import WatchlistWidget from '@/components/common/WatchlistWidget.vue'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -92,6 +93,9 @@ onMounted(async () => {
     
     <!-- 下载进度小组件 - 只在登录时显示，在下载管理页面隐藏 -->
     <DownloadProgressWidget v-if="showDownloadWidget" />
+    
+    <!-- 待看名单小组件 - 只在登录时显示 -->
+    <WatchlistWidget v-if="isLoggedIn" />
   </div>
 </template>
 
