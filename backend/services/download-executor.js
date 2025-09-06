@@ -170,7 +170,9 @@ class DownloadExecutor {
    * 执行批量下载
    */
   async executeBatchDownload(task, artworkIds, options) {
-    const { concurrent = 3, size = 'original', quality = 'high', format = 'auto' } = options;
+    // 获取动态并发配置
+    const concurrentConfig = await this.downloadService.getConcurrentConfig();
+    const { concurrent = concurrentConfig.concurrentDownloads, size = 'original', quality = 'high', format = 'auto' } = options;
 
     try {
       const results = [];
@@ -292,7 +294,9 @@ class DownloadExecutor {
    * 执行作者作品下载
    */
   async executeArtistDownload(task, newArtworks, options) {
-    const { maxConcurrent = 3, size = 'original', quality = 'high', format = 'auto' } = options;
+    // 获取动态并发配置
+    const concurrentConfig = await this.downloadService.getConcurrentConfig();
+    const { maxConcurrent = concurrentConfig.maxConcurrentFiles, size = 'original', quality = 'high', format = 'auto' } = options;
 
     try {
       const results = [];
@@ -409,7 +413,9 @@ class DownloadExecutor {
    * 执行排行榜作品下载
    */
   async executeRankingDownload(task, newArtworks, options) {
-    const { maxConcurrent = 3, size = 'original', quality = 'high', format = 'auto' } = options;
+    // 获取动态并发配置
+    const concurrentConfig = await this.downloadService.getConcurrentConfig();
+    const { maxConcurrent = concurrentConfig.maxConcurrentFiles, size = 'original', quality = 'high', format = 'auto' } = options;
 
     try {
       const results = [];

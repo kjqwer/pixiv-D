@@ -39,6 +39,17 @@ class CacheConfigManager {
         retryDelay: 1000,
       },
       allowedExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'],
+      // 新增并发下载配置
+      download: {
+        concurrentDownloads: 3, // 同时下载任务数
+        maxConcurrentFiles: 5, // 单个任务内最大并发文件数
+        threadPoolSize: 16, // Node.js 线程池大小
+        downloadTimeout: 300000, // 5分钟下载超时
+        chunkSize: 1024 * 1024, // 1MB块大小
+        retryAttempts: 3, // 重试次数
+        retryDelay: 2000, // 重试延迟
+        maxFileSize: 50 * 1024 * 1024, // 最大文件大小 50MB
+      },
       // 新增Windows特定配置
       windows: {
         skipInUseFiles: true, // 跳过被占用的文件

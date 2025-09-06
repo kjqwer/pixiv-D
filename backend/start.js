@@ -4,6 +4,12 @@
  * Pixiv 后端服务器启动脚本
  */
 
+// 重要：必须在任何其他模块导入之前设置线程池大小
+// 解决多个下载任务时的SSH连接阻塞问题
+if (!process.env.UV_THREADPOOL_SIZE) {
+  process.env.UV_THREADPOOL_SIZE = '16'; // 增加到16个线程
+}
+
 const PixivServer = require('./server');
 const { defaultLogger } = require('./utils/logger');
 

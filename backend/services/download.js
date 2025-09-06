@@ -6,6 +6,7 @@ const FileManager = require('./file-manager');
 const ProgressManager = require('./progress-manager');
 const HistoryManager = require('./history-manager');
 const DownloadExecutor = require('./download-executor');
+const CacheConfigManager = require('../config/cache-config');
 const fs = require('fs-extra'); // Added for fs-extra
 const { defaultLogger } = require('../utils/logger');
 
@@ -21,6 +22,7 @@ class DownloadService {
     this.auth = auth;
     this.artworkService = new ArtworkService(auth);
     this.artistService = new ArtistService(auth);
+    this.cacheConfigManager = new CacheConfigManager();
 
     // 检测是否在pkg打包环境中运行
     const isPkg = process.pkg !== undefined;
@@ -42,6 +44,25 @@ class DownloadService {
     this.downloadExecutor = new DownloadExecutor(this.fileManager, this.taskManager, this.progressManager, this.historyManager, this);
 
     this.initialized = false;
+  }
+
+  /**
+   * 获取动态并发配置
+   */
+  async getConcurrentConfig() {
+    try {
+      const cacheConfig = await this.cacheConfigManager.loadConfig();
+      return {
+        concurrentDownloads: cacheConfig.download?.concurrentDownloads || 3,
+        maxConcurrentFiles: cacheConfig.download?.maxConcurrentFiles || 5,
+      };
+    } catch (error) {
+      logger.warn('获取并发配置失败，使用默认值:', error.message);
+      return {
+        concurrentDownloads: 3,
+        maxConcurrentFiles: 5,
+      };
+    }
   }
 
   /**
@@ -605,7 +626,9 @@ class DownloadService {
    * 批量下载作品
    */
   async downloadMultipleArtworks(artworkIds, options = {}) {
-    const { concurrent = 3, size = 'original', quality = 'high', format = 'auto', skipExisting = true } = options;
+    // 获取动态并发配置
+    const concurrentConfig = await this.getConcurrentConfig();
+    const { concurrent = concurrentConfig.concurrentDownloads, size = 'original', quality = 'high', format = 'auto', skipExisting = true } = options;
 
     try {
       // 检查重复下载

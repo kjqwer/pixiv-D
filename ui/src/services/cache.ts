@@ -13,6 +13,23 @@ export interface CacheConfig {
     retryDelay: number;
   };
   allowedExtensions: string[];
+  download?: {
+    concurrentDownloads: number;
+    maxConcurrentFiles: number;
+    threadPoolSize: number;
+    downloadTimeout: number;
+    chunkSize: number;
+    retryAttempts: number;
+    retryDelay: number;
+    maxFileSize: number;
+  };
+  windows?: {
+    skipInUseFiles: boolean;
+    maxRetries: number;
+    retryDelay: number;
+    waitForRelease: boolean;
+    maxWaitTime: number;
+  };
   lastUpdated: string;
 }
 

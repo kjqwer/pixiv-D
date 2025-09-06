@@ -102,6 +102,44 @@
               </div>
             </div>
 
+            <!-- 下载配置 -->
+            <div class="config-section">
+              <h5>下载配置</h5>
+
+              <div class="form-group">
+                <label>同时下载任务数</label>
+                <input type="number" v-model.number="concurrentDownloads" min="1" max="10" />
+                <span class="form-help">建议值: 3-5</span>
+              </div>
+
+              <div class="form-group">
+                <label>单任务最大并发文件数</label>
+                <input type="number" v-model.number="maxConcurrentFiles" min="1" max="20" />
+                <span class="form-help">建议值: 3-8</span>
+              </div>
+
+              <div class="form-group">
+                <label>线程池大小</label>
+                <input type="number" v-model.number="threadPoolSize" min="4" max="64" />
+                <span class="form-help">建议值: 16-32，需要重启生效</span>
+              </div>
+
+              <div class="form-group">
+                <label>下载超时 (分钟)</label>
+                <input type="number" v-model.number="downloadTimeoutMinutes" min="1" max="30" />
+              </div>
+
+              <div class="form-group">
+                <label>重试延迟 (秒)</label>
+                <input type="number" v-model.number="retryDelaySeconds" min="1" max="30" />
+              </div>
+
+              <div class="form-group">
+                <label>最大文件大小 (MB)</label>
+                <input type="number" v-model.number="maxFileSizeMB" min="1" max="500" />
+              </div>
+            </div>
+
             <!-- 缓存操作 -->
             <div class="cache-actions">
               <button @click="saveConfig" class="btn btn-primary" :disabled="saving">
@@ -153,6 +191,16 @@ const config = ref<CacheConfig>({
     retryDelay: 1000,
   },
   allowedExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'],
+  download: {
+    concurrentDownloads: 3,
+    maxConcurrentFiles: 5,
+    threadPoolSize: 16,
+    downloadTimeout: 300000,
+    chunkSize: 1024 * 1024,
+    retryAttempts: 3,
+    retryDelay: 2000,
+    maxFileSize: 50 * 1024 * 1024,
+  },
   lastUpdated: new Date().toISOString()
 });
 
@@ -182,6 +230,121 @@ const timeoutSeconds = computed({
   get: () => Math.round(config.value.proxy.timeout / 1000),
   set: (value) => {
     config.value.proxy.timeout = value * 1000;
+  }
+});
+
+// 下载配置相关的计算属性
+const concurrentDownloads = computed({
+  get: () => config.value.download?.concurrentDownloads || 3,
+  set: (value) => {
+    if (!config.value.download) {
+      config.value.download = {
+        concurrentDownloads: 3,
+        maxConcurrentFiles: 5,
+        threadPoolSize: 16,
+        downloadTimeout: 300000,
+        chunkSize: 1024 * 1024,
+        retryAttempts: 3,
+        retryDelay: 2000,
+        maxFileSize: 50 * 1024 * 1024,
+      };
+    }
+    config.value.download.concurrentDownloads = value;
+  }
+});
+
+const maxConcurrentFiles = computed({
+  get: () => config.value.download?.maxConcurrentFiles || 5,
+  set: (value) => {
+    if (!config.value.download) {
+      config.value.download = {
+        concurrentDownloads: 3,
+        maxConcurrentFiles: 5,
+        threadPoolSize: 16,
+        downloadTimeout: 300000,
+        chunkSize: 1024 * 1024,
+        retryAttempts: 3,
+        retryDelay: 2000,
+        maxFileSize: 50 * 1024 * 1024,
+      };
+    }
+    config.value.download.maxConcurrentFiles = value;
+  }
+});
+
+const threadPoolSize = computed({
+  get: () => config.value.download?.threadPoolSize || 16,
+  set: (value) => {
+    if (!config.value.download) {
+      config.value.download = {
+        concurrentDownloads: 3,
+        maxConcurrentFiles: 5,
+        threadPoolSize: 16,
+        downloadTimeout: 300000,
+        chunkSize: 1024 * 1024,
+        retryAttempts: 3,
+        retryDelay: 2000,
+        maxFileSize: 50 * 1024 * 1024,
+      };
+    }
+    config.value.download.threadPoolSize = value;
+  }
+});
+
+const downloadTimeoutMinutes = computed({
+  get: () => Math.round((config.value.download?.downloadTimeout || 300000) / (1000 * 60)),
+  set: (value) => {
+    if (!config.value.download) {
+      config.value.download = {
+        concurrentDownloads: 3,
+        maxConcurrentFiles: 5,
+        threadPoolSize: 16,
+        downloadTimeout: 300000,
+        chunkSize: 1024 * 1024,
+        retryAttempts: 3,
+        retryDelay: 2000,
+        maxFileSize: 50 * 1024 * 1024,
+      };
+    }
+    config.value.download.downloadTimeout = value * 1000 * 60;
+  }
+});
+
+const retryDelaySeconds = computed({
+  get: () => Math.round((config.value.download?.retryDelay || 2000) / 1000),
+  set: (value) => {
+    if (!config.value.download) {
+      config.value.download = {
+        concurrentDownloads: 3,
+        maxConcurrentFiles: 5,
+        threadPoolSize: 16,
+        downloadTimeout: 300000,
+        chunkSize: 1024 * 1024,
+        retryAttempts: 3,
+        retryDelay: 2000,
+        maxFileSize: 50 * 1024 * 1024,
+      };
+    }
+    config.value.download.retryDelay = value * 1000;
+  }
+});
+
+const maxFileSizeMB = computed({
+  get: () => Math.round((config.value.download?.maxFileSize || 50 * 1024 * 1024) / (1024 * 1024)),
+  set: (value) => {
+    if (!config.value.download) {
+      config.value.download = {
+        concurrentDownloads: 3,
+        maxConcurrentFiles: 5,
+        threadPoolSize: 16,
+        downloadTimeout: 300000,
+        chunkSize: 1024 * 1024,
+        retryAttempts: 3,
+        retryDelay: 2000,
+        maxFileSize: 50 * 1024 * 1024,
+      };
+    }
+    config.value.download.maxFileSize = value * 1024 * 1024;
   }
 });
 
@@ -548,6 +711,28 @@ onMounted(() => {
 
 .form-group input[type="checkbox"] {
   margin-right: 0.5rem;
+}
+
+.config-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+}
+
+.config-section h5 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.form-help {
+  display: block;
+  font-size: 0.75rem;
+  color: #718096;
+  margin-top: 0.25rem;
 }
 
 .cache-actions {

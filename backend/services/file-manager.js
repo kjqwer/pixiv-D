@@ -3,6 +3,7 @@ const fs = require('fs-extra');
 const path = require('path');
 const crypto = require('crypto');
 const ConfigManager = require('../config/config-manager');
+const CacheConfigManager = require('../config/cache-config');
 const FileUtils = require('../utils/file-utils');
 const ErrorHandler = require('../utils/error-handler');
 const { defaultLogger } = require('../utils/logger');
@@ -16,15 +17,56 @@ const logger = defaultLogger.child('FileManager');
 class FileManager {
   constructor() {
     this.configManager = new ConfigManager();
+    this.cacheConfigManager = new CacheConfigManager();
     
-    // 下载配置
-    this.downloadConfig = {
+    // 默认下载配置（作为后备）
+    this.defaultDownloadConfig = {
       timeout: 300000, // 5分钟超时
       chunkSize: 1024 * 1024, // 1MB块大小
       retryAttempts: 3, // 重试次数
       retryDelay: 2000, // 重试延迟
       concurrentDownloads: 3 // 并发下载数
     };
+    
+    // 初始化时设置线程池大小
+    this.initializeThreadPool();
+  }
+
+  /**
+   * 初始化线程池大小
+   */
+  async initializeThreadPool() {
+    try {
+      const config = await this.getDownloadConfig();
+      if (config.threadPoolSize && !process.env.UV_THREADPOOL_SIZE) {
+        process.env.UV_THREADPOOL_SIZE = config.threadPoolSize.toString();
+        logger.info(`设置线程池大小为: ${config.threadPoolSize}`);
+      }
+    } catch (error) {
+      logger.warn('初始化线程池大小失败，使用默认值:', error.message);
+    }
+  }
+
+  /**
+   * 获取下载配置
+   */
+  async getDownloadConfig() {
+    try {
+      const cacheConfig = await this.cacheConfigManager.loadConfig();
+      return {
+        timeout: cacheConfig.download?.downloadTimeout || this.defaultDownloadConfig.timeout,
+        chunkSize: cacheConfig.download?.chunkSize || this.defaultDownloadConfig.chunkSize,
+        retryAttempts: cacheConfig.download?.retryAttempts || this.defaultDownloadConfig.retryAttempts,
+        retryDelay: cacheConfig.download?.retryDelay || this.defaultDownloadConfig.retryDelay,
+        concurrentDownloads: cacheConfig.download?.concurrentDownloads || this.defaultDownloadConfig.concurrentDownloads,
+        maxConcurrentFiles: cacheConfig.download?.maxConcurrentFiles || 5,
+        threadPoolSize: cacheConfig.download?.threadPoolSize || 16,
+        maxFileSize: cacheConfig.download?.maxFileSize || 50 * 1024 * 1024,
+      };
+    } catch (error) {
+      logger.warn('获取下载配置失败，使用默认配置:', error.message);
+      return this.defaultDownloadConfig;
+    }
   }
 
   /**
@@ -103,7 +145,8 @@ class FileManager {
    * 简单的文件下载方法
    */
   async downloadFile(url, filePath) {
-    const maxRetries = this.downloadConfig.retryAttempts;
+    const downloadConfig = await this.getDownloadConfig();
+    const maxRetries = downloadConfig.retryAttempts;
     let lastError = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -135,7 +178,7 @@ class FileManager {
             'Referer': 'https://www.pixiv.net/',
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
           },
-          timeout: 60000
+          timeout: downloadConfig.timeout
         });
 
         // 使用增强的写入流创建方法
@@ -193,7 +236,7 @@ class FileManager {
             const timeoutError = new Error('下载超时');
             cleanup();
             reject(timeoutError);
-          }, 120000); // 2分钟超时
+          }, downloadConfig.timeout + 60000); // 动态超时 + 1分钟缓冲
           
           // 清理超时定时器
           writer.on('finish', () => clearTimeout(timeout));
