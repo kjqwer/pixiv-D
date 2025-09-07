@@ -4,12 +4,14 @@
             <h1 class="artwork-title">{{ artwork.title }}</h1>
             <!-- 下载按钮 -->
             <div class="artwork-actions">
-                <button @click="$emit('download')" :disabled="downloading || !artwork" class="btn btn-primary">
+                <button @click="$emit('download')" :disabled="downloading || !artwork" class="btn btn-primary"
+                    :title="downloading ? '正在下载中...' : (isDownloaded ? '重新下载作品 (快捷键: ↓)' : '下载作品到本地 (快捷键: ↓)')">
                     <span v-if="downloading">下载中...</span>
                     <span v-else-if="isDownloaded">重新下载</span>
                     <span v-else>下载</span>
                 </button>
-                <button @click="$emit('bookmark')" class="btn btn-secondary">
+                <button @click="$emit('bookmark')" class="btn btn-secondary"
+                    :title="artwork.is_bookmarked ? '取消收藏此作品' : '收藏此作品'">
                     {{ artwork.is_bookmarked ? '取消收藏' : '收藏' }}
                 </button>
             </div>
@@ -51,18 +53,19 @@
                 <svg viewBox="0 0 24 24" fill="currentColor">
                     <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
                 </svg>
-                <span>返回</span>
+                <span>返回 <span class="keyboard-hint">(Esc)</span></span>
             </button>
-            <button @click="$emit('navigatePrevious')" class="nav-btn nav-prev" :disabled="!canNavigatePrevious || loading"
-                :title="canNavigatePrevious ? (previousArtwork ? `上一个: ${previousArtwork.title}` : '加载上一页') : '没有上一个作品'">
+            <button @click="$emit('navigatePrevious')" class="nav-btn nav-prev"
+                :disabled="!canNavigatePrevious || loading"
+                :title="canNavigatePrevious ? (previousArtwork ? `上一个(快捷键: ←): ${previousArtwork.title}` : '加载上一页') : '没有上一个作品'">
                 <svg viewBox="0 0 24 24" fill="currentColor">
                     <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
                 </svg>
-                <span>{{ loading ? '切换中...' : '上一个' }}</span>
+                <span>{{ loading ? '切换中...' : '上一个' }} </span>
             </button>
             <button @click="$emit('navigateNext')" class="nav-btn nav-next" :disabled="!canNavigateNext || loading"
-                :title="canNavigateNext ? (nextArtwork ? `下一个: ${nextArtwork.title}` : '加载下一页') : '没有下一个作品'">
-                <span>{{ loading ? '切换中...' : '下一个' }}</span>
+                :title="canNavigateNext ? (nextArtwork ? `下一个(快捷键: →): ${nextArtwork.title}` : '加载下一页') : '没有下一个作品'">
+                <span>{{ loading ? '切换中...' : '下一个' }} </span>
                 <svg viewBox="0 0 24 24" fill="currentColor">
                     <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z" />
                 </svg>
@@ -124,7 +127,7 @@
                     <span class="meta-value">{{ formatDate(artwork.update_date) }}</span>
                 </div>
             </div>
-            
+
             <!-- 推荐作品开关 -->
             <div class="toggle-container">
                 <span class="toggle-label">相关推荐</span>
@@ -621,16 +624,24 @@ const handleToggleChange = (event: Event) => {
     transition: .3s;
 }
 
-input:checked + .slider {
+input:checked+.slider {
     background-color: #3b82f6;
 }
 
-input:focus + .slider {
+input:focus+.slider {
     box-shadow: 0 0 1px #3b82f6;
 }
 
-input:checked + .slider:before {
+input:checked+.slider:before {
     transform: translateX(14px);
+}
+
+.keyboard-hint {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    font-weight: 400;
+    margin-left: 0.25rem;
+    opacity: 0.8;
 }
 
 @media (max-width: 768px) {

@@ -136,24 +136,24 @@ const nextArtwork = computed(() => {
 // 新增计算属性：是否可以导航到上一个作品
 const canNavigateToPrevious = computed(() => {
   const result = previousArtwork.value !== null || hasPreviousPages.value;
-  console.log('canNavigateToPrevious:', {
-    previousArtwork: previousArtwork.value,
-    hasPreviousPages: hasPreviousPages.value,
-    currentArtworkIndex: currentArtworkIndex.value,
-    result
-  });
+  // console.log('canNavigateToPrevious:', {
+  //   previousArtwork: previousArtwork.value,
+  //   hasPreviousPages: hasPreviousPages.value,
+  //   currentArtworkIndex: currentArtworkIndex.value,
+  //   result
+  // });
   return result;
 });
 
 // 新增计算属性：是否可以导航到下一个作品
 const canNavigateToNext = computed(() => {
   const result = nextArtwork.value !== null || hasMorePages.value;
-  console.log('canNavigateToNext:', {
-    nextArtwork: nextArtwork.value,
-    hasMorePages: hasMorePages.value,
-    currentArtworkIndex: currentArtworkIndex.value,
-    result
-  });
+  // console.log('canNavigateToNext:', {
+  //   nextArtwork: nextArtwork.value,
+  //   hasMorePages: hasMorePages.value,
+  //   currentArtworkIndex: currentArtworkIndex.value,
+  //   result
+  // });
   return result;
 });
 
@@ -402,21 +402,21 @@ const fetchArtistArtworks = async (page = 1, append = false, prepend = false) =>
       const currentId = parseInt(route.params.id as string);
       currentArtworkIndex.value = artistArtworks.value.findIndex(art => art.id === currentId);
 
-      console.log('fetchArtistArtworks 完成:', {
-        page,
-        append,
-        prepend,
-        artworksCount: response.data.artworks.length,
-        hasMorePages: hasMorePages.value,
-        hasPreviousPages: hasPreviousPages.value,
-        navigationCurrentPage: navigationCurrentPage.value,
-        currentArtworkIndex: currentArtworkIndex.value,
-        currentId,
-        currentArtworkId: artwork.value?.id,
-        firstArtworkId: artistArtworks.value[0]?.id,
-        lastArtworkId: artistArtworks.value[artistArtworks.value.length - 1]?.id,
-        allArtworkIds: artistArtworks.value.map(art => art.id)
-      });
+      // console.log('fetchArtistArtworks 完成:', {
+      //   page,
+      //   append,
+      //   prepend,
+      //   artworksCount: response.data.artworks.length,
+      //   hasMorePages: hasMorePages.value,
+      //   hasPreviousPages: hasPreviousPages.value,
+      //   navigationCurrentPage: navigationCurrentPage.value,
+      //   currentArtworkIndex: currentArtworkIndex.value,
+      //   currentId,
+      //   currentArtworkId: artwork.value?.id,
+      //   firstArtworkId: artistArtworks.value[0]?.id,
+      //   lastArtworkId: artistArtworks.value[artistArtworks.value.length - 1]?.id,
+      //   allArtworkIds: artistArtworks.value.map(art => art.id)
+      // });
     }
   } catch (err) {
     console.error('获取作者作品列表失败:', err);
@@ -714,6 +714,9 @@ const handleKeydown = (event: KeyboardEvent) => {
   } else if (event.key === 'Escape') {
     event.preventDefault();
     goBackToArtist();
+  } else if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    handleDownload();
   }
 };
 
@@ -768,7 +771,7 @@ onUnmounted(() => {
 
 .artwork-content {
   display: grid;
-  grid-template-columns: 1fr 460px;
+  grid-template-columns: 1fr 480px;
   gap: 3rem;
   align-items: start;
   transition: opacity 0.3s ease;
