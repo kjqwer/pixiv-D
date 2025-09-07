@@ -289,7 +289,7 @@ const fetchArtistInfo = async () => {
   const artistId = parseInt(route.params.id as string);
   if (isNaN(artistId)) {
     error.value = '无效的作者ID';
-    return;
+    return false;
   }
 
   // 检查缓存
@@ -297,7 +297,7 @@ const fetchArtistInfo = async () => {
   const cached = getCache(cacheKey);
   if (cached) {
     artist.value = cached;
-    return;
+    return true;
   }
 
   try {
@@ -309,12 +309,14 @@ const fetchArtistInfo = async () => {
     if (response.success && response.data) {
       artist.value = response.data;
       setCache(cacheKey, response.data);
+      return true;
     } else {
       throw new Error(response.error || '获取作者信息失败');
     }
   } catch (err) {
     error.value = err instanceof Error ? err.message : '获取作者信息失败';
     console.error('获取作者信息失败:', err);
+    return false;
   } finally {
     loading.value = false;
   }
@@ -515,7 +517,7 @@ const getImageUrl = getImageProxyUrl;
 const handleArtworkClick = (artwork: Artwork) => {
   // 保存当前页面的滚动位置
   saveScrollPosition(route.fullPath);
-  
+
   // 传递作者ID、作品类型和当前页面信息，用于导航
   router.push({
     path: `/artwork/${artwork.id}`,
@@ -565,20 +567,32 @@ const handleJumpToPage = async () => {
 };
 
 // 监听路由变化
-watch(() => route.params.id, () => {
-  // 清除缓存并重新加载
-  clearCache();
-  fetchArtistInfo();
+watch(() => route.params.id, async (newId, oldId) => {
+  // 只有当作者ID真正变化时才重新加载
+  if (newId !== oldId) {
+    // 清除缓存并重新加载
+    clearCache();
+    artworks.value = []; // 立即清空作品列表
+    currentPage.value = 1; // 重置页码
+    totalPages.value = 0; // 重置总页数
+    artworkType.value = 'art'; // 重置作品类型
 
-  // 检查是否有返回的页面信息或指定的页码
-  const returnPage = parseInt(route.query.page as string);
-  if (returnPage && returnPage > 0) {
-    currentPage.value = returnPage;
-    fetchArtworks(returnPage, true);
-  } else {
-    fetchArtworks(1);
+    // 先获取作者信息
+    const success = await fetchArtistInfo();
+
+    // 只有成功获取作者信息后才获取作品
+    if (success && artist.value) {
+      // 检查是否有返回的页面信息或指定的页码
+      const returnPage = parseInt(route.query.page as string);
+      if (returnPage && returnPage > 0) {
+        currentPage.value = returnPage;
+        await fetchArtworks(returnPage, true);
+      } else {
+        await fetchArtworks(1);
+      }
+    }
   }
-});
+}, { immediate: false });
 
 // 监听URL查询参数变化
 watch(() => route.query.page, (newPage) => {
@@ -591,23 +605,37 @@ watch(() => route.query.page, (newPage) => {
   }
 });
 
+// 监听作者变化，确保作品列表与当前作者同步
+watch(() => artist.value?.id, (newArtistId, oldArtistId) => {
+  if (newArtistId && newArtistId !== oldArtistId) {
+    // 作者变化时重新获取作品列表
+    artworks.value = [];
+    currentPage.value = 1;
+    totalPages.value = 0;
+    fetchArtworks(1);
+  }
+}, { immediate: false });
+
 // 组件卸载时清理缓存
 onUnmounted(() => {
   clearCache();
 });
 
 onMounted(async () => {
-  await fetchArtistInfo();
+  const success = await fetchArtistInfo();
 
-  // 检查是否有返回的页面信息或指定的页码
-  const returnPage = parseInt(route.query.page as string);
-  if (returnPage && returnPage > 0) {
-    currentPage.value = returnPage;
-    await fetchArtworks(returnPage, true);
-  } else {
-    await fetchArtworks(1);
+  // 只有成功获取作者信息后才获取作品
+  if (success && artist.value) {
+    // 检查是否有返回的页面信息或指定的页码
+    const returnPage = parseInt(route.query.page as string);
+    if (returnPage && returnPage > 0) {
+      currentPage.value = returnPage;
+      await fetchArtworks(returnPage, true);
+    } else {
+      await fetchArtworks(1);
+    }
   }
-  
+
   // 恢复滚动位置（延迟执行确保页面内容完全加载）
   setTimeout(() => {
     restoreScrollPosition(route.fullPath);
