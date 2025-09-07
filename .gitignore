@@ -64,8 +64,10 @@ typings/
 downloads/
 data/
 
-# 用户配置文件（每个用户不同）
+# 用户配置文件
 backend/config/user-config.json
+# 待看名单
+backend/config/watchlist.json
 
 # 自己的启动文件
 start_me.bat

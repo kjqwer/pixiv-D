@@ -439,7 +439,7 @@ const goToPage = (page: number) => {
     }
   });
 
-  fetchArtworks(page);
+  // 由于路由监听器会自动处理页面变化，这里不需要手动调用fetchArtworks
 };
 
 // 关注/取消关注
@@ -559,11 +559,10 @@ const handleJumpToPage = async () => {
     }
   });
 
-  try {
-    await fetchArtworks(page, true);
-  } finally {
+  // 等待页面变化处理完成
+  setTimeout(() => {
     jumping.value = false;
-  }
+  }, 500);
 };
 
 // 监听路由变化
@@ -594,13 +593,45 @@ watch(() => route.params.id, async (newId, oldId) => {
   }
 }, { immediate: false });
 
+// 防止重复处理的标志
+const isProcessingPageChange = ref(false);
+
+// 统一的页面变化处理函数
+const handlePageChange = async (page: number, isJumpToPage = false) => {
+  if (isProcessingPageChange.value || page === currentPage.value) return;
+  
+  isProcessingPageChange.value = true;
+  try {
+    // 如果artist还没加载完成，等待加载完成
+    if (!artist.value) {
+      const waitForArtist = () => {
+        return new Promise<void>((resolve) => {
+          const unwatch = watch(() => artist.value, (newArtist) => {
+            if (newArtist) {
+              unwatch();
+              resolve();
+            }
+          }, { immediate: true });
+        });
+      };
+      await waitForArtist();
+    }
+    
+    if (artist.value) {
+      currentPage.value = page;
+      await fetchArtworks(page, isJumpToPage);
+    }
+  } finally {
+    isProcessingPageChange.value = false;
+  }
+};
+
 // 监听URL查询参数变化
-watch(() => route.query.page, (newPage) => {
+watch(() => route.query.page, async (newPage) => {
   if (newPage && artist.value) {
     const page = parseInt(newPage as string);
-    if (page > 0 && page !== currentPage.value) {
-      currentPage.value = page;
-      fetchArtworks(page, true);
+    if (page > 0) {
+      await handlePageChange(page, true);
     }
   }
 });
@@ -612,7 +643,19 @@ watch(() => artist.value?.id, (newArtistId, oldArtistId) => {
     artworks.value = [];
     currentPage.value = 1;
     totalPages.value = 0;
-    fetchArtworks(1);
+    
+    // 检查是否有页面参数
+    const pageParam = route.query.page;
+    if (pageParam) {
+      const page = parseInt(pageParam as string);
+      if (page > 0) {
+        handlePageChange(page, true);
+      } else {
+        fetchArtworks(1);
+      }
+    } else {
+      fetchArtworks(1);
+    }
   }
 }, { immediate: false });
 
