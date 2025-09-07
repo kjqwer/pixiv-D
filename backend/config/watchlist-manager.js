@@ -18,8 +18,8 @@ class WatchlistManager {
       // 在打包环境中，使用可执行文件所在目录
       this.configDir = path.join(process.cwd(), 'data', 'watchlist.json')
     } else {
-      // 在开发环境中，使用相对路径
-      this.configDir = path.join(__dirname, 'watchlist.json')
+      // 在开发环境中，使用项目根目录的data文件夹
+      this.configDir = path.join(__dirname, '..', '..', 'data', 'watchlist.json')
     }
     
     // 确保配置目录存在
