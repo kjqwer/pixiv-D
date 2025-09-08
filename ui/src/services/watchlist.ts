@@ -19,6 +19,7 @@ export interface AddWatchlistItemParams {
 // 更新项目的参数接口
 export interface UpdateWatchlistItemParams {
   title?: string;
+  url?: string;
 }
 
 class WatchlistService {

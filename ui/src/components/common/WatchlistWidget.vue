@@ -111,12 +111,12 @@
           </div>
           <div class="form-group">
             <label>URL</label>
-            <input :value="editingItem.url" type="text" class="form-input" readonly disabled>
+            <input v-model="editUrl" type="text" class="form-input" placeholder="请输入URL" @keyup.enter="saveEdit">
           </div>
         </div>
         <div class="modal-actions">
           <button @click="cancelEdit" class="btn btn-secondary">取消</button>
-          <button @click="saveEdit" class="btn btn-primary" :disabled="!editTitle.trim()">保存</button>
+          <button @click="saveEdit" class="btn btn-primary" :disabled="!editTitle.trim() || !editUrl.trim()">保存</button>
         </div>
       </div>
     </div>
@@ -232,6 +232,7 @@ const isOpen = ref(false);
 const addLoading = ref(false);
 const editingItem = ref<WatchlistItem | null>(null);
 const editTitle = ref('');
+const editUrl = ref('');
 const showingAddModal = ref(false);
 const addTitle = ref('');
 const addUrl = ref('');
@@ -400,18 +401,21 @@ const navigateToItem = (item: WatchlistItem) => {
 const editItem = (item: WatchlistItem) => {
   editingItem.value = item;
   editTitle.value = item.title;
+  editUrl.value = item.url;
 };
 
 const cancelEdit = () => {
   editingItem.value = null;
   editTitle.value = '';
+  editUrl.value = '';
 };
 
 const saveEdit = async () => {
-  if (!editingItem.value || !editTitle.value.trim()) return;
+  if (!editingItem.value || !editTitle.value.trim() || !editUrl.value.trim()) return;
 
   const success = await watchlistStore.updateItem(editingItem.value.id, {
-    title: editTitle.value.trim()
+    title: editTitle.value.trim(),
+    url: editUrl.value.trim()
   });
 
   if (success) {

@@ -711,7 +711,7 @@ const handleKeydown = (event: KeyboardEvent) => {
   } else if (event.key === 'ArrowRight' && canNavigateToNext.value) {
     event.preventDefault();
     navigateToNext();
-  } else if (event.key === 'Escape') {
+  } else if (event.key === 'Escape' || event.key === 'ArrowUp') {
     event.preventDefault();
     goBackToArtist();
   } else if (event.key === 'ArrowDown') {
