@@ -26,9 +26,10 @@
           :current-task="currentTask" :loading="loading" :show-navigation="showNavigation"
           :previous-artwork="previousArtwork" :next-artwork="nextArtwork" :canNavigatePrevious="canNavigateToPrevious"
           :canNavigateNext="canNavigateToNext" :selected-tags="selectedTags" :show-recommendations="showRecommendations"
+          :show-caption="showCaption"
           @download="handleDownload" @bookmark="handleBookmark" @go-back="goBackToArtist"
           @navigate-previous="navigateToPrevious" @navigate-next="navigateToNext" @tag-click="handleTagClick"
-          @toggle-recommendations="showRecommendations = $event" />
+          @toggle-recommendations="showRecommendations = $event" @toggle-caption="showCaption = $event" />
       </div>
 
       <!-- 推荐作品组件 -->
@@ -94,6 +95,9 @@ const isLoadingPrevious = ref(false); // 是否正在加载上一页
 // 推荐作品开关状态
 const showRecommendations = ref(true);
 
+// Caption 显示开关状态
+const showCaption = ref(false);
+
 // 初始化推荐开关状态（从localStorage读取）
 const initializeRecommendationsState = () => {
   const saved = localStorage.getItem('artwork-show-recommendations');
@@ -102,9 +106,22 @@ const initializeRecommendationsState = () => {
   }
 };
 
+// 初始化 Caption 开关状态（从localStorage读取）
+const initializeCaptionState = () => {
+  const saved = localStorage.getItem('artwork-show-caption');
+  if (saved !== null) {
+    showCaption.value = JSON.parse(saved);
+  }
+};
+
 // 监听推荐开关状态变化并保存到localStorage
 watch(showRecommendations, (newValue) => {
   localStorage.setItem('artwork-show-recommendations', JSON.stringify(newValue));
+});
+
+// 监听 Caption 开关状态变化并保存到localStorage
+watch(showCaption, (newValue) => {
+  localStorage.setItem('artwork-show-caption', JSON.stringify(newValue));
 });
 
 // 导航相关计算属性
@@ -738,6 +755,9 @@ onMounted(() => {
 
   // 初始化推荐开关状态
   initializeRecommendationsState();
+  
+  // 初始化 Caption 开关状态
+  initializeCaptionState();
 });
 
 // 组件卸载时移除事件监听

@@ -115,6 +115,19 @@
             <div class="description-content" v-html="artwork.description"></div>
         </div>
 
+        <!-- Caption - 只在描述为空或不同于caption时显示 -->
+        <div v-if="artwork.caption && artwork.caption !== artwork.description" class="artwork-caption">
+            <div class="caption-header">
+                <h3>原文</h3>
+                <label class="caption-toggle">
+                    <input type="checkbox" :checked="showCaption" @change="handleCaptionToggleChange" />
+                    <span class="caption-slider"></span>
+                </label>
+            </div>
+            <div v-if="showCaption" class="caption-content" v-html="artwork.caption">
+            </div>
+        </div>
+
         <!-- 时间信息和推荐开关 -->
         <div class="artwork-meta">
             <div class="meta-content">
@@ -162,9 +175,12 @@ interface Props {
     canNavigateNext: boolean;
     selectedTags: string[];
     showRecommendations: boolean;
+    showCaption?: boolean;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+    showCaption: false
+});
 
 const emit = defineEmits<{
     download: [];
@@ -176,6 +192,7 @@ const emit = defineEmits<{
     navigateNext: [];
     tagClick: [event: MouseEvent, tagName: string];
     toggleRecommendations: [checked: boolean];
+    toggleCaption: [checked: boolean];
 }>();
 
 // 使用统一的图片代理函数
@@ -219,6 +236,12 @@ const handleTagClick = (event: MouseEvent, tagName: string) => {
 const handleToggleChange = (event: Event) => {
     const target = event.target as HTMLInputElement;
     emit('toggleRecommendations', target.checked);
+};
+
+// 处理 Caption 开关切换
+const handleCaptionToggleChange = (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    emit('toggleCaption', target.checked);
 };
 </script>
 
@@ -421,6 +444,87 @@ const handleToggleChange = (event: Event) => {
 .description-content {
     color: #374151;
     line-height: 1.6;
+}
+
+.artwork-caption {
+    margin-bottom: 1.5rem;
+}
+
+.caption-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding: 0.5rem 0;
+}
+
+.caption-header h3 {
+    font-size: 1rem;
+    font-weight: 500;
+    color: #6b7280;
+    margin: 0;
+}
+
+.caption-toggle {
+    position: relative;
+    width: 24px;
+    height: 12px;
+}
+
+.caption-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.caption-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #d1d5db;
+    transition: .2s;
+    border-radius: 12px;
+}
+
+.caption-slider:before {
+    position: absolute;
+    content: "";
+    height: 8px;
+    width: 8px;
+    left: 2px;
+    bottom: 2px;
+    border-radius: 50%;
+    background-color: white;
+    transition: .2s;
+}
+
+.caption-toggle input:checked+.caption-slider {
+    background-color: #3b82f6;
+}
+
+.caption-toggle input:focus+.caption-slider {
+    box-shadow: 0 0 1px #3b82f6;
+}
+
+.caption-toggle input:checked+.caption-slider:before {
+    transform: translateX(12px);
+}
+
+.caption-content {
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    color: #4b5563;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    max-height: 120px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    /* Preserve line breaks in caption */
 }
 
 .artwork-meta {
@@ -681,6 +785,15 @@ input:checked+.slider:before {
 
     .toggle-container {
         align-self: flex-end;
+    }
+
+    .caption-content {
+        max-height: 80px;
+        font-size: 0.75rem;
+    }
+
+    .caption-header h3 {
+        font-size: 0.875rem;
     }
 }
 </style>

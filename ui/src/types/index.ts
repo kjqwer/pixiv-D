@@ -34,6 +34,7 @@ export interface Artwork {
   id: number;
   title: string;
   description: string;
+  caption: string;
   user: User;
   image_urls: {
     square_medium: string;
