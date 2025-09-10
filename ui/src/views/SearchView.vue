@@ -139,7 +139,8 @@
             <!-- 分页导航 -->
             <div v-if="totalPages > 1" class="pagination-section">
               <div class="pagination">
-                <button @click="goToPage(currentPage - 1)" class="page-btn" :disabled="currentPage <= 1">
+                <button @click="goToPage(currentPage - 1)" class="page-btn" :disabled="currentPage <= 1"
+                  :title="`上一页(快捷键: ←)`">
                   上一页
                 </button>
 
@@ -148,7 +149,8 @@
                   {{ page }}
                 </button>
 
-                <button @click="goToPage(currentPage + 1)" class="page-btn" :disabled="currentPage >= totalPages">
+                <button @click="goToPage(currentPage + 1)" class="page-btn" :disabled="currentPage >= totalPages"
+                  :title="`下一页(快捷键: →)`">
                   下一页
                 </button>
               </div>
@@ -197,7 +199,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import artworkService from '@/services/artwork';
@@ -751,11 +753,41 @@ watch(() => route.query, () => {
   if (urlDuration) searchDuration.value = urlDuration as 'all' | 'within_last_day' | 'within_last_week' | 'within_last_month';
 }, { immediate: true });
 
+// 键盘事件处理
+const handleKeyDown = (event: KeyboardEvent) => {
+  // 检查是否在输入框中，如果是则不处理
+  const target = event.target as HTMLElement;
+  if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')) {
+    return;
+  }
+
+  // 只有在有搜索结果且有多页时才处理键盘事件
+  if (totalPages.value <= 1 || searchResults.value.length === 0 || searchMode.value === 'artist') {
+    return;
+  }
+
+  if (event.key === 'ArrowLeft' && currentPage.value > 1) {
+    event.preventDefault();
+    goToPage(currentPage.value - 1);
+  } else if (event.key === 'ArrowRight' && currentPage.value < totalPages.value) {
+    event.preventDefault();
+    goToPage(currentPage.value + 1);
+  }
+};
+
 // 组件挂载时恢复滚动位置
 onMounted(() => {
+  // 添加键盘事件监听器
+  window.addEventListener('keydown', handleKeyDown);
+
   setTimeout(() => {
     restoreScrollPosition(route.fullPath);
   }, 200);
+});
+
+// 组件卸载时移除事件监听器
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown);
 });
 </script>
 

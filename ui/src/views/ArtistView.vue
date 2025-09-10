@@ -120,7 +120,8 @@
 
           <!-- 分页导航 -->
           <div v-if="totalPages > 1 && artworks.length > 0" class="pagination">
-            <button @click="goToPage(currentPage - 1)" class="page-btn" :disabled="currentPage <= 1">
+            <button @click="goToPage(currentPage - 1)" class="page-btn" :disabled="currentPage <= 1"
+              :title="`上一页(快捷键: ←)`">
               <svg viewBox="0 0 24 24" fill="currentColor" class="page-icon">
                 <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
               </svg>
@@ -134,7 +135,8 @@
               </button>
             </div>
 
-            <button @click="goToPage(currentPage + 1)" class="page-btn" :disabled="currentPage >= totalPages">
+            <button @click="goToPage(currentPage + 1)" class="page-btn" :disabled="currentPage >= totalPages"
+              :title="`下一页(快捷键: →)`">
               下一页
               <svg viewBox="0 0 24 24" fill="currentColor" class="page-icon">
                 <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z" />
@@ -599,7 +601,7 @@ const isProcessingPageChange = ref(false);
 // 统一的页面变化处理函数
 const handlePageChange = async (page: number, isJumpToPage = false) => {
   if (isProcessingPageChange.value || page === currentPage.value) return;
-  
+
   isProcessingPageChange.value = true;
   try {
     // 如果artist还没加载完成，等待加载完成
@@ -616,7 +618,7 @@ const handlePageChange = async (page: number, isJumpToPage = false) => {
       };
       await waitForArtist();
     }
-    
+
     if (artist.value) {
       currentPage.value = page;
       await fetchArtworks(page, isJumpToPage);
@@ -643,7 +645,7 @@ watch(() => artist.value?.id, (newArtistId, oldArtistId) => {
     artworks.value = [];
     currentPage.value = 1;
     totalPages.value = 0;
-    
+
     // 检查是否有页面参数
     const pageParam = route.query.page;
     if (pageParam) {
@@ -659,9 +661,32 @@ watch(() => artist.value?.id, (newArtistId, oldArtistId) => {
   }
 }, { immediate: false });
 
-// 组件卸载时清理缓存
+// 键盘事件处理
+const handleKeyDown = (event: KeyboardEvent) => {
+  // 检查是否在输入框中，如果是则不处理
+  const target = event.target as HTMLElement;
+  if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')) {
+    return;
+  }
+
+  // 只有在有多页且有作品时才处理键盘事件
+  if (totalPages.value <= 1 || artworks.value.length === 0) {
+    return;
+  }
+
+  if (event.key === 'ArrowLeft' && currentPage.value > 1) {
+    event.preventDefault();
+    goToPage(currentPage.value - 1);
+  } else if (event.key === 'ArrowRight' && currentPage.value < totalPages.value) {
+    event.preventDefault();
+    goToPage(currentPage.value + 1);
+  }
+};
+
+// 组件卸载时清理缓存和事件监听器
 onUnmounted(() => {
   clearCache();
+  window.removeEventListener('keydown', handleKeyDown);
 });
 
 onMounted(async () => {
@@ -678,6 +703,9 @@ onMounted(async () => {
       await fetchArtworks(1);
     }
   }
+
+  // 添加键盘事件监听器
+  window.addEventListener('keydown', handleKeyDown);
 
   // 恢复滚动位置（延迟执行确保页面内容完全加载）
   setTimeout(() => {
