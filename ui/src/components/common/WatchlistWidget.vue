@@ -42,6 +42,32 @@
         </div>
       </div>
 
+      <!-- 搜索和排序控制区域 -->
+      <div class="watchlist-controls">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="currentColor" class="search-icon">
+            <path
+              d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+          </svg>
+          <input v-model="searchQuery" type="text" placeholder="搜索标题或URL..." class="search-input" />
+          <button v-if="searchQuery" @click="clearSearch" class="clear-search-btn" title="清除搜索">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+            </svg>
+          </button>
+        </div>
+        <div class="sort-controls">
+          <button @click="toggleSortOrder" class="sort-btn" :title="sortOrder === 'desc' ? '切换为升序' : '切换为降序'">
+            <svg viewBox="0 0 24 24" fill="currentColor" class="sort-icon">
+              <path v-if="sortOrder === 'desc'" d="M3 12l2-2 7 7 10-10 2 2L12 21z" />
+              <path v-else d="M12 3l10 10-2 2-7-7-7 7-2-2z" />
+            </svg>
+            <span class="sort-text">{{ sortOrder === 'desc' ? '最新' : '最旧' }}</span>
+          </button>
+        </div>
+      </div>
+
       <div class="watchlist-content">
         <div v-if="loading && items.length === 0" class="loading">
           <div class="loading-spinner"></div>
@@ -57,6 +83,15 @@
           <button @click="fetchItems" class="retry-btn">重试</button>
         </div>
 
+        <div v-else-if="filteredAndSortedItems.length === 0 && searchQuery" class="empty">
+          <svg viewBox="0 0 24 24" fill="currentColor" class="empty-icon">
+            <path
+              d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+          </svg>
+          <span>没有找到匹配的项目</span>
+          <p>尝试调整搜索词或清除搜索条件</p>
+        </div>
+
         <div v-else-if="items.length === 0" class="empty">
           <svg viewBox="0 0 24 24" fill="currentColor" class="empty-icon">
             <path
@@ -67,7 +102,8 @@
         </div>
 
         <div v-else class="items-list">
-          <div v-for="item in items" :key="item.id" class="watchlist-item" :class="{ current: isCurrentUrl(item.url) }">
+          <div v-for="item in filteredAndSortedItems" :key="item.id" class="watchlist-item"
+            :class="{ current: isCurrentUrl(item.url) }">
             <div class="item-main" @click="navigateToItem(item)">
               <div class="item-title" :title="item.title">{{ item.title }}</div>
               <div class="item-url" :title="item.url">{{ formatUrl(item.url) }}</div>
@@ -240,6 +276,10 @@ const addMode = ref<'single' | 'batch'>('single');
 const batchUrls = ref('');
 const autoGenerateTitle = ref(true);
 
+// 搜索和排序
+const searchQuery = ref('');
+const sortOrder = ref<'asc' | 'desc'>('desc'); // 'desc' 表示最新，'asc' 表示最旧
+
 // Store和Router
 const watchlistStore = useWatchlistStore();
 const route = useRoute();
@@ -250,6 +290,29 @@ const items = computed(() => watchlistStore.items);
 const itemCount = computed(() => watchlistStore.itemCount);
 const loading = computed(() => watchlistStore.loading);
 const error = computed(() => watchlistStore.error);
+
+// 过滤和排序后的待看项目
+const filteredAndSortedItems = computed(() => {
+  let filteredItems = [...items.value];
+
+  // 搜索过滤
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase();
+    filteredItems = filteredItems.filter(item =>
+      item.title.toLowerCase().includes(query) ||
+      item.url.toLowerCase().includes(query)
+    );
+  }
+
+  // 排序
+  filteredItems.sort((a, b) => {
+    const dateA = new Date(a.createdAt).getTime();
+    const dateB = new Date(b.createdAt).getTime();
+    return sortOrder.value === 'desc' ? dateB - dateA : dateA - dateB;
+  });
+
+  return filteredItems;
+});
 
 // 获取当前页面完整URL
 const getCurrentPageUrl = () => {
@@ -505,6 +568,16 @@ const saveAdd = async () => {
   }
 };
 
+// 切换排序顺序
+const toggleSortOrder = () => {
+  sortOrder.value = sortOrder.value === 'desc' ? 'asc' : 'desc';
+};
+
+// 清除搜索
+const clearSearch = () => {
+  searchQuery.value = '';
+};
+
 // 格式化URL显示
 const formatUrl = (url: string) => {
   try {
@@ -723,6 +796,99 @@ watch(() => route.fullPath, () => {
 .close-icon {
   width: 1rem;
   height: 1rem;
+}
+
+/* 搜索和排序控制区域样式 */
+.watchlist-controls {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f8fafc;
+}
+
+.search-box {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  gap: 0.5rem;
+}
+
+.search-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  color: #6b7280;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  background: none;
+  font-size: 0.875rem;
+  color: #374151;
+  outline: none;
+}
+
+.search-input::placeholder {
+  color: #9ca3af;
+}
+
+.clear-search-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  transition: all 0.2s;
+}
+
+.clear-search-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.clear-search-btn svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.sort-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sort-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sort-btn:hover {
+  background: #e5e7eb;
+}
+
+.sort-icon {
+  width: 1rem;
+  height: 1rem;
+  color: #6b7280;
+}
+
+.sort-text {
+  font-size: 0.875rem;
+  color: #374151;
 }
 
 /* 内容样式 */

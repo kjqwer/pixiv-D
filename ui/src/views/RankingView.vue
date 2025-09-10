@@ -294,7 +294,7 @@ const goToPage = (page: number) => {
 const handleArtworkClick = (artwork: Artwork) => {
   // 保存当前页面的滚动位置
   saveScrollPosition(route.fullPath);
-  
+
   router.push({
     path: `/artwork/${artwork.id}`,
     query: {
@@ -387,9 +387,32 @@ watch(() => route.query, () => {
   }
 });
 
-// 组件卸载时清理缓存
+// 键盘事件处理
+const handleKeyDown = (event: KeyboardEvent) => {
+  // 检查是否在输入框中，如果是则不处理
+  const target = event.target as HTMLElement;
+  if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')) {
+    return;
+  }
+
+  // 只有在有多页且有作品时才处理键盘事件
+  if (totalPages.value <= 1 || !artworks.value || artworks.value.length === 0) {
+    return;
+  }
+
+  if (event.key === 'ArrowLeft' && currentPage.value > 1) {
+    event.preventDefault();
+    goToPage(currentPage.value - 1);
+  } else if (event.key === 'ArrowRight' && currentPage.value < totalPages.value) {
+    event.preventDefault();
+    goToPage(currentPage.value + 1);
+  }
+};
+
+// 组件卸载时清理缓存和事件监听器
 onUnmounted(() => {
   clearCache();
+  window.removeEventListener('keydown', handleKeyDown);
 });
 
 onMounted(async () => {
@@ -416,7 +439,10 @@ onMounted(async () => {
   } else {
     await fetchRankingData(1);
   }
-  
+
+  // 添加键盘事件监听器
+  window.addEventListener('keydown', handleKeyDown);
+
   // 恢复滚动位置
   setTimeout(() => {
     restoreScrollPosition(route.fullPath);
