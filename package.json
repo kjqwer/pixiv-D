@@ -1,6 +1,6 @@
 {
   "name": "pixiv-backend",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "description": "Pixiv 下载浏览管理器",
   "main": "backend/start.js",
   "bin": "backend/start.js",

@@ -4,13 +4,16 @@ import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useDownloadStore } from '@/stores/download'
+import { useUpdateStore } from '@/stores/update'
 import SettingsWidget from '@/components/common/SettingsWidget.vue'
 import DownloadProgressWidget from '@/components/common/DownloadProgressWidget.vue'
 import WatchlistWidget from '@/components/common/WatchlistWidget.vue'
+import UpdateChecker from '@/components/common/UpdateChecker.vue'
 
 const route = useRoute()
 const authStore = useAuthStore()
 const downloadStore = useDownloadStore()
+const updateStore = useUpdateStore()
 
 const isLoggedIn = computed(() => authStore.isLoggedIn)
 const username = computed(() => authStore.username)
@@ -23,11 +26,16 @@ const showDownloadWidget = computed(() => {
 onMounted(async () => {
   await authStore.fetchLoginStatus()
   
-  // 如果已登录，初始化下载store
+  // 如果已登录，初始化下载store和检查更新
   if (authStore.isLoggedIn) {
     await downloadStore.fetchTasks()
     // 启动定期刷新
     downloadStore.startRefreshInterval()
+    
+    // 自动检查更新（静默）
+    setTimeout(() => {
+      updateStore.autoCheckUpdate()
+    }, 2000) // 延迟2秒，避免影响登录流程
   }
 })
 </script>
@@ -63,6 +71,9 @@ onMounted(async () => {
             <button @click="authStore.logout" class="btn btn-text">登出</button>
           </div>
           <RouterLink v-else to="/login" class="btn btn-primary">登录</RouterLink>
+
+          <!-- 更新检查器 -->
+          <UpdateChecker />
 
           <!-- GitHub 链接 -->
           <a href="https://github.com/kjqwer/pixiv-D" target="_blank" rel="noopener noreferrer" class="github-link"
@@ -176,6 +187,7 @@ onMounted(async () => {
 .nav-auth {
   display: flex;
   align-items: center;
+  gap: 0.75rem;
 }
 
 .user-info {

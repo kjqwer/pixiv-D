@@ -10,11 +10,19 @@
     </button>
 
     <!-- 添加当前页面按钮 -->
-    <button @click="addCurrentPage" class="add-current-toggle"
-      :class="{ added: isCurrentPageAdded, loading: addLoading }" :disabled="addLoading" title="添加当前页面到待看名单">
+    <button @click="addOrUpdateCurrentPage" class="add-current-toggle" :class="{
+      added: isCurrentPageAdded,
+      loading: addLoading,
+      update: hasSameAuthorDifferentPage && !isCurrentPageAdded
+    }" :disabled="addLoading" :title="getAddButtonTitle()">
       <svg v-if="!addLoading" viewBox="0 0 24 24" fill="currentColor" class="add-icon">
-        <path v-if="!isCurrentPageAdded" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-        <path v-else d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+        <!-- 已添加：显示勾选图标 -->
+        <path v-if="isCurrentPageAdded" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+        <!-- 更新模式：显示更新图标 -->
+        <path v-else-if="hasSameAuthorDifferentPage"
+          d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z" />
+        <!-- 添加模式：显示加号图标 -->
+        <path v-else d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
       </svg>
       <svg v-else viewBox="0 0 24 24" fill="currentColor" class="loading-icon">
         <path
@@ -102,10 +110,15 @@
         </div>
 
         <div v-else class="items-list">
-          <div v-for="item in filteredAndSortedItems" :key="item.id" class="watchlist-item"
-            :class="{ current: isCurrentUrl(item.url) }">
+          <div v-for="item in filteredAndSortedItems" :key="item.id" class="watchlist-item" :class="{
+            current: isCurrentUrl(item.url),
+            duplicate: isDuplicateAuthor(item)
+          }">
             <div class="item-main" @click="navigateToItem(item)">
-              <div class="item-title" :title="item.title">{{ item.title }}</div>
+              <div class="item-title" :title="item.title">
+                {{ item.title }}
+                <span v-if="isDuplicateAuthor(item)" class="duplicate-badge" title="该作者有多个页面">重复</span>
+              </div>
               <div class="item-url" :title="item.url">{{ formatUrl(item.url) }}</div>
               <div class="item-time">{{ formatTime(item.createdAt) }}</div>
             </div>
@@ -327,6 +340,32 @@ const isCurrentPageAdded = computed(() => {
   return watchlistStore.hasUrl(currentPageUrl.value);
 });
 
+// 检查是否有相同作者但不同页面的项目
+const hasSameAuthorDifferentPage = computed(() => {
+  if (isCurrentPageAdded.value) return false;
+
+  const currentUrl = currentPageUrl.value;
+  const sameAuthorItem = watchlistStore.findSameAuthor(currentUrl);
+  return !!sameAuthorItem;
+});
+
+// 获取相同作者的项目
+const sameAuthorItem = computed(() => {
+  if (isCurrentPageAdded.value) return null;
+  return watchlistStore.findSameAuthor(currentPageUrl.value);
+});
+
+// 获取添加按钮的标题
+const getAddButtonTitle = () => {
+  if (isCurrentPageAdded.value) {
+    return '当前页面已在待看名单中';
+  } else if (hasSameAuthorDifferentPage.value) {
+    return '更新相同作者的页面';
+  } else {
+    return '添加当前页面到待看名单';
+  }
+};
+
 // 检查是否为当前URL
 const isCurrentUrl = (url: string) => {
   const currentUrl = currentPageUrl.value;
@@ -414,18 +453,32 @@ const toggleWatchlist = () => {
 
 const fetchItems = async () => {
   await watchlistStore.fetchItems();
+  // 数据加载完成后检查重复作者
+  checkDuplicateAuthors();
 };
 
-const addCurrentPage = async () => {
+const addOrUpdateCurrentPage = async () => {
   if (addLoading.value || isCurrentPageAdded.value) return;
 
   addLoading.value = true;
   const currentUrl = currentPageUrl.value;
 
   try {
-    const success = await watchlistStore.addItem({ url: currentUrl });
-    if (success) {
-      console.log('页面已添加到待看名单');
+    // 检查是否有相同作者的项目需要更新
+    if (hasSameAuthorDifferentPage.value && sameAuthorItem.value) {
+      // 更新现有项目的URL为当前页面
+      const success = await watchlistStore.updateItem(sameAuthorItem.value.id, {
+        url: currentUrl
+      });
+      if (success) {
+        console.log('已更新相同作者的页面到当前页面');
+      }
+    } else {
+      // 添加新项目
+      const success = await watchlistStore.addItem({ url: currentUrl });
+      if (success) {
+        console.log('页面已添加到待看名单');
+      }
     }
   } finally {
     addLoading.value = false;
@@ -628,6 +681,44 @@ onMounted(() => {
   fetchItems();
 });
 
+// 检查重复作者的方法
+const checkDuplicateAuthors = () => {
+  const authorMap = new Map<string, WatchlistItem[]>();
+
+  // 按作者ID分组
+  items.value.forEach(item => {
+    const authorId = watchlistStore.extractAuthorId(item.url);
+    if (authorId) {
+      if (!authorMap.has(authorId)) {
+        authorMap.set(authorId, []);
+      }
+      authorMap.get(authorId)!.push(item);
+    }
+  });
+
+  // 找出有重复的作者
+  const duplicateAuthors: string[] = [];
+  authorMap.forEach((items, authorId) => {
+    if (items.length > 1) {
+      duplicateAuthors.push(authorId);
+      console.warn(`检测到作者 ${authorId} 有 ${items.length} 个重复项目:`, items.map(item => item.url));
+    }
+  });
+
+  if (duplicateAuthors.length > 0) {
+    console.log(`发现 ${duplicateAuthors.length} 个作者有重复项目，建议清理`);
+  }
+};
+
+// 检查是否为重复作者
+const isDuplicateAuthor = (item: WatchlistItem) => {
+  const authorId = watchlistStore.extractAuthorId(item.url);
+  if (!authorId) return false;
+
+  const itemsByAuthor = watchlistStore.findItemsByAuthor(authorId);
+  return itemsByAuthor.length > 1;
+};
+
 // 监听路由变化，更新当前页面URL
 watch(() => route.fullPath, () => {
   // 路由变化时更新当前页面URL
@@ -677,6 +768,11 @@ watch(() => route.fullPath, () => {
 .add-current-toggle.added {
   border-color: #10b981;
   color: #10b981;
+}
+
+.add-current-toggle.update {
+  border-color: #f59e0b;
+  color: #f59e0b;
 }
 
 .add-current-toggle.loading {
@@ -965,6 +1061,13 @@ watch(() => route.fullPath, () => {
   border-color: #3b82f6;
 }
 
+.watchlist-item.duplicate {
+  background: #fef3c7;
+  /* 浅黄色背景 */
+  border-color: #f59e0b;
+  /* 橙色边框 */
+}
+
 .item-main {
   flex: 1;
   cursor: pointer;
@@ -978,6 +1081,17 @@ watch(() => route.fullPath, () => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.item-title .duplicate-badge {
+  margin-left: 0.5rem;
+  background-color: #f59e0b;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .item-url {

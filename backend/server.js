@@ -15,6 +15,7 @@ const proxyRoutes = require('./routes/proxy');
 const repositoryRoutes = require('./routes/repository');
 const rankingRoutes = require('./routes/ranking');
 const watchlistRoutes = require('./routes/watchlist');
+const updateRoutes = require('./routes/update');
 
 // 导入中间件 - 临时注释掉来定位问题
 const { errorHandler } = require('./middleware/errorHandler');
@@ -114,16 +115,7 @@ function customLogger(req, res, next) {
         default:
           methodIcon = '❓';
       }
-
-      // 格式化时间
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString('zh-CN', {
-        hour12: false,
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      });
-
+      
       // 输出日志
       logger.info(`${statusIcon} ${methodIcon} ${method} ${url} ${statusCode} ${duration}ms`);
 
@@ -227,6 +219,7 @@ class PixivServer {
     this.app.use('/api/repository', repositoryRoutes); // 仓库管理，不需要认证
     this.app.use('/api/proxy', proxyRoutes); // 图片代理，不需要认证
     this.app.use('/api/watchlist', authMiddleware, watchlistRoutes); // 待看名单，需要认证
+    this.app.use('/api/update', updateRoutes); // 更新检查，不需要认证
 
     // 404 处理
     this.app.use((req, res) => {

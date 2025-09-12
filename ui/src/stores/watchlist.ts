@@ -119,6 +119,52 @@ export const useWatchlistStore = defineStore('watchlist', () => {
     error.value = null;
   };
 
+  // 提取作者ID的工具函数
+  const extractAuthorId = (url: string) => {
+    try {
+      let path = '';
+      
+      // 处理完整URL
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        const urlObj = new URL(url);
+        path = urlObj.pathname;
+      } else {
+        // 处理相对路径
+        path = url.startsWith('/') ? url : '/' + url;
+      }
+      
+      // 匹配 /artist/数字 的模式
+      const match = path.match(/\/artist\/(\d+)/);
+      return match ? match[1] : null;
+    } catch {
+      return null;
+    }
+  };
+
+  // 检查是否有相同作者但不同页面的项目
+  const findSameAuthor = (url: string) => {
+    const authorId = extractAuthorId(url);
+    if (!authorId) return null;
+    
+    return items.value.find(item => {
+      const itemAuthorId = extractAuthorId(item.url);
+      return itemAuthorId === authorId && item.url !== url;
+    });
+  };
+
+  // 检查当前URL是否与已存在的作者页面相同（忽略页面参数）
+  const hasSameAuthor = (url: string) => {
+    return findSameAuthor(url) !== null;
+  };
+
+  // 根据作者ID查找所有项目
+  const findItemsByAuthor = (authorId: string) => {
+    return items.value.filter(item => {
+      const itemAuthorId = extractAuthorId(item.url);
+      return itemAuthorId === authorId;
+    });
+  };
+
   return {
     // 状态
     items,
@@ -134,6 +180,11 @@ export const useWatchlistStore = defineStore('watchlist', () => {
     deleteItem,
     hasUrl,
     findByUrl,
-    clearError
+    clearError,
+    // 新增的作者相关方法
+    extractAuthorId,
+    findSameAuthor,
+    hasSameAuthor,
+    findItemsByAuthor
   };
 }); 
