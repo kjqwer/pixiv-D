@@ -112,7 +112,8 @@
         <div v-else class="items-list">
           <div v-for="item in filteredAndSortedItems" :key="item.id" class="watchlist-item" :class="{
             current: isCurrentUrl(item.url),
-            duplicate: isDuplicateAuthor(item)
+            duplicate: isDuplicateAuthor(item),
+            'pinned-artist': isPinnedCurrentArtist(item)
           }">
             <div class="item-main" @click="navigateToItem(item)">
               <div class="item-title" :title="item.title">
@@ -317,14 +318,38 @@ const filteredAndSortedItems = computed(() => {
     );
   }
 
-  // 排序
-  filteredItems.sort((a, b) => {
+  // 获取当前页面的作者ID
+  const currentAuthorId = watchlistStore.extractAuthorId(currentPageUrl.value);
+  let pinnedItem: WatchlistItem | null = null;
+  let otherItems: WatchlistItem[] = [];
+
+  // 如果当前页面是artist页面，找到对应的待看项目进行置顶
+  if (currentAuthorId) {
+    const currentArtistItems = filteredItems.filter(item => {
+      const itemAuthorId = watchlistStore.extractAuthorId(item.url);
+      return itemAuthorId === currentAuthorId;
+    });
+
+    // 取第一个匹配的项目作为置顶项目
+    if (currentArtistItems.length > 0) {
+      pinnedItem = currentArtistItems[0];
+      otherItems = filteredItems.filter(item => item.id !== pinnedItem!.id);
+    } else {
+      otherItems = filteredItems;
+    }
+  } else {
+    otherItems = filteredItems;
+  }
+
+  // 对其他项目进行排序
+  otherItems.sort((a, b) => {
     const dateA = new Date(a.createdAt).getTime();
     const dateB = new Date(b.createdAt).getTime();
     return sortOrder.value === 'desc' ? dateB - dateA : dateA - dateB;
   });
 
-  return filteredItems;
+  // 返回置顶项目在前，其他项目在后的数组
+  return pinnedItem ? [pinnedItem, ...otherItems] : otherItems;
 });
 
 // 获取当前页面完整URL
@@ -719,6 +744,15 @@ const isDuplicateAuthor = (item: WatchlistItem) => {
   return itemsByAuthor.length > 1;
 };
 
+// 检查是否为当前置顶的artist项目
+const isPinnedCurrentArtist = (item: WatchlistItem) => {
+  const currentAuthorId = watchlistStore.extractAuthorId(currentPageUrl.value);
+  if (!currentAuthorId) return false;
+
+  const itemAuthorId = watchlistStore.extractAuthorId(item.url);
+  return itemAuthorId === currentAuthorId;
+};
+
 // 监听路由变化，更新当前页面URL
 watch(() => route.fullPath, () => {
   // 路由变化时更新当前页面URL
@@ -1066,6 +1100,23 @@ watch(() => route.fullPath, () => {
   /* 浅黄色背景 */
   border-color: #f59e0b;
   /* 橙色边框 */
+}
+
+.watchlist-item.pinned-artist {
+  background: #f0f9ff;
+  /* 浅蓝色背景 */
+  border-color: #0ea5e9;
+  /* 蓝色边框 */
+  position: relative;
+}
+
+.watchlist-item.pinned-artist::before {
+  content: '📌';
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 0.875rem;
+  opacity: 0.7;
 }
 
 .item-main {
