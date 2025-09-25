@@ -5,22 +5,15 @@
         <h1>下载管理</h1>
         <div class="header-actions">
           <button @click="refreshData" class="btn btn-primary" :disabled="loading">
-            <svg viewBox="0 0 24 24" fill="currentColor" class="btn-icon">
-              <path
-                d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
-            </svg>
+            <SvgIcon name="refresh" class="btn-icon" />
             刷新
           </button>
           <button @click="cleanupTasks" class="btn btn-secondary" :disabled="loading">
-            <svg viewBox="0 0 24 24" fill="currentColor" class="btn-icon">
-              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
-            </svg>
+            <SvgIcon name="cleanup" class="btn-icon" />
             清理任务
           </button>
           <button @click="cleanupHistory" class="btn btn-secondary" :disabled="loading">
-            <svg viewBox="0 0 24 24" fill="currentColor" class="btn-icon">
-              <path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
-            </svg>
+            <SvgIcon name="cleanup-history2" class="btn-icon" />
             清理历史
           </button>
         </div>
@@ -48,10 +41,7 @@
 
         <div v-else-if="activeTasks.length === 0" class="empty-section">
           <div class="empty-content">
-            <svg viewBox="0 0 24 24" fill="currentColor" class="empty-icon">
-              <path
-                d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" />
-            </svg>
+            <SvgIcon name="empty" class="empty-icon" />
             <h3>暂无下载任务</h3>
             <p>开始下载作品后，任务将显示在这里</p>
           </div>
@@ -153,10 +143,7 @@
 
         <div v-else-if="history.length === 0" class="empty-section">
           <div class="empty-content">
-            <svg viewBox="0 0 24 24" fill="currentColor" class="empty-icon">
-              <path
-                d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
-            </svg>
+            <SvgIcon name="cleanup-history" class="empty-icon" />
             <h3>暂无下载历史</h3>
             <p>下载完成后，历史记录将显示在这里</p>
           </div>

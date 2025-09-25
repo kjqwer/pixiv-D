@@ -9,12 +9,14 @@ import router from './router'
 // 导入全局组件
 import ErrorMessage from '@/components/common/ErrorMessage.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import SvgIcon from '@/components/common/SvgIcon.vue'
 
 const app = createApp(App)
 
 // 注册全局组件
 app.component('ErrorMessage', ErrorMessage)
 app.component('LoadingSpinner', LoadingSpinner)
+app.component('SvgIcon', SvgIcon)
 
 app.use(createPinia())
 app.use(router)

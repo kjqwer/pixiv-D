@@ -22,10 +22,7 @@
             </button>
           </div>
           <button @click="handleRefresh" class="btn btn-secondary" :disabled="artistStore.loading">
-            <svg viewBox="0 0 24 24" fill="currentColor" class="refresh-icon">
-              <path
-                d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
-            </svg>
+            <SvgIcon name="refresh" class="refresh-icon" />
             刷新
           </button>
         </div>
@@ -46,16 +43,11 @@
             <h2 class="section-title">关注的作者</h2>
             <div v-if="artistStore.hasFollowingArtists" class="cache-indicator">
               <span v-if="artistStore.isDataStale" class="cache-status stale">
-                <svg viewBox="0 0 24 24" fill="currentColor" class="cache-icon">
-                  <path
-                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                </svg>
+                <SvgIcon name="empty2" class="cache-icon" />
                 数据已过期
               </span>
               <span v-else class="cache-status fresh">
-                <svg viewBox="0 0 24 24" fill="currentColor" class="cache-icon">
-                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                </svg>
+                <SvgIcon name="success" class="cache-icon" />
                 数据已缓存
               </span>
             </div>
@@ -74,10 +66,7 @@
 
           <div v-else class="empty-section">
             <div class="empty-content">
-              <svg viewBox="0 0 24 24" fill="currentColor" class="empty-icon">
-                <path
-                  d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-              </svg>
+              <SvgIcon name="user" class="empty-icon" />
               <h3>暂无关注的作者</h3>
               <p>关注喜欢的作者，在这里管理他们</p>
               <div v-if="!artistStore.loading && artistStore.hasFollowingArtists" class="cache-note">
@@ -95,10 +84,7 @@
         <div class="modal-header">
           <h3>下载作品</h3>
           <button @click="closeDownloadDialog" class="modal-close">
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-            </svg>
+            <SvgIcon name="close" class="modal-close-icon" />
           </button>
         </div>
 
@@ -142,9 +128,7 @@
     <!-- 下载成功提示 -->
     <div v-if="downloadSuccess" class="success-message">
       <div class="success-content">
-        <svg viewBox="0 0 24 24" fill="currentColor" class="success-icon">
-          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-        </svg>
+        <SvgIcon name="success" class="success-icon" />
         <span>{{ downloadSuccess }}</span>
       </div>
     </div>

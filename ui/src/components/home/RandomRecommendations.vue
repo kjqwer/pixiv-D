@@ -25,10 +25,7 @@
 
             <div v-else-if="recommendations.length === 0" class="empty-section">
                 <div class="empty-content">
-                    <svg viewBox="0 0 24 24" fill="currentColor" class="empty-icon">
-                        <path
-                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                    </svg>
+                    <SvgIcon name="empty2" class="empty-icon" />
                     <p class="empty-text">暂无推荐内容</p>
                     <p class="empty-subtext">关注一些作者后，这里会显示他们的最新作品</p>
                 </div>

@@ -2,10 +2,7 @@
   <div class="watchlist-widget">
     <!-- 待看名单按钮 -->
     <button @click="toggleWatchlist" class="watchlist-toggle" :class="{ active: isOpen }" title="待看名单">
-      <svg viewBox="0 0 24 24" fill="currentColor" class="watchlist-icon">
-        <path
-          d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM10 17l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-      </svg>
+      <SvgIcon name="watchlist" class="watchlist-icon" />
       <div v-if="itemCount > 0" class="item-count">{{ itemCount }}</div>
     </button>
 
@@ -15,19 +12,17 @@
       loading: addLoading,
       update: hasSameAuthorDifferentPage && !isCurrentPageAdded
     }" :disabled="addLoading" :title="getAddButtonTitle()">
-      <svg v-if="!addLoading" viewBox="0 0 24 24" fill="currentColor" class="add-icon">
+      <!-- 加载状态：显示加载图标 -->
+      <SvgIcon v-if="addLoading" name="loading" class="loading-icon" />
+      <!-- 非加载状态：根据条件显示不同图标 -->
+      <template v-else>
         <!-- 已添加：显示勾选图标 -->
-        <path v-if="isCurrentPageAdded" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+        <SvgIcon v-if="isCurrentPageAdded" name="success" class="add-icon" />
         <!-- 更新模式：显示更新图标 -->
-        <path v-else-if="hasSameAuthorDifferentPage"
-          d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z" />
+        <SvgIcon v-else-if="hasSameAuthorDifferentPage" name="watchlist-update" class="add-icon" />
         <!-- 添加模式：显示加号图标 -->
-        <path v-else d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-      </svg>
-      <svg v-else viewBox="0 0 24 24" fill="currentColor" class="loading-icon">
-        <path
-          d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z" />
-      </svg>
+        <SvgIcon v-else name="add" class="add-icon" />
+      </template>
     </button>
 
     <!-- 待看名单面板 -->
@@ -37,15 +32,10 @@
         <div class="header-actions">
           <span class="item-count-text">{{ itemCount }} 项</span>
           <button @click="showAddModal" class="add-btn" title="手动添加">
-            <svg viewBox="0 0 24 24" fill="currentColor" class="add-icon">
-              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-            </svg>
+            <SvgIcon name="add" class="add-icon" />
           </button>
           <button @click="toggleWatchlist" class="close-btn" title="关闭">
-            <svg viewBox="0 0 24 24" fill="currentColor" class="close-icon">
-              <path
-                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-            </svg>
+            <SvgIcon name="close" class="close-icon" />
           </button>
         </div>
       </div>
@@ -53,24 +43,16 @@
       <!-- 搜索和排序控制区域 -->
       <div class="watchlist-controls">
         <div class="search-box">
-          <svg viewBox="0 0 24 24" fill="currentColor" class="search-icon">
-            <path
-              d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-          </svg>
+          <SvgIcon name="search" class="search-icon" />
           <input v-model="searchQuery" type="text" placeholder="搜索标题或URL..." class="search-input" />
           <button v-if="searchQuery" @click="clearSearch" class="clear-search-btn" title="清除搜索">
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-            </svg>
+            <SvgIcon name="close" class="close-icon" />
           </button>
         </div>
         <div class="sort-controls">
           <button @click="toggleSortOrder" class="sort-btn" :title="sortOrder === 'desc' ? '切换为升序' : '切换为降序'">
-            <svg viewBox="0 0 24 24" fill="currentColor" class="sort-icon">
-              <path v-if="sortOrder === 'desc'" d="M3 12l2-2 7 7 10-10 2 2L12 21z" />
-              <path v-else d="M12 3l10 10-2 2-7-7-7 7-2-2z" />
-            </svg>
+            <SvgIcon v-if="sortOrder === 'desc'" name="sort-desc" class="sort-icon" />
+            <SvgIcon v-else name="sort-asc" class="sort-icon" />
             <span class="sort-text">{{ sortOrder === 'desc' ? '最新' : '最旧' }}</span>
           </button>
         </div>
@@ -83,28 +65,19 @@
         </div>
 
         <div v-else-if="error" class="error">
-          <svg viewBox="0 0 24 24" fill="currentColor" class="error-icon">
-            <path
-              d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-          </svg>
+          <SvgIcon name="bookmark-empty" class="error-icon" />
           <span>{{ error }}</span>
           <button @click="fetchItems" class="retry-btn">重试</button>
         </div>
 
         <div v-else-if="filteredAndSortedItems.length === 0 && searchQuery" class="empty">
-          <svg viewBox="0 0 24 24" fill="currentColor" class="empty-icon">
-            <path
-              d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-          </svg>
+          <SvgIcon name="search" class="empty-icon" />
           <span>没有找到匹配的项目</span>
           <p>尝试调整搜索词或清除搜索条件</p>
         </div>
 
         <div v-else-if="items.length === 0" class="empty">
-          <svg viewBox="0 0 24 24" fill="currentColor" class="empty-icon">
-            <path
-              d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" />
-          </svg>
+          <SvgIcon name="empty" class="empty-icon" />
           <span>暂无待看项目</span>
           <p>点击右侧的 + 按钮添加当前页面</p>
         </div>
@@ -126,15 +99,10 @@
 
             <div class="item-actions">
               <button @click="editItem(item)" class="action-btn edit-btn" title="编辑">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path
-                    d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
-                </svg>
+                <SvgIcon name="edit" class="edit-icon" />
               </button>
               <button @click="deleteItemById(item.id)" class="action-btn delete-btn" title="删除">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
-                </svg>
+                <SvgIcon name="delete" class="delete-icon" />
               </button>
             </div>
           </div>
@@ -148,10 +116,7 @@
         <div class="modal-header">
           <h4>编辑待看项目</h4>
           <button @click="cancelEdit" class="close-btn">
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-            </svg>
+            <SvgIcon name="close" class="close-icon" />
           </button>
         </div>
         <div class="modal-content">
@@ -177,10 +142,7 @@
         <div class="modal-header">
           <h4>添加待看项目</h4>
           <button @click="cancelAdd" class="close-btn">
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-            </svg>
+            <SvgIcon name="close" class="close-icon" />
           </button>
         </div>
         <div class="modal-content">

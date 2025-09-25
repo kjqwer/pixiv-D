@@ -22,9 +22,7 @@
             <!-- 下载状态提示 -->
             <div v-if="isDownloaded && !currentTask" class="download-status">
                 <div class="status-indicator">
-                    <svg viewBox="0 0 24 24" fill="currentColor" class="status-icon">
-                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                    </svg>
+                    <SvgIcon name="check-circle" class="status-icon" />
                     <span>已下载到本地</span>
                 </div>
             </div>
@@ -50,49 +48,34 @@
         <!-- 作品导航 -->
         <div v-if="showNavigation" class="artwork-navigation">
             <button @click="$emit('goBack')" class="nav-btn nav-back" title="返回作者页面(快捷键: Esc / ↑ )">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
-                </svg>
+                <SvgIcon name="arrow-left" />
                 <span>返回 <span class="keyboard-hint">(Esc)</span></span>
             </button>
             <button @click="$emit('navigatePrevious')" class="nav-btn nav-prev"
                 :disabled="!canNavigatePrevious || loading"
                 :title="canNavigatePrevious ? (previousArtwork ? `上一个(快捷键: ←): ${previousArtwork.title}` : '加载上一页') : '没有上一个作品'">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
-                </svg>
+                <SvgIcon name="arrow-left2" />
                 <span>{{ loading ? '切换中...' : '上一个' }} </span>
             </button>
             <button @click="$emit('navigateNext')" class="nav-btn nav-next" :disabled="!canNavigateNext || loading"
                 :title="canNavigateNext ? (nextArtwork ? `下一个(快捷键: →): ${nextArtwork.title}` : '加载下一页') : '没有下一个作品'">
                 <span>{{ loading ? '切换中...' : '下一个' }} </span>
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z" />
-                </svg>
+                <SvgIcon name="arrow-next" />
             </button>
         </div>
 
         <!-- 作品统计 -->
         <div class="artwork-stats">
             <div class="stat">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path
-                        d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                </svg>
+                <SvgIcon name="bookmark" />
                 <span>{{ artwork.total_bookmarks }}</span>
             </div>
             <div class="stat">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path
-                        d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
-                </svg>
+                <SvgIcon name="eye" />
                 <span>{{ artwork.total_view }}</span>
             </div>
             <div class="stat">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path
-                        d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z" />
-                </svg>
+                <SvgIcon name="folder" />
                 <span>{{ artwork.width }} × {{ artwork.height }}</span>
             </div>
         </div>

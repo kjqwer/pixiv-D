@@ -5,13 +5,8 @@
             :class="{ 'has-update': hasUpdate, 'checking': isChecking }" :title="hasUpdate ? '发现新版本！' : '检查更新'">
             <!-- 更新提示小红点 -->
             <span v-if="hasUpdate" class="update-dot"></span>
-            <svg v-if="!isChecking" viewBox="0 0 24 24" fill="currentColor" class="update-icon">
-                <path
-                    d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" />
-            </svg>
-            <svg v-else viewBox="0 0 24 24" fill="currentColor" class="update-icon spinning">
-                <path d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z" />
-            </svg>
+            <SvgIcon v-if="!isChecking" name="update" class="update-icon" />
+            <SvgIcon v-else name="update" class="update-icon spinning" />
             <span v-if="!hasUpdate">{{ isChecking ? '检查中...' : '检查更新' }}</span>
             <span v-else class="update-available">有新版本</span>
         </button>
@@ -22,17 +17,11 @@
                 <div class="modal-content" @click.stop>
                     <div class="modal-header">
                         <h3 class="modal-title">
-                            <svg viewBox="0 0 24 24" fill="currentColor" class="modal-icon">
-                                <path
-                                    d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" />
-                            </svg>
+                            <SvgIcon name="update" class="modal-icon" />
                             版本检查结果
                         </h3>
                         <button @click="closeModal" class="modal-close">
-                            <svg viewBox="0 0 24 24" fill="currentColor">
-                                <path
-                                    d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-                            </svg>
+                            <SvgIcon name="close" class="modal-close" />
                         </button>
                     </div>
 
@@ -52,10 +41,7 @@
 
                         <div v-if="updateInfo?.hasUpdate" class="update-available-section">
                             <div class="update-status">
-                                <svg viewBox="0 0 24 24" fill="currentColor" class="status-icon success">
-                                    <path
-                                        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                                </svg>
+                                <SvgIcon name="success" class="status-icon success" />
                                 <span class="status-text">发现新版本！</span>
                             </div>
 
@@ -99,20 +85,14 @@
 
                         <div v-else-if="updateInfo && !updateInfo.hasUpdate" class="no-update-section">
                             <div class="update-status">
-                                <svg viewBox="0 0 24 24" fill="currentColor" class="status-icon info">
-                                    <path
-                                        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
-                                </svg>
+                                <SvgIcon name="info" class="status-icon info" />
                                 <span class="status-text">您使用的已是最新版本</span>
                             </div>
                         </div>
 
                         <div v-if="error" class="error-section">
                             <div class="update-status">
-                                <svg viewBox="0 0 24 24" fill="currentColor" class="status-icon error">
-                                    <path
-                                        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
-                                </svg>
+                                <SvgIcon name="error" class="status-icon error" />
                                 <span class="status-text">检查更新失败</span>
                             </div>
                             <div class="error-message">{{ error }}</div>

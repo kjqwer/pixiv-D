@@ -12,9 +12,7 @@
       <!-- 下载成功提示 -->
       <div v-if="downloadSuccess" class="success-message">
         <div class="success-content">
-          <svg viewBox="0 0 24 24" fill="currentColor" class="success-icon">
-            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-          </svg>
+          <SvgIcon name="success" class="success-icon" />
           <span>{{ downloadSuccess }}</span>
         </div>
       </div>
@@ -91,16 +89,12 @@
               <!-- 顶部分页导航 -->
               <div v-if="totalPages > 1 && artworks.length > 0" class="simple-pagination">
                 <button @click="goToPage(currentPage - 1)" class="simple-page-btn" :disabled="currentPage <= 1">
-                  <svg viewBox="0 0 24 24" fill="currentColor" class="simple-page-icon">
-                    <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
-                  </svg>
+                  <SvgIcon name="arrow-left2" class="simple-page-icon" />
                 </button>
                 <span class="simple-page-info">{{ currentPage }} / {{ totalPages }}</span>
                 <button @click="goToPage(currentPage + 1)" class="simple-page-btn"
                   :disabled="currentPage >= totalPages">
-                  <svg viewBox="0 0 24 24" fill="currentColor" class="simple-page-icon">
-                    <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z" />
-                  </svg>
+                  <SvgIcon name="arrow-right" class="simple-page-icon" />
                 </button>
               </div>
             </div>
@@ -122,9 +116,7 @@
           <div v-if="totalPages > 1 && artworks.length > 0" class="pagination">
             <button @click="goToPage(currentPage - 1)" class="page-btn" :disabled="currentPage <= 1"
               :title="`上一页(快捷键: ←)`">
-              <svg viewBox="0 0 24 24" fill="currentColor" class="page-icon">
-                <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
-              </svg>
+              <SvgIcon name="arrow-left2" class="page-icon" />
               上一页
             </button>
 
@@ -138,9 +130,7 @@
             <button @click="goToPage(currentPage + 1)" class="page-btn" :disabled="currentPage >= totalPages"
               :title="`下一页(快捷键: →)`">
               下一页
-              <svg viewBox="0 0 24 24" fill="currentColor" class="page-icon">
-                <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z" />
-              </svg>
+              <SvgIcon name="arrow-right" class="page-icon" />
             </button>
           </div>
 

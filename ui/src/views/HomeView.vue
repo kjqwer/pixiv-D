@@ -48,10 +48,7 @@ onMounted(async () => {
         <div class="features-grid">
           <div class="feature-card">
             <div class="feature-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path
-                  d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-              </svg>
+              <SvgIcon name="search" />
             </div>
             <h3 class="feature-title">作品搜索</h3>
             <p class="feature-description">
@@ -61,10 +58,7 @@ onMounted(async () => {
 
           <div class="feature-card">
             <div class="feature-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path
-                  d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" />
-              </svg>
+              <SvgIcon name="ranking" />
             </div>
             <h3 class="feature-title">热门榜单</h3>
             <p class="feature-description">
@@ -74,10 +68,7 @@ onMounted(async () => {
 
           <div class="feature-card">
             <div class="feature-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path
-                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-              </svg>
+              <SvgIcon name="download" />
             </div>
             <h3 class="feature-title">一键下载</h3>
             <p class="feature-description">
@@ -87,10 +78,7 @@ onMounted(async () => {
 
           <div class="feature-card">
             <div class="feature-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path
-                  d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-              </svg>
+              <SvgIcon name="user" />
             </div>
             <h3 class="feature-title">作者管理</h3>
             <p class="feature-description">
@@ -100,11 +88,7 @@ onMounted(async () => {
 
           <div class="feature-card">
             <div class="feature-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path
-                  d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z" />
-                <path d="M7 12h2v5H7zm4-3h2v8h-2zm4-3h2v11h-2z" />
-              </svg>
+              <SvgIcon name="download" />
             </div>
             <h3 class="feature-title">下载管理</h3>
             <p class="feature-description">
@@ -114,10 +98,7 @@ onMounted(async () => {
 
           <div class="feature-card">
             <div class="feature-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path
-                  d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z" />
-              </svg>
+              <SvgIcon name="folder" />
             </div>
             <h3 class="feature-title">仓库管理</h3>
             <p class="feature-description">
