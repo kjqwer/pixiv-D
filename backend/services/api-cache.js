@@ -3,6 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const CacheConfigManager = require('../config/cache-config');
 const { defaultLogger } = require('../utils/logger');
+const FileUtils = require('../utils/file-utils');
 
 // 创建logger实例
 const logger = defaultLogger.child('ApiCacheService');
@@ -297,13 +298,22 @@ class ApiCacheService {
       // 计算总大小和收集文件信息
       for (const file of files) {
         const filePath = path.join(this.cacheDir, file);
-        const stats = await fs.stat(filePath);
-        totalSize += stats.size;
-        fileStats.push({
-          path: filePath,
-          size: stats.size,
-          mtime: stats.mtime
-        });
+        try {
+          const stats = await fs.stat(filePath);
+          totalSize += stats.size;
+          fileStats.push({
+            path: filePath,
+            size: stats.size,
+            mtime: stats.mtime
+          });
+        } catch (error) {
+          // 如果文件不存在，跳过
+          if (error.code === 'ENOENT') {
+            logger.debug(`API缓存文件不存在，跳过: ${filePath}`);
+          } else {
+            logger.debug(`检查API缓存文件失败: ${filePath}`, error.message);
+          }
+        }
       }
 
       // 如果超过最大大小，删除最旧的文件
@@ -314,8 +324,13 @@ class ApiCacheService {
         fileStats.sort((a, b) => a.mtime.getTime() - b.mtime.getTime());
         
         for (const file of fileStats) {
-          await fs.unlink(file.path);
-          totalSize -= file.size;
+          const deleteSuccess = await FileUtils.safeDeleteFile(file.path);
+          if (deleteSuccess) {
+            totalSize -= file.size;
+            logger.debug(`删除过大API缓存文件: ${file.path}`);
+          } else {
+            logger.debug(`删除过大API缓存文件失败: ${file.path}`);
+          }
           
           if (totalSize <= this.config.maxSize * 0.8) { // 清理到80%
             break;
@@ -337,20 +352,60 @@ class ApiCacheService {
     try {
       const files = await fs.readdir(this.cacheDir);
       let cleanedCount = 0;
+      let errorCount = 0;
+      let skippedCount = 0;
+      const now = Date.now();
 
       for (const file of files) {
         const filePath = path.join(this.cacheDir, file);
-        const stats = await fs.stat(filePath);
-        
-        const age = Date.now() - stats.mtime.getTime();
-        if (age > this.config.maxAge) {
-          await fs.unlink(filePath);
-          cleanedCount++;
+        try {
+          const stats = await fs.stat(filePath);
+          
+          const age = now - stats.mtime.getTime();
+          if (age > this.config.maxAge) {
+            // 简单的文件占用检查（仅在Windows上）
+            if (process.platform === 'win32') {
+              try {
+                // 尝试以独占模式打开文件来检查是否被占用
+                const handle = await fs.open(filePath, 'r');
+                await handle.close();
+              } catch (openError) {
+                if (openError.code === 'EBUSY' || openError.code === 'EPERM') {
+                  logger.debug(`跳过被占用的过期API缓存文件: ${filePath}`);
+                  skippedCount++;
+                  continue;
+                }
+              }
+            }
+            
+            // 使用改进的安全删除方法
+            const deleteSuccess = await FileUtils.safeDeleteFile(filePath);
+            if (deleteSuccess) {
+              cleanedCount++;
+              logger.debug(`成功删除过期API缓存文件: ${filePath}`);
+            } else {
+              errorCount++;
+              // 减少日志噪音，只在debug级别记录
+              logger.debug(`删除过期API缓存文件失败: ${filePath}`);
+            }
+          }
+        } catch (error) {
+          // 如果文件不存在，静默忽略
+          if (error.code === 'ENOENT') {
+            logger.debug(`过期API缓存文件不存在，跳过: ${filePath}`);
+          } else {
+            logger.debug(`检查过期API缓存文件失败: ${filePath}`, error.message);
+            errorCount++;
+          }
         }
       }
 
-      if (cleanedCount > 0) {
-        logger.info(`清理了 ${cleanedCount} 个过期API缓存文件`);
+      if (cleanedCount > 0 || errorCount > 0 || skippedCount > 0) {
+        if (errorCount === 0 && skippedCount === 0) {
+          logger.info(`清理了 ${cleanedCount} 个过期API缓存文件`);
+        } else {
+          logger.info(`API缓存清理完成，成功删除 ${cleanedCount} 个文件，失败 ${errorCount} 个文件，跳过 ${skippedCount} 个被占用文件`);
+        }
       }
     } catch (error) {
       logger.error('清理过期API缓存失败:', error);
@@ -375,13 +430,36 @@ class ApiCacheService {
   async clearAllCache() {
     try {
       const files = await fs.readdir(this.cacheDir);
+      let cleanedCount = 0;
+      let errorCount = 0;
       
       for (const file of files) {
         const filePath = path.join(this.cacheDir, file);
-        await fs.unlink(filePath);
+        try {
+          const deleteSuccess = await FileUtils.safeDeleteFile(filePath);
+          if (deleteSuccess) {
+            cleanedCount++;
+            logger.debug(`删除API缓存文件: ${filePath}`);
+          } else {
+            errorCount++;
+            logger.debug(`删除API缓存文件失败: ${filePath}`);
+          }
+        } catch (error) {
+          // 如果文件不存在，静默忽略
+          if (error.code === 'ENOENT') {
+            logger.debug(`API缓存文件不存在，跳过: ${filePath}`);
+          } else {
+            logger.debug(`删除API缓存文件出错: ${filePath}`, error.message);
+            errorCount++;
+          }
+        }
       }
       
-      logger.info('所有API缓存已清理');
+      if (errorCount === 0) {
+        logger.info(`所有API缓存已清理，共删除 ${cleanedCount} 个文件`);
+      } else {
+        logger.info(`API缓存清理完成，成功删除 ${cleanedCount} 个文件，失败 ${errorCount} 个文件`);
+      }
     } catch (error) {
       logger.error('清理所有API缓存失败:', error);
       throw error;
@@ -400,9 +478,18 @@ class ApiCacheService {
 
       for (const file of files) {
         const filePath = path.join(this.cacheDir, file);
-        const stats = await fs.stat(filePath);
-        totalSize += stats.size;
-        fileCount++;
+        try {
+          const stats = await fs.stat(filePath);
+          totalSize += stats.size;
+          fileCount++;
+        } catch (error) {
+          // 如果文件不存在，跳过
+          if (error.code === 'ENOENT') {
+            logger.debug(`API缓存文件不存在，跳过: ${filePath}`);
+          } else {
+            logger.debug(`检查API缓存文件失败: ${filePath}`, error.message);
+          }
+        }
       }
 
       return {
