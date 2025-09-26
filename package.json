@@ -1,5 +1,5 @@
 {
-  "name": "pixiv-backend",
+  "name": "pixiv-manager",
   "version": "1.0.4",
   "description": "Pixiv 下载浏览管理器",
   "main": "backend/start.js",
@@ -10,7 +10,7 @@
     "assets": [
       "backend/**/*",
       "ui/dist/**/*",
-      "node_modules/**/*"
+      "node_modules/axios/**/*"
     ]
   },
   "scripts": {
@@ -18,8 +18,8 @@
     "dev": "node backend/start.js",
     "test": "node backend/test-login.js",
     "set-proxy": "node backend/set-proxy.js",
-    "build": "pkg .",
-    "build-portable": "npm run build && node scripts/create-portable.js"
+    "build": "pkg . && node scripts/add-icon.js",
+    "bp": "npm run build && node scripts/create-portable.js"
   },
   "dependencies": {
     "appdata-path": "^1.0.0",
@@ -36,7 +36,9 @@
     "uuid": "^11.1.0"
   },
   "devDependencies": {
-    "readline-sync": "^1.4.10"
+    "readline-sync": "^1.4.10",
+    "resedit": "^2.2.0",
+    "pe-library": "^1.1.1"
   },
   "keywords": [
     "pixiv",

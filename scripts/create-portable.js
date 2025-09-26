@@ -15,7 +15,7 @@ async function createPortable() {
     await fs.ensureDir(portableDir);
     
     // 复制可执行文件
-    const exeName = 'pixiv-backend.exe';
+    const exeName = 'pixiv-manager.exe';
     const exePath = path.join(distDir, exeName);
     if (await fs.pathExists(exePath)) {
       await fs.copy(exePath, path.join(portableDir, exeName));
@@ -50,7 +50,7 @@ echo Tip: Press Ctrl+C to stop server
 echo.
 
 :: Start server and pass proxy port and server port
-pixiv-backend.exe --proxy-port=%PROXY_PORT% --server-port=%SERVER_PORT%
+pixiv-manager.exe --proxy-port=%PROXY_PORT% --server-port=%SERVER_PORT%
 
 echo.
 echo Server stopped
