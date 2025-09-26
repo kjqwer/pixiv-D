@@ -50,6 +50,36 @@ if not exist "node_modules" (
     echo ✅ node_modules 存在
 )
 
+:: 检查前端项目文件
+echo.
+echo 🔍 检查前端项目文件...
+if not exist "ui/package.json" (
+    echo ❌ 未找到 ui/package.json
+    echo 📁 前端项目文件不存在
+    goto :end
+) else (
+    echo ✅ ui/package.json 存在
+)
+
+:: 检查前端依赖
+if not exist "ui/node_modules" (
+    set /p choice="前端依赖不存在，是否现在安装前端依赖? (y/n): "
+    if /i "%choice%"=="y" (
+        echo 📦 安装前端依赖包...
+        cd ui
+        npm install
+        cd ..
+        if errorlevel 1 (
+            echo ❌ 前端依赖安装失败
+            goto :end
+        ) else (
+            echo ✅ 前端依赖安装成功
+        )
+    )
+) else (
+    echo ✅ ui/node_modules 存在
+)
+
 :: 检查前端构建文件
 echo.
 echo 🔍 检查前端构建文件...
