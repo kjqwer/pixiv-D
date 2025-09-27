@@ -90,7 +90,7 @@ class ImageCacheService {
   async ensureCacheDir() {
     try {
       await fs.mkdir(this.cacheDir, { recursive: true });
-      logger.info('图片缓存目录创建成功:', this.cacheDir);
+      logger.info('图片缓存目录创建成功');
     } catch (error) {
       logger.error('创建图片缓存目录失败', error);
     }

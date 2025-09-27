@@ -39,7 +39,7 @@ class WatchlistManager {
       const configDirPath = path.dirname(this.configDir)
       if (!require('fs').existsSync(configDirPath)) {
         require('fs').mkdirSync(configDirPath, { recursive: true })
-        logger.info('待看名单目录创建成功:', configDirPath)
+        logger.info('待看名单目录创建成功')
       }
     } catch (error) {
       logger.error('创建待看名单目录失败:', error)
@@ -74,7 +74,7 @@ class WatchlistManager {
       // 检查目录是否创建成功
       try {
         await fs.access(configDirPath)
-        logger.info('待看名单目录确认存在:', configDirPath)
+        logger.info('待看名单目录确认存在')
       } catch (accessError) {
         logger.error('待看名单目录访问失败:', accessError)
         throw new Error(`无法访问配置目录: ${configDirPath}`)
@@ -87,7 +87,7 @@ class WatchlistManager {
       // 验证文件是否写入成功
       try {
         await fs.access(this.configDir)
-        logger.info('默认待看名单文件创建成功:', this.configDir)
+        logger.info('默认待看名单文件创建成功')
       } catch (verifyError) {
         logger.error('待看名单文件验证失败:', verifyError)
         throw new Error('待看名单文件创建后无法访问')
