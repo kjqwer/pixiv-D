@@ -119,8 +119,16 @@ class CacheConfigManager {
       // 合并默认配置，确保所有字段都存在
       return { ...this.config, ...config };
     } catch (error) {
-      logger.error('加载缓存配置失败:', error);
-      return this.config;
+      // 检查错误类型，如果是文件不存在错误，则创建默认配置文件
+      if (error.code === 'ENOENT') {
+        // 文件不存在，创建默认配置
+        await this.createDefaultConfig();
+        return this.config;
+      } else {
+        // 其他错误，记录日志
+        logger.error('加载缓存配置失败:', error);
+        return this.config;
+      }
     }
   }
 
@@ -211,4 +219,4 @@ class CacheConfigManager {
   }
 }
 
-module.exports = CacheConfigManager; 
+module.exports = CacheConfigManager;
