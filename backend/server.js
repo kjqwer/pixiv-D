@@ -34,7 +34,7 @@ class PixivServer {
    * 初始化服务器
    */
   async init() {
-    logger.info('🔧 正在初始化 Pixiv 后端服务器...');
+    logger.info('正在初始化 Pixiv 后端服务器...');
 
     // 重新设置端口（从环境变量获取）
     this.port = process.env.PORT || 3000;
@@ -55,7 +55,7 @@ class PixivServer {
     // 配置错误处理
     this.setupErrorHandling();
 
-    logger.info('✅ 服务器初始化完成');
+    logger.info('服务器初始化完成');
   }
 
   /**
@@ -99,12 +99,12 @@ class PixivServer {
    */
   start() {
     this.app.listen(this.port, () => {
-      logger.info('✅ Pixiv 后端服务器已启动');
-      logger.info(`📍 服务地址: http://localhost:${this.port}`);
-      logger.info(`🔗 健康检查: http://localhost:${this.port}/health`);
-      logger.info(`📊 登录状态: ${this.backend.isLoggedIn ? '已登录' : '未登录'}`);
+      logger.info('Pixiv 后端服务器已启动');
+      logger.info(`服务地址: http://localhost:${this.port}`);
+      logger.info(`健康检查: http://localhost:${this.port}/health`);
+      logger.info(`登录状态: ${this.backend.isLoggedIn ? '已登录' : '未登录'}`);
       if (this.backend.isLoggedIn) {
-        logger.info(`👤 用户: ${this.backend.config.user?.account}`);
+        logger.info(`用户: ${this.backend.config.user?.account}`);
       }
       logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     });
@@ -114,10 +114,10 @@ class PixivServer {
    * 优雅关闭
    */
   async shutdown() {
-    logger.info('🔄 正在关闭服务器...');
+    logger.info('正在关闭服务器...');
     // 清理代理环境变量
     proxyConfig.clearEnvironmentVariables();
-    logger.info('✅ 服务器已关闭');
+    logger.info('服务器已关闭');
     process.exit(0);
   }
 }

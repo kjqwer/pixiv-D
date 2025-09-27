@@ -3,6 +3,33 @@
  */
 const { defaultLogger } = require('../utils/logger');
 
+// 颜色常量
+const METHOD_COLORS = {
+  GET: '\x1b[32m',     // 绿色
+  POST: '\x1b[34m',    // 蓝色
+  PUT: '\x1b[33m',     // 黄色
+  DELETE: '\x1b[31m',  // 红色
+  PATCH: '\x1b[35m',   // 紫色
+  DEFAULT: '\x1b[37m'  // 白色
+};
+
+// 状态码颜色
+const STATUS_COLORS = {
+  SUCCESS: '\x1b[32m',      // 2xx - 绿色
+  REDIRECT: '\x1b[36m',     // 3xx - 青色
+  CLIENT_ERROR: '\x1b[33m', // 4xx - 黄色
+  SERVER_ERROR: '\x1b[31m'  // 5xx - 红色
+};
+
+// 响应时间颜色
+const DURATION_COLORS = {
+  FAST: '\x1b[32m',    // < 100ms - 绿色
+  MEDIUM: '\x1b[33m',  // < 500ms - 黄色
+  SLOW: '\x1b[31m'     // >= 500ms - 红色
+};
+
+const RESET_COLOR = '\x1b[0m';
+
 // 创建logger实例
 const logger = defaultLogger.child('API');
 
@@ -58,42 +85,33 @@ function loggerMiddleware(req, res, next) {
       const method = req.method;
       const url = req.originalUrl;
 
-      // 根据状态码选择图标
-      let statusIcon;
+      // 获取方法颜色
+      const methodColor = METHOD_COLORS[method] || METHOD_COLORS.DEFAULT;
+      
+      // 获取状态码颜色
+      let statusColor;
       if (statusCode >= 200 && statusCode < 300) {
-        statusIcon = '✅';
+        statusColor = STATUS_COLORS.SUCCESS;
       } else if (statusCode >= 300 && statusCode < 400) {
-        statusIcon = '🔄';
+        statusColor = STATUS_COLORS.REDIRECT;
       } else if (statusCode >= 400 && statusCode < 500) {
-        statusIcon = '⚠️';
+        statusColor = STATUS_COLORS.CLIENT_ERROR;
       } else {
-        statusIcon = '❌';
-      }
-
-      // 根据请求类型选择图标
-      let methodIcon;
-      switch (method) {
-        case 'GET':
-          methodIcon = '📥';
-          break;
-        case 'POST':
-          methodIcon = '📤';
-          break;
-        case 'PUT':
-          methodIcon = '🔄';
-          break;
-        case 'DELETE':
-          methodIcon = '🗑️';
-          break;
-        case 'PATCH':
-          methodIcon = '🔧';
-          break;
-        default:
-          methodIcon = '❓';
+        statusColor = STATUS_COLORS.SERVER_ERROR;
       }
       
-      // 输出日志
-      logger.info(`${statusIcon} ${methodIcon} ${method} ${url} ${statusCode} ${duration}ms`);
+      // 获取响应时间颜色
+      let durationColor;
+      if (duration < 100) {
+        durationColor = DURATION_COLORS.FAST;
+      } else if (duration < 500) {
+        durationColor = DURATION_COLORS.MEDIUM;
+      } else {
+        durationColor = DURATION_COLORS.SLOW;
+      }
+      
+      // 输出彩色日志
+      logger.info(`${methodColor}[${method}]${RESET_COLOR} ${url} ${statusColor}${statusCode}${RESET_COLOR} ${durationColor}${duration}ms${RESET_COLOR}`);
 
       // 调用原始的end方法
       originalEnd.call(this, chunk, encoding);

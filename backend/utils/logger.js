@@ -39,6 +39,7 @@ const LogLevelColors = {
  */
 const ModuleColors = {
   'Server': '\x1b[32m',      // 绿色
+  'API': '\x1b[32m',      // 绿色
   'Start': '\x1b[34m',       // 蓝色
   'PixivBackend': '\x1b[35m', // 紫色
   'PixivAuth': '\x1b[36m',   // 青色
@@ -51,7 +52,6 @@ const ModuleColors = {
   'Artist': '\x1b[92m',      // 亮绿色
   'Repository': '\x1b[94m',  // 亮蓝色
   'ErrorHandler': '\x1b[91m', // 亮红色
-  'API': '\x1b[97m',         // 亮白色
   'FileManager': '\x1b[98m', // 亮青色
   'ProgressManager': '\x1b[99m', // 亮紫色
   'Default': '\x1b[39m'      // 默认颜色
@@ -63,14 +63,14 @@ const ModuleColors = {
 const RESET_COLOR = '\x1b[0m';
 
 /**
- * 日志图标映射
+ * 日志级别文本映射
  */
-const LogLevelIcons = {
-  [LogLevel.ERROR]: '❌',
-  [LogLevel.WARN]: '⚠️',
-  [LogLevel.INFO]: 'ℹ️',
-  [LogLevel.DEBUG]: '🔧',
-  [LogLevel.TRACE]: '🔍'
+const LogLevelTexts = {
+  [LogLevel.ERROR]: 'ERROR',
+  [LogLevel.WARN]: 'WARN',
+  [LogLevel.INFO]: 'INFO',
+  [LogLevel.DEBUG]: 'DEBUG',
+  [LogLevel.TRACE]: 'TRACE'
 };
 
 class Logger {
@@ -143,10 +143,9 @@ class Logger {
    */
   formatMessage(level, message, data = null) {
     const timeStr = this.getTimeString();
-    const levelName = LogLevelNames[level];
-    const icon = LogLevelIcons[level];
+    const levelName = LogLevelTexts[level];
     
-    let formattedMessage = `[${timeStr}] [${levelName}] [${this.module}] ${icon} ${message}`;
+    let formattedMessage = `[${timeStr}] [${levelName}] [${this.module}] ${message}`;
     
     if (data !== null && data !== undefined) {
       if (typeof data === 'object') {
@@ -345,4 +344,4 @@ module.exports = {
   LogLevel,
   LogLevelNames,
   defaultLogger
-}; 
+};

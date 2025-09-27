@@ -13,20 +13,20 @@ set PROXY_PORT=
 set SERVER_PORT=3000
 
 echo.
-echo 🚀 Pixiv Manager 启动中...
+echo Pixiv Manager 启动中...
 echo.
 
 cd /d "%~dp0"
 
-echo 📡 当前代理端口: %PROXY_PORT%
-echo 🌐 当前服务器端口: %SERVER_PORT%
-echo 💡 如需修改端口，请用记事本打开此文件，修改对应的端口号
+echo 当前代理端口: %PROXY_PORT%
+echo 当前服务器端口: %SERVER_PORT%
+echo 如需修改端口，请用记事本打开此文件，修改对应的端口号
 echo.
 
-echo 📊 启动后端服务器...
-echo 🌐 访问地址: http://localhost:%SERVER_PORT%
+echo 启动后端服务器...
+echo 访问地址: http://localhost:%SERVER_PORT%
 echo.
-echo 💡 提示: 按 Ctrl+C 停止服务器
+echo 提示: 按 Ctrl+C 停止服务器
 echo.
 
 :: 启动服务器并传递代理端口和服务器端口
@@ -37,5 +37,5 @@ if "%PROXY_PORT%"=="" (
 )
 
 echo.
-echo ⏹️  服务器已停止
+echo 服务器已停止
 pause 

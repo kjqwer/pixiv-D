@@ -95,12 +95,12 @@ pause
     await fs.ensureDir(path.join(portableDir, 'data'));
     await fs.ensureDir(path.join(portableDir, 'downloads'));
     
-    logger.info('✅ 便携版创建完成！');
-    logger.info(`📁 位置: ${portableDir}`);
-    logger.info('📦 可以将整个文件夹打包分发给用户');
+    logger.info('便携版创建完成！');
+    logger.info(`位置: ${portableDir}`);
+    logger.info('可以将整个文件夹打包分发给用户');
     
   } catch (error) {
-    logger.error('❌ 创建便携版失败', error);
+    logger.error('创建便携版失败', error);
   }
 }
 
