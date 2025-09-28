@@ -12,7 +12,7 @@
         <button @click="toggleSettings" class="close-btn" title="关闭">
           <SvgIcon name="close" class="close-icon" />
         </button>
-      </div> 
+      </div>
 
       <div class="settings-content">
         <!-- 缓存设置 -->

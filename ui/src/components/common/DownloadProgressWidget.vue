@@ -241,9 +241,11 @@ onUnmounted(() => {
   0% {
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
   }
+
   50% {
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
   }
+
   100% {
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
   }
@@ -291,6 +293,7 @@ onUnmounted(() => {
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -574,10 +577,10 @@ onUnmounted(() => {
     width: calc(100vw - 2rem);
     right: -1rem;
   }
-  
+
   .batch-stats {
     flex-direction: column;
     gap: 0.5rem;
   }
 }
-</style> 
+</style>

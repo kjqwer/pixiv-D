@@ -219,21 +219,21 @@ defineExpose({
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 1rem;
-    border: 1px solid #d1d5db;
-    border-radius: 0.375rem;
-    background: white;
-    color: #6b7280;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-primary);
+    color: var(--color-text-secondary);
     font-size: 0.875rem;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all var(--transition-normal);
     white-space: nowrap;
 }
 
 .update-btn:hover:not(:disabled) {
-    background: #f9fafb;
-    border-color: #9ca3af;
-    color: #374151;
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-hover);
+    color: var(--color-text-primary);
 }
 
 .update-btn:disabled {
@@ -242,19 +242,21 @@ defineExpose({
 }
 
 .update-btn.has-update {
-    background: #fef3c7;
-    border-color: #f59e0b;
+    background: var(--color-warning-light);
+    border-color: var(--color-warning);
     color: #92400e;
+    /* 这个颜色在主题中没有定义，保持原样 */
 }
 
 .update-btn.has-update:hover:not(:disabled) {
     background: #fde68a;
+    /* 这个颜色在主题中没有完全匹配的，保持原样 */
 }
 
 .update-btn.checking {
-    background: #dbeafe;
-    border-color: #3b82f6;
-    color: #1d4ed8;
+    background: var(--color-primary-light);
+    border-color: var(--color-primary);
+    color: var(--color-primary-dark);
 }
 
 .update-icon {
@@ -296,9 +298,9 @@ defineExpose({
 }
 
 .modal-content {
-    background: white;
-    border-radius: 0.5rem;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    background: var(--color-bg-primary);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
     width: 100%;
     max-width: 32rem;
     max-height: 90vh;
@@ -312,7 +314,7 @@ defineExpose({
     align-items: center;
     justify-content: space-between;
     padding: 1.5rem;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border);
 }
 
 .modal-title {
@@ -322,13 +324,13 @@ defineExpose({
     margin: 0;
     font-size: 1.125rem;
     font-weight: 600;
-    color: #111827;
+    color: var(--color-text-primary);
 }
 
 .modal-icon {
     width: 1.25rem;
     height: 1.25rem;
-    color: #3b82f6;
+    color: var(--color-primary);
 }
 
 .modal-close {
@@ -338,16 +340,16 @@ defineExpose({
     width: 2rem;
     height: 2rem;
     border: none;
-    border-radius: 0.25rem;
+    border-radius: var(--radius-sm);
     background: none;
-    color: #6b7280;
+    color: var(--color-text-secondary);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all var(--transition-normal);
 }
 
 .modal-close:hover {
-    background: #f3f4f6;
-    color: #374151;
+    background: var(--color-bg-secondary);
+    color: var(--color-text-primary);
 }
 
 .modal-close svg {
@@ -370,7 +372,7 @@ defineExpose({
     align-items: center;
     justify-content: space-between;
     padding: 0.75rem 0;
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid var(--color-bg-secondary);
 }
 
 .version-row:last-child {
@@ -379,21 +381,21 @@ defineExpose({
 
 .label {
     font-weight: 500;
-    color: #374151;
+    color: var(--color-text-primary);
 }
 
 .version {
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     font-weight: 600;
     padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-    background: #f3f4f6;
-    color: #374151;
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-primary);
 }
 
 .version.newer {
-    background: #dcfce7;
-    color: #166534;
+    background: var(--color-success-light);
+    color: var(--color-success);
 }
 
 .update-available-section,
@@ -416,31 +418,31 @@ defineExpose({
 }
 
 .status-icon.success {
-    color: #10b981;
+    color: var(--color-success);
 }
 
 .status-icon.info {
-    color: #3b82f6;
+    color: var(--color-primary);
 }
 
 .status-icon.error {
-    color: #ef4444;
+    color: var(--color-error);
 }
 
 .status-text {
     font-weight: 600;
-    color: #111827;
+    color: var(--color-text-primary);
 }
 
 .release-info h4 {
     margin: 0 0 0.5rem 0;
     font-size: 1.125rem;
     font-weight: 600;
-    color: #111827;
+    color: var(--color-text-primary);
 }
 
 .release-date {
-    color: #6b7280;
+    color: var(--color-text-secondary);
     font-size: 0.875rem;
     margin-bottom: 1rem;
 }
@@ -449,17 +451,17 @@ defineExpose({
     margin: 0 0 0.5rem 0;
     font-size: 1rem;
     font-weight: 600;
-    color: #374151;
+    color: var(--color-text-primary);
 }
 
 .release-body {
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.375rem;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
     padding: 1rem;
     font-size: 0.875rem;
     line-height: 1.5;
-    color: #374151;
+    color: var(--color-text-primary);
     max-height: 12rem;
     overflow-y: auto;
 }
@@ -467,16 +469,16 @@ defineExpose({
 .update-instructions {
     margin-top: 1.5rem;
     padding: 1rem;
-    background: #fef7cd;
-    border: 1px solid #fbbf24;
-    border-radius: 0.375rem;
+    background: var(--color-warning-light);
+    border: 1px solid var(--color-warning);
+    border-radius: var(--radius-md);
 }
 
 .update-instructions h5 {
     margin: 0 0 1rem 0;
     font-size: 1rem;
     font-weight: 600;
-    color: #92400e;
+    color: var(--color-warning);
 }
 
 .instructions-content {
@@ -497,8 +499,8 @@ defineExpose({
     justify-content: center;
     min-width: 1.5rem;
     height: 1.5rem;
-    background: #f59e0b;
-    color: white;
+    background: var(--color-warning);
+    color: var(--color-bg-primary);
     border-radius: 50%;
     font-size: 0.75rem;
     font-weight: 600;
@@ -508,25 +510,25 @@ defineExpose({
 .step-text {
     font-size: 0.875rem;
     line-height: 1.5;
-    color: #92400e;
+    color: var(--color-warning);
 }
 
 .step-text code {
-    background: #fde68a;
-    border: 1px solid #f59e0b;
-    border-radius: 0.25rem;
+    background: var(--color-warning-light);
+    border: 1px solid var(--color-warning);
+    border-radius: var(--radius-sm);
     padding: 0.125rem 0.25rem;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     font-size: 0.75rem;
-    color: #92400e;
+    color: var(--color-warning);
 }
 
 .error-message {
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    border-radius: 0.375rem;
+    background: var(--color-error-light);
+    border: 1px solid var(--color-error);
+    border-radius: var(--radius-md);
     padding: 0.75rem;
-    color: #991b1b;
+    color: var(--color-error);
     font-size: 0.875rem;
 }
 
@@ -535,8 +537,8 @@ defineExpose({
     gap: 0.75rem;
     justify-content: flex-end;
     padding: 1.5rem;
-    border-top: 1px solid #e5e7eb;
-    background: #f9fafb;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-bg-secondary);
 }
 
 .btn {
@@ -544,42 +546,42 @@ defineExpose({
     align-items: center;
     justify-content: center;
     padding: 0.5rem 1rem;
-    border-radius: 0.375rem;
+    border-radius: var(--radius-md);
     font-weight: 500;
     font-size: 0.875rem;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all var(--transition-normal);
     border: 1px solid transparent;
     text-decoration: none;
 }
 
 .btn-primary {
-    background: #3b82f6;
-    color: white;
+    background: var(--color-primary);
+    color: var(--color-bg-primary);
 }
 
 .btn-primary:hover {
-    background: #2563eb;
+    background: var(--color-primary-dark);
 }
 
 .btn-secondary {
-    background: #6b7280;
-    color: white;
+    background: var(--color-text-secondary);
+    color: var(--color-bg-primary);
 }
 
 .btn-secondary:hover {
-    background: #4b5563;
+    background: var(--color-text-secondary);
 }
 
 .btn-outline {
-    background: white;
-    color: #374151;
-    border-color: #d1d5db;
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    border-color: var(--color-border);
 }
 
 .btn-outline:hover {
-    background: #f9fafb;
-    border-color: #9ca3af;
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-hover);
 }
 
 @media (max-width: 640px) {
