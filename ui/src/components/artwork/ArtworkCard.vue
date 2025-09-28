@@ -77,23 +77,23 @@ const getImageUrl = getImageProxyUrl;
 
 <style scoped>
 .artwork-card {
-  background: white;
-  border-radius: 0.75rem;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-xl);
   overflow: hidden;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: var(--shadow-md);
+  transition: transform var(--transition-normal), box-shadow var(--transition-normal);
   cursor: pointer;
 }
 
 .artwork-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-lg);
 }
 
 .artwork-image {
   position: relative;
   aspect-ratio: 1;
-  background: #f3f4f6;
+  background: var(--color-bg-tertiary);
   overflow: hidden;
 }
 
@@ -123,11 +123,11 @@ const getImageUrl = getImageProxyUrl;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f3f4f6;
+  background: var(--color-bg-tertiary);
 }
 
 .image-error {
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-size: 0.875rem;
 }
 
@@ -167,7 +167,7 @@ const getImageUrl = getImageProxyUrl;
 
 .artist-name {
   font-size: 0.875rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-weight: 500;
 }
 
@@ -181,7 +181,7 @@ const getImageUrl = getImageProxyUrl;
   align-items: center;
   gap: 0.25rem;
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .stat svg {
@@ -196,19 +196,19 @@ const getImageUrl = getImageProxyUrl;
 }
 
 .tag {
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
   padding: 0.125rem 0.5rem;
-  border-radius: 0.25rem;
+  border-radius: var(--radius-sm);
   font-size: 0.75rem;
   line-height: 1;
 }
 
 .tag-more {
-  background: #e5e7eb;
-  color: #6b7280;
+  background: var(--color-border-hover);
+  color: var(--color-text-secondary);
   padding: 0.125rem 0.5rem;
-  border-radius: 0.25rem;
+  border-radius: var(--radius-sm);
   font-size: 0.75rem;
   line-height: 1;
 }

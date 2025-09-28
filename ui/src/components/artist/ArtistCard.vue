@@ -82,7 +82,7 @@ const getImageUrl = getImageProxyUrl
 
 <style scoped>
 .artist-card {
-  background: white;
+  background: var(--color-bg-primary);
   border-radius: 1rem;
   padding: 1.5rem;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
@@ -122,7 +122,7 @@ const getImageUrl = getImageProxyUrl
 .artist-name {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--color-text-primary);
   margin: 0 0 0.5rem 0;
   white-space: nowrap;
   overflow: hidden;
@@ -130,7 +130,7 @@ const getImageUrl = getImageProxyUrl
 }
 
 .artist-account {
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-size: 0.875rem;
   margin: 0;
   white-space: nowrap;
@@ -170,31 +170,31 @@ const getImageUrl = getImageProxyUrl
 }
 
 .btn-primary {
-  background: #3b82f6;
-  color: white;
+  background: var(--color-primary);
+  color: var(--color-bg-primary);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #2563eb;
+  background: var(--color-primary-dark);
 }
 
 .btn-secondary {
-  background: #f3f4f6;
-  color: #374151;
-  border: 1px solid #d1d5db;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: #e5e7eb;
+  background: var(--color-bg-tertiary);
 }
 
 .btn-danger {
-  background: #ef4444;
-  color: white;
+  background: var(--color-danger);
+  color: var(--color-bg-primary);
 }
 
 .btn-danger:hover {
-  background: #dc2626;
+  background: var(--color-danger-dark);
 }
 
 .btn-small {

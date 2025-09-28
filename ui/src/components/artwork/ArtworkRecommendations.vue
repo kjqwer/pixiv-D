@@ -219,28 +219,29 @@ onMounted(() => {
 
 <style scoped>
 .artwork-recommendations {
-    background: white;
-    border-radius: 1rem;
-    padding: 2rem;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    background: var(--color-bg-primary);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-2xl);
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--color-border);
 }
 
 .recommendations-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 2rem;
+    margin-bottom: var(--spacing-2xl);
 }
 
 .recommendations-title {
     font-size: 1.5rem;
     font-weight: 600;
-    color: #1f2937;
+    color: var(--color-text-primary);
     margin: 0;
 }
 
 .recommendations-info {
-    color: #6b7280;
+    color: var(--color-text-secondary);
     font-size: 0.875rem;
 }
 
@@ -251,37 +252,37 @@ onMounted(() => {
     justify-content: center;
     align-items: center;
     min-height: 200px;
-    color: #6b7280;
+    color: var(--color-text-secondary);
 }
 
 .artworks-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 2rem;
-    margin-bottom: 2rem;
+    gap: var(--spacing-2xl);
+    margin-bottom: var(--spacing-2xl);
 }
 
 .load-more-section {
     display: flex;
     justify-content: center;
-    margin-bottom: 1rem;
+    margin-bottom: var(--spacing-lg);
 }
 
 .load-more-btn {
-    padding: 0.75rem 2rem;
-    border: 1px solid #d1d5db;
-    border-radius: 0.5rem;
-    background: white;
-    color: #374151;
+    padding: var(--spacing-md) var(--spacing-2xl);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all var(--transition-normal);
     font-size: 1rem;
 }
 
 .load-more-btn:hover:not(:disabled) {
-    background: #f3f4f6;
-    border-color: #9ca3af;
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-border-hover);
     transform: translateY(-1px);
 }
 
@@ -293,25 +294,25 @@ onMounted(() => {
 
 .no-more-section {
     text-align: center;
-    padding: 2rem 0;
-    color: #6b7280;
+    padding: var(--spacing-2xl) 0;
+    color: var(--color-text-secondary);
     font-size: 0.875rem;
 }
 
 @media (max-width: 768px) {
     .artwork-recommendations {
-        padding: 1.5rem;
+        padding: var(--spacing-xl);
     }
 
     .recommendations-header {
         flex-direction: column;
-        gap: 0.5rem;
+        gap: var(--spacing-sm);
         align-items: flex-start;
     }
 
     .artworks-grid {
         grid-template-columns: 1fr;
-        gap: 1.5rem;
+        gap: var(--spacing-xl);
     }
 }
 </style>

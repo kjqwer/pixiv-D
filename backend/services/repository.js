@@ -740,23 +740,86 @@ class RepositoryService {
   // 删除作品
   async deleteArtwork(artworkId) {
     try {
-      const artwork = await this.findArtworkById(artworkId)
+      // 优化：直接通过文件系统查找，避免全仓库扫描
+      const artwork = await this.findArtworkByIdOptimized(artworkId)
       if (!artwork) {
         throw new Error('作品不存在')
       }
       
       await fs.rm(artwork.path, { recursive: true, force: true })
       
-      // 检查作者目录是否为空，如果为空则删除
+      // 优化：直接检查作者目录是否为空，避免重复扫描
       const artistDir = artwork.artistPath
-      const artistArtworks = await this.getArtworksByArtist(artwork.artist)
-      if (artistArtworks.artworks.length === 0) {
-        await fs.rmdir(artistDir)
+      try {
+        const artistEntries = await fs.readdir(artistDir, { withFileTypes: true })
+        const hasArtworks = artistEntries.some(entry => 
+          entry.isDirectory() && entry.name.match(/^\d+_/)
+        )
+        
+        if (!hasArtworks) {
+          await fs.rmdir(artistDir)
+        }
+      } catch (error) {
+        // 如果读取目录失败，可能目录已经不存在，忽略错误
+        logger.warn(`检查作者目录失败: ${error.message}`)
       }
       
       return { success: true, message: '作品删除成功' }
     } catch (error) {
       throw new Error(`删除作品失败: ${error.message}`)
+    }
+  }
+
+  // 优化的作品查找方法：直接通过文件系统查找，避免全仓库扫描
+  async findArtworkByIdOptimized(artworkId) {
+    try {
+      // 确保配置已加载
+      await this.loadConfig()
+      
+      // 使用当前配置的目录
+      const currentBaseDir = this.getCurrentBaseDir()
+      
+      // 扫描所有作者目录
+      const artistEntries = await fs.readdir(currentBaseDir, { withFileTypes: true })
+      
+      for (const artistEntry of artistEntries) {
+        if (!artistEntry.isDirectory()) continue
+        
+        // 跳过配置文件和隐藏文件
+        if (artistEntry.name.startsWith('.') || artistEntry.name === '.repository-config.json') {
+          continue
+        }
+        
+        const artistName = artistEntry.name
+        const artistPath = path.join(currentBaseDir, artistName)
+        
+        // 扫描作者下的作品目录
+        const artworkEntries = await fs.readdir(artistPath, { withFileTypes: true })
+        
+        for (const artworkEntry of artworkEntries) {
+          if (!artworkEntry.isDirectory()) continue
+          
+          // 检查是否是目标作品目录（包含数字ID）
+          const artworkMatch = artworkEntry.name.match(/^(\d+)_(.+)$/)
+          if (artworkMatch && artworkMatch[1] === artworkId.toString()) {
+            const artworkPath = path.join(artistPath, artworkEntry.name)
+            const title = artworkMatch[2]
+            
+            // 找到目标作品，返回基本信息（不需要扫描文件详情）
+            return {
+              id: artworkId,
+              title: title,
+              artist: artistName,
+              artistPath: artistPath,
+              path: artworkPath
+            }
+          }
+        }
+      }
+      
+      return null // 未找到作品
+    } catch (error) {
+      throw new Error(`查找作品失败: ${error.message}`)
     }
   }
 
@@ -964,4 +1027,4 @@ class RepositoryService {
   }
 }
 
-module.exports = RepositoryService 
+module.exports = RepositoryService

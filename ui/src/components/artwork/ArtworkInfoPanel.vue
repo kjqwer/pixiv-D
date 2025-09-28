@@ -1,32 +1,39 @@
 <template>
     <div class="artwork-info">
         <div class="artwork-header">
-            <h1 class="artwork-title">{{ artwork.title }}</h1>
-            <!-- 下载按钮 -->
-            <div class="artwork-actions">
-                <button @click="$emit('download')" :disabled="downloading || !artwork" class="btn btn-primary"
-                    :title="downloading ? '正在下载中...' : (isDownloaded ? '重新下载作品 (快捷键: ↓)' : '下载作品到本地 (快捷键: ↓)')">
-                    <span v-if="downloading">下载中...</span>
-                    <span v-else-if="isDownloaded">重新下载</span>
-                    <span v-else>下载</span>
-                </button>
-                <button @click="$emit('bookmark')" class="btn btn-secondary"
-                    :title="artwork.is_bookmarked ? '取消收藏此作品' : '收藏此作品'">
-                    {{ artwork.is_bookmarked ? '取消收藏' : '收藏' }}
-                </button>
-            </div>
-        </div>
-
-        <!-- 下载状态和进度区域 -->
-        <div class="download-section">
-            <!-- 下载状态提示 -->
-            <div v-if="isDownloaded && !currentTask" class="download-status">
-                <div class="status-indicator">
-                    <SvgIcon name="check-circle" class="status-icon" />
-                    <span>已下载到本地</span>
+            <div class="title-section">
+                <h1 class="artwork-title">{{ artwork.title }}</h1>
+                <!-- 下载状态角标 -->
+                <div v-if="isDownloaded && !currentTask" class="download-badge" title="已下载到本地">
+                    <SvgIcon name="check-circle" class="badge-icon" />
                 </div>
             </div>
+        </div>
+        
+        <!-- 按钮操作区域 - 单独的第二行 -->
+        <div class="artwork-actions">
+            <!-- 下载按钮 -->
+            <button @click="$emit('download')" :disabled="downloading || !artwork" class="btn btn-primary"
+                :title="downloading ? '正在下载中...' : (isDownloaded ? '重新下载作品 (快捷键: ↓)' : '下载作品到本地 (快捷键: ↓)')">
+                <span v-if="downloading">下载中...</span>
+                <span v-else-if="isDownloaded">重新下载</span>
+                <span v-else>下载</span>
+            </button>
+            <!-- 收藏功能暂时不可用，已注释 -->
+            <!-- <button @click="$emit('bookmark')" class="btn btn-secondary"
+                :title="artwork.is_bookmarked ? '取消收藏此作品' : '收藏此作品'">
+                {{ artwork.is_bookmarked ? '取消收藏' : '收藏' }}
+            </button> -->
+            <!-- 删除按钮：只有已下载的作品才显示 -->
+            <button v-if="isDownloaded" @click="$emit('delete')" :disabled="deleting" class="btn btn-danger"
+                :title="deleting ? '正在删除中...' : '删除此作品 (不可恢复)'">
+                <span v-if="deleting">删除中...</span>
+                <span v-else>删除作品</span>
+            </button>
+        </div>
 
+        <!-- 下载进度区域 -->
+        <div class="download-section">
             <!-- 下载进度 -->
             <DownloadProgress v-if="currentTask" :task="currentTask" :loading="downloading"
                 @update="$emit('updateTask', $event)" @remove="$emit('removeTask', $event)" />
@@ -148,6 +155,7 @@ const router = useRouter();
 interface Props {
     artwork: Artwork;
     downloading: boolean;
+    deleting?: boolean; // 新增删除中状态
     isDownloaded: boolean;
     currentTask: DownloadTask | null;
     loading: boolean;
@@ -162,12 +170,14 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-    showCaption: false
+    showCaption: false,
+    deleting: false
 });
 
 const emit = defineEmits<{
     download: [];
-    bookmark: [];
+    // bookmark: []; // 收藏功能暂时不可用，已注释
+    delete: []; // 新增删除事件
     updateTask: [task: DownloadTask];
     removeTask: [taskId: string];
     goBack: [];
@@ -230,89 +240,82 @@ const handleCaptionToggleChange = (event: Event) => {
 
 <style scoped>
 .artwork-info {
-    background: white;
-    border-radius: 1rem;
-    padding: 2rem;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    background: var(--color-bg-primary);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-2xl);
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--color-border);
 }
 
 .artwork-header {
-    margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    margin-bottom: var(--spacing-lg);
 }
 
-.download-section {
-    margin-bottom: 2rem;
+.title-section {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex: 1;
 }
 
 .artwork-title {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: #1f2937;
-    margin: 0 0 1rem 0;
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
     line-height: 1.3;
+    max-width: 420px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.download-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: var(--color-success-light);
+    border: 1px solid var(--color-success);
+    border-radius: 50%;
+    flex-shrink: 0;
+    cursor: help;
+}
+
+.badge-icon {
+    width: 12px;
+    height: 12px;
+    color: var(--color-success);
+}
+
+.download-section {
+    margin-bottom: var(--spacing-2xl);
 }
 
 .artwork-actions {
     display: flex;
-    gap: 1rem;
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+    padding-top: var(--spacing-sm);
 }
 
-.btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.75rem 1.5rem;
-    border-radius: 0.5rem;
-    font-weight: 600;
-    text-decoration: none;
-    transition: all 0.2s;
-    border: none;
-    cursor: pointer;
-    font-size: 1rem;
-}
-
-.btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-.btn-primary {
-    background: #3b82f6;
-    color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-    background: #2563eb;
-}
-
-.btn-secondary {
-    background: #f3f4f6;
-    color: #374151;
-    border: 1px solid #d1d5db;
-}
-
-.btn-secondary:hover {
-    background: #e5e7eb;
-}
-
-.btn-text {
-    background: none;
-    color: #3b82f6;
-    padding: 0.5rem 1rem;
-}
-
-.btn-text:hover {
-    background: #f3f4f6;
+.artwork-actions .btn {
+    min-width: 120px;
+    white-space: nowrap;
 }
 
 .artist-info {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    padding: 1.5rem;
-    background: #f8fafc;
-    border-radius: 0.75rem;
-    margin-bottom: 1.5rem;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-xl);
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--spacing-xl);
 }
 
 .artist-avatar {
@@ -329,27 +332,27 @@ const handleCaptionToggleChange = (event: Event) => {
 .artist-name {
     font-size: 1.125rem;
     font-weight: 600;
-    color: #1f2937;
-    margin: 0 0 0.25rem 0;
+    color: var(--color-text-primary);
+    margin: 0 0 var(--spacing-xs) 0;
 }
 
 .artist-account {
-    color: #6b7280;
+    color: var(--color-text-secondary);
     margin: 0;
     font-size: 0.875rem;
 }
 
 .artwork-stats {
     display: flex;
-    gap: 2rem;
-    margin-bottom: 2rem;
+    gap: var(--spacing-2xl);
+    margin-bottom: var(--spacing-2xl);
 }
 
 .stat {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    color: #6b7280;
+    gap: var(--spacing-sm);
+    color: var(--color-text-secondary);
     font-size: 0.875rem;
 }
 
@@ -359,92 +362,54 @@ const handleCaptionToggleChange = (event: Event) => {
 }
 
 .artwork-tags {
-    margin-bottom: 2rem;
+    margin-bottom: var(--spacing-2xl);
 }
 
 .artwork-tags h3 {
     font-size: 1.125rem;
     font-weight: 600;
-    color: #1f2937;
-    margin: 0 0 1rem 0;
+    color: var(--color-text-primary);
+    margin: 0 0 var(--spacing-lg) 0;
 }
 
 .tags-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.tag {
-    background: #f3f4f6;
-    color: #374151;
-    padding: 0.25rem 0.75rem;
-    border-radius: 1rem;
-    font-size: 0.875rem;
-    line-height: 1;
-    border: none;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.tag-clickable {
-    background: #e0f2fe;
-    color: #0369a1;
-    border: 1px solid #bae6fd;
-}
-
-.tag-clickable:hover {
-    background: #bae6fd;
-    color: #075985;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.tag-selected {
-    background: #3b82f6 !important;
-    color: white !important;
-    border-color: #2563eb !important;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
-}
-
-.tag-selected:hover {
-    background: #2563eb !important;
-    color: white !important;
+    gap: var(--spacing-sm);
 }
 
 .artwork-description {
-    margin-bottom: 2rem;
+    margin-bottom: var(--spacing-2xl);
 }
 
 .artwork-description h3 {
     font-size: 1.125rem;
     font-weight: 600;
-    color: #1f2937;
-    margin: 0 0 1rem 0;
+    color: var(--color-text-primary);
+    margin: 0 0 var(--spacing-lg) 0;
 }
 
 .description-content {
-    color: #374151;
+    color: var(--color-text-primary);
     line-height: 1.6;
 }
 
 .artwork-caption {
-    margin-bottom: 1.5rem;
+    margin-bottom: var(--spacing-xl);
 }
 
 .caption-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.75rem;
-    padding: 0.5rem 0;
+    margin-bottom: var(--spacing-md);
+    padding: var(--spacing-sm) 0;
 }
 
 .caption-header h3 {
     font-size: 1rem;
     font-weight: 500;
-    color: #6b7280;
+    color: var(--color-text-secondary);
     margin: 0;
 }
 
@@ -467,8 +432,8 @@ const handleCaptionToggleChange = (event: Event) => {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: #d1d5db;
-    transition: .2s;
+    background-color: var(--color-border-hover);
+    transition: var(--transition-normal);
     border-radius: 12px;
 }
 
@@ -481,15 +446,15 @@ const handleCaptionToggleChange = (event: Event) => {
     bottom: 2px;
     border-radius: 50%;
     background-color: white;
-    transition: .2s;
+    transition: var(--transition-normal);
 }
 
 .caption-toggle input:checked+.caption-slider {
-    background-color: #3b82f6;
+    background-color: var(--color-primary);
 }
 
 .caption-toggle input:focus+.caption-slider {
-    box-shadow: 0 0 1px #3b82f6;
+    box-shadow: 0 0 1px var(--color-primary);
 }
 
 .caption-toggle input:checked+.caption-slider:before {
@@ -497,28 +462,27 @@ const handleCaptionToggleChange = (event: Event) => {
 }
 
 .caption-content {
-    background: #f8fafc;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.5rem;
-    padding: 0.75rem 1rem;
-    color: #4b5563;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md) var(--spacing-lg);
+    color: var(--color-text-secondary);
     font-size: 0.8rem;
     line-height: 1.5;
     max-height: 120px;
     overflow-y: auto;
     white-space: pre-wrap;
-    /* Preserve line breaks in caption */
 }
 
 .artwork-meta {
-    padding-top: 1.5rem;
-    border-top: 1px solid #e5e7eb;
-    color: #6b7280;
+    padding-top: var(--spacing-xl);
+    border-top: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
     font-size: 0.875rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 1rem;
+    gap: var(--spacing-lg);
 }
 
 .meta-content {
@@ -528,7 +492,7 @@ const handleCaptionToggleChange = (event: Event) => {
 .meta-item {
     display: flex;
     align-items: center;
-    margin-bottom: 0.5rem;
+    margin-bottom: var(--spacing-sm);
 }
 
 .meta-item:last-child {
@@ -537,42 +501,42 @@ const handleCaptionToggleChange = (event: Event) => {
 
 .meta-label {
     font-weight: 500;
-    color: #374151;
+    color: var(--color-text-primary);
     min-width: 80px;
-    margin-right: 0.5rem;
+    margin-right: var(--spacing-sm);
 }
 
 .meta-value {
-    color: #6b7280;
+    color: var(--color-text-secondary);
 }
 
 .artwork-navigation {
     display: flex;
-    gap: 1rem;
-    margin-bottom: 2rem;
-    padding: 1rem;
-    background: #f8fafc;
-    border-radius: 0.75rem;
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-2xl);
+    padding: var(--spacing-lg);
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-lg);
 }
 
 .nav-btn {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1rem;
-    border: 1px solid #d1d5db;
-    border-radius: 0.5rem;
-    background: white;
-    color: #374151;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all var(--transition-normal);
     justify-content: center;
 }
 
 .nav-btn:hover:not(:disabled) {
-    background: #f3f4f6;
-    border-color: #9ca3af;
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-border-hover);
 }
 
 .nav-btn:disabled {
@@ -589,7 +553,7 @@ const handleCaptionToggleChange = (event: Event) => {
     right: 0;
     bottom: 0;
     background: rgba(255, 255, 255, 0.8);
-    border-radius: 0.5rem;
+    border-radius: var(--radius-md);
     z-index: 1;
 }
 
@@ -602,12 +566,12 @@ const handleCaptionToggleChange = (event: Event) => {
     flex: 0 0 auto;
     min-width: 100px;
     justify-content: center;
-    background: #f3f4f6;
-    border-color: #9ca3af;
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-border-hover);
 }
 
 .nav-back:hover {
-    background: #e5e7eb;
+    background: var(--color-bg-secondary);
 }
 
 .nav-prev,
@@ -624,54 +588,29 @@ const handleCaptionToggleChange = (event: Event) => {
     justify-content: flex-end;
 }
 
-.download-status {
-    padding: 1rem 1.25rem;
-    background: #f0f9ff;
-    border: 1px solid #bae6fd;
-    border-radius: 0.75rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: #0369a1;
-    font-size: 0.875rem;
-    font-weight: 500;
-}
-
-.status-indicator {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.status-icon {
-    width: 1.25rem;
-    height: 1.25rem;
-    color: #059669;
-}
-
 .toggle-container {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    background: #f8fafc;
-    border: 1px solid #e5e7eb;
-    border-radius: 1rem;
-    padding: 0.25rem 0.5rem;
+    gap: var(--spacing-sm);
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-xs) var(--spacing-sm);
     width: fit-content;
-    transition: all 0.2s ease;
+    transition: all var(--transition-normal);
     flex-shrink: 0;
     height: 1.5rem;
 }
 
 .toggle-container:hover {
-    background: #f1f5f9;
-    border-color: #cbd5e1;
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-border-hover);
 }
 
 .toggle-label {
     font-size: 0.875rem;
     font-weight: 500;
-    color: #6b7280;
+    color: var(--color-text-secondary);
     line-height: 1;
 }
 
@@ -694,8 +633,8 @@ const handleCaptionToggleChange = (event: Event) => {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: #e5e7eb;
-    transition: .3s;
+    background-color: var(--color-border);
+    transition: var(--transition-slow);
     border-radius: 14px;
 }
 
@@ -708,15 +647,15 @@ const handleCaptionToggleChange = (event: Event) => {
     bottom: 2px;
     border-radius: 50%;
     background-color: white;
-    transition: .3s;
+    transition: var(--transition-slow);
 }
 
 input:checked+.slider {
-    background-color: #3b82f6;
+    background-color: var(--color-primary);
 }
 
 input:focus+.slider {
-    box-shadow: 0 0 1px #3b82f6;
+    box-shadow: 0 0 1px var(--color-primary);
 }
 
 input:checked+.slider:before {
@@ -725,9 +664,9 @@ input:checked+.slider:before {
 
 .keyboard-hint {
     font-size: 0.75rem;
-    color: #9ca3af;
+    color: var(--color-text-tertiary);
     font-weight: 400;
-    margin-left: 0.25rem;
+    margin-left: var(--spacing-xs);
     opacity: 0.8;
 }
 
@@ -736,18 +675,14 @@ input:checked+.slider:before {
         flex-direction: column;
     }
 
-    .btn {
-        width: 100%;
-    }
-
     .artwork-stats {
         flex-direction: column;
-        gap: 1rem;
+        gap: var(--spacing-lg);
     }
 
     .artwork-navigation {
         flex-direction: column;
-        gap: 0.75rem;
+        gap: var(--spacing-md);
     }
 
     .nav-back {
@@ -763,7 +698,7 @@ input:checked+.slider:before {
 
     .artwork-meta {
         flex-direction: column;
-        gap: 1rem;
+        gap: var(--spacing-lg);
     }
 
     .toggle-container {

@@ -190,150 +190,105 @@ onMounted(() => {
 
 <style scoped>
 .cache-manager {
-  background: white;
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border);
 }
 
 .cache-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: var(--spacing-xl);
 }
 
 .cache-header h3 {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--color-text-primary);
 }
 
 .cache-actions {
   display: flex;
-  gap: 0.75rem;
-}
-
-.btn {
-  padding: 0.5rem 1rem;
-  border-radius: 0.375rem;
-  font-weight: 500;
-  text-decoration: none;
-  transition: all 0.2s;
-  border: none;
-  cursor: pointer;
-  font-size: 0.875rem;
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  background: #f3f4f6;
-  color: #374151;
-  border: 1px solid #d1d5db;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: #e5e7eb;
-}
-
-.btn-warning {
-  background: #fef3c7;
-  color: #92400e;
-  border: 1px solid #f59e0b;
-}
-
-.btn-warning:hover:not(:disabled) {
-  background: #fde68a;
-}
-
-.btn-danger {
-  background: #fee2e2;
-  color: #991b1b;
-  border: 1px solid #ef4444;
-}
-
-.btn-danger:hover:not(:disabled) {
-  background: #fecaca;
+  gap: var(--spacing-md);
 }
 
 .error-message {
-  background: #fee2e2;
-  color: #991b1b;
-  padding: 0.75rem;
-  border-radius: 0.375rem;
-  margin-bottom: 1rem;
-  border: 1px solid #fecaca;
+  background: var(--color-danger-light);
+  color: var(--color-danger-dark);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-lg);
+  border: 1px solid var(--color-danger);
 }
 
 .cache-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
+  gap: var(--spacing-lg);
 }
 
 .stat-item {
-  background: #f8fafc;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid #e2e8f0;
+  background: var(--color-bg-secondary);
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
 }
 
 .stat-label {
   font-size: 0.875rem;
-  color: #64748b;
-  margin-bottom: 0.5rem;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-sm);
   font-weight: 500;
 }
 
 .stat-value {
   font-size: 1.125rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--color-text-primary);
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
 }
 
 .usage-bar {
   flex: 1;
   height: 0.5rem;
-  background: #e2e8f0;
-  border-radius: 0.25rem;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 
 .usage-fill {
   height: 100%;
-  background: #10b981;
+  background: var(--color-success);
   transition: width 0.3s ease;
 }
 
 .usage-fill.usage-high {
-  background: #ef4444;
+  background: var(--color-danger);
 }
 
 .usage-text {
   font-size: 0.875rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   min-width: 3rem;
   text-align: right;
 }
 
 .loading {
   text-align: center;
-  color: #6b7280;
-  padding: 2rem;
+  color: var(--color-text-secondary);
+  padding: var(--spacing-2xl);
 }
 
 @media (max-width: 768px) {
   .cache-header {
     flex-direction: column;
-    gap: 1rem;
+    gap: var(--spacing-lg);
     align-items: stretch;
   }
 
@@ -345,4 +300,4 @@ onMounted(() => {
     grid-template-columns: 1fr;
   }
 }
-</style> 
+</style>

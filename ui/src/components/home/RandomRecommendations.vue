@@ -9,7 +9,9 @@
                             <path
                                 d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
                         </svg>
-                        <LoadingSpinner v-else text="" />
+                        <div v-else class="loading-spinner-small">
+                            <div class="spinner-ring-small"></div>
+                        </div>
                         刷新推荐
                     </button>
                 </div>
@@ -170,8 +172,8 @@ watch(() => hasFollowingArtists.value, (newValue) => {
 
 <style scoped>
 .random-recommendations {
-    margin: 2rem 0;
-    padding: 0 2rem;
+    margin: var(--spacing-2xl) 0;
+    padding: 0 var(--spacing-2xl);
 }
 
 .random-recommendations .container {
@@ -183,31 +185,31 @@ watch(() => hasFollowingArtists.value, (newValue) => {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 2rem;
+    margin-bottom: var(--spacing-2xl);
 }
 
 .section-title {
     font-size: 2rem;
     font-weight: 700;
-    color: #1f2937;
+    color: var(--color-text-primary);
     margin: 0;
 }
 
 .header-actions {
     display: flex;
-    gap: 1rem;
+    gap: var(--spacing-lg);
 }
 
 .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1rem;
-    border-radius: 0.5rem;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-radius: var(--radius-lg);
     font-weight: 600;
     text-decoration: none;
-    transition: all 0.2s;
+    transition: all var(--transition-normal);
     border: none;
     cursor: pointer;
     font-size: 0.875rem;
@@ -219,17 +221,20 @@ watch(() => hasFollowingArtists.value, (newValue) => {
 }
 
 .btn-secondary {
-    background: #f3f4f6;
-    color: #374151;
-    border: 1px solid #d1d5db;
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border);
 }
 
 .btn-secondary:hover:not(:disabled) {
-    background: #e5e7eb;
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
 }
 
 .btn-small {
-    padding: 0.5rem 0.75rem;
+    padding: var(--spacing-sm) var(--spacing-md);
     font-size: 0.75rem;
 }
 
@@ -238,14 +243,39 @@ watch(() => hasFollowingArtists.value, (newValue) => {
     height: 1rem;
 }
 
+.loading-spinner-small {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.spinner-ring-small {
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid var(--color-border);
+    border-top: 2px solid var(--color-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
 .loading-section {
     display: flex;
     justify-content: center;
-    padding: 3rem 0;
+    padding: var(--spacing-2xl) 0;
 }
 
 .error-section {
-    margin-bottom: 2rem;
+    margin-bottom: var(--spacing-2xl);
 }
 
 .empty-section {
@@ -261,19 +291,19 @@ watch(() => hasFollowingArtists.value, (newValue) => {
 .empty-icon {
     width: 4rem;
     height: 4rem;
-    color: #9ca3af;
-    margin-bottom: 1rem;
+    color: var(--color-text-tertiary);
+    margin-bottom: var(--spacing-lg);
 }
 
 .empty-text {
     font-size: 1.25rem;
     font-weight: 600;
-    color: #6b7280;
-    margin: 0 0 0.5rem 0;
+    color: var(--color-text-secondary);
+    margin: 0 0 var(--spacing-sm) 0;
 }
 
 .empty-subtext {
-    color: #9ca3af;
+    color: var(--color-text-tertiary);
     margin: 0;
     line-height: 1.5;
 }
@@ -281,8 +311,8 @@ watch(() => hasFollowingArtists.value, (newValue) => {
 .recommendations-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 2rem;
+    gap: var(--spacing-xl);
+    margin-bottom: var(--spacing-2xl);
     max-width: 100%;
 }
 
@@ -301,12 +331,12 @@ watch(() => hasFollowingArtists.value, (newValue) => {
 
 .section-footer {
     text-align: center;
-    padding: 1rem 0;
-    border-top: 1px solid #e5e7eb;
+    padding: var(--spacing-lg) 0;
+    border-top: 1px solid var(--color-border);
 }
 
 .footer-text {
-    color: #6b7280;
+    color: var(--color-text-secondary);
     font-size: 0.875rem;
     margin: 0;
 }
@@ -319,18 +349,18 @@ watch(() => hasFollowingArtists.value, (newValue) => {
 
 @media (max-width: 768px) {
     .random-recommendations {
-        padding: 0 1rem;
+        padding: 0 var(--spacing-lg);
     }
 
     .section-header {
         flex-direction: column;
         align-items: flex-start;
-        gap: 1rem;
+        gap: var(--spacing-lg);
     }
 
     .recommendations-grid {
         grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 1rem;
+        gap: var(--spacing-lg);
     }
 
     .section-title {
@@ -341,7 +371,7 @@ watch(() => hasFollowingArtists.value, (newValue) => {
 @media (max-width: 480px) {
     .recommendations-grid {
         grid-template-columns: 1fr;
-        gap: 1rem;
+        gap: var(--spacing-lg);
     }
 }
 </style>

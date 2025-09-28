@@ -22,12 +22,11 @@
           @page-change="currentImagePage = $event" />
 
         <!-- 右侧信息面板组件 -->
-        <ArtworkInfoPanel :artwork="artwork" :downloading="downloading" :is-downloaded="isDownloaded"
+        <ArtworkInfoPanel :artwork="artwork" :downloading="downloading" :deleting="deleting" :is-downloaded="isDownloaded"
           :current-task="currentTask" :loading="loading" :show-navigation="showNavigation"
           :previous-artwork="previousArtwork" :next-artwork="nextArtwork" :canNavigatePrevious="canNavigateToPrevious"
           :canNavigateNext="canNavigateToNext" :selected-tags="selectedTags" :show-recommendations="showRecommendations"
-          :show-caption="showCaption"
-          @download="handleDownload" @bookmark="handleBookmark" @go-back="goBackToArtist"
+          :show-caption="showCaption" @download="handleDownload" @delete="handleDelete" @go-back="goBackToArtist"
           @navigate-previous="navigateToPrevious" @navigate-next="navigateToNext" @tag-click="handleTagClick"
           @toggle-recommendations="showRecommendations = $event" @toggle-caption="showCaption = $event" />
       </div>
@@ -71,6 +70,7 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 const currentImagePage = ref(0); // 当前图片页面
 const downloading = ref(false);
+const deleting = ref(false); // 新增删除中状态
 const isDownloaded = ref(false);
 
 // 下载任务状态 - 使用Pinia store
@@ -252,7 +252,7 @@ const checkDownloadStatus = async (artworkId: number, retryCount = 0) => {
 
 // 下载作品
 const handleDownload = async () => {
-  if (!artwork.value) return;
+  if (!artwork.value || downloading.value) return; // 防止重复点击
 
   try {
     // 清理下载状态
@@ -326,30 +326,109 @@ watch(currentTask, (newTask, oldTask) => {
   }
 }, { immediate: true });
 
-// 收藏/取消收藏
-const handleBookmark = async () => {
-  if (!artwork.value) return;
+// 收藏/取消收藏 - 已注释，功能暂时不可用
+// const handleBookmark = async () => {
+//   if (!artwork.value) return;
+
+//   try {
+//     const action = artwork.value.is_bookmarked ? 'remove' : 'add';
+//     const response = await artworkService.toggleBookmark(artwork.value.id, action);
+
+//     if (response.success && response.data) {
+//       // 更新作品状态
+//       artwork.value.is_bookmarked = response.data.is_bookmarked;
+//       artwork.value.total_bookmarks += artwork.value.is_bookmarked ? 1 : -1;
+
+//       // 显示成功消息
+//       console.log(response.data.message);
+//     } else {
+//       // 显示错误提示给用户
+//       bookmarkError.value = response.error || '收藏操作失败';
+//       console.error('收藏操作失败:', response.error);
+//     }
+//   } catch (err) {
+//     // 显示错误提示给用户
+//     bookmarkError.value = '藏暂时不可用，请去官方收藏或者取消收藏';
+//     console.error('收藏操作失败:', err);
+//   }
+// };
+
+// 删除作品
+const handleDelete = async () => {
+  if (!artwork.value || deleting.value) return; // 防止重复点击
+
+  // 确认删除
+  if (!confirm(`确定要删除作品 "${artwork.value.title}" 吗？此操作不可恢复。`)) {
+    return;
+  }
+
+  deleting.value = true; // 设置删除中状态
 
   try {
-    const action = artwork.value.is_bookmarked ? 'remove' : 'add';
-    const response = await artworkService.toggleBookmark(artwork.value.id, action);
+    const response = await repositoryStore.deleteArtwork(artwork.value.id.toString());
 
-    if (response.success && response.data) {
-      // 更新作品状态
-      artwork.value.is_bookmarked = response.data.is_bookmarked;
-      artwork.value.total_bookmarks += artwork.value.is_bookmarked ? 1 : -1;
-
-      // 显示成功消息
-      console.log(response.data.message);
+    if (response.success) {
+      // 删除成功后更新本地状态
+      isDownloaded.value = false;
+      
+      // 显示成功提示（非阻塞）
+      const successMessage = document.createElement('div');
+      successMessage.textContent = '作品删除成功';
+      successMessage.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: var(--color-success);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 6px;
+        z-index: 9999;
+        font-size: 14px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      `;
+      document.body.appendChild(successMessage);
+      
+      // 3秒后自动移除提示
+      setTimeout(() => {
+        if (successMessage.parentNode) {
+          successMessage.parentNode.removeChild(successMessage);
+        }
+      }, 3000);
+      
+      // 不退出页面，保持在当前页面
     } else {
-      // 显示错误提示给用户
-      bookmarkError.value = response.error || '收藏操作失败';
-      console.error('收藏操作失败:', response.error);
+      throw new Error(response.error || '删除失败');
     }
   } catch (err) {
-    // 显示错误提示给用户
-    bookmarkError.value = '藏暂时不可用，请去官方收藏或者取消收藏';
-    console.error('收藏操作失败:', err);
+    const errorMessage = err instanceof Error ? err.message : '删除作品失败';
+    
+    // 显示错误提示（非阻塞）
+    const errorDiv = document.createElement('div');
+    errorDiv.textContent = '删除失败: ' + errorMessage;
+    errorDiv.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: var(--color-danger);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 6px;
+      z-index: 9999;
+      font-size: 14px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    `;
+    document.body.appendChild(errorDiv);
+    
+    // 3秒后自动移除提示
+    setTimeout(() => {
+      if (errorDiv.parentNode) {
+        errorDiv.parentNode.removeChild(errorDiv);
+      }
+    }, 3000);
+    
+    console.error('删除作品失败:', err);
+  } finally {
+    deleting.value = false; // 重置删除状态
   }
 };
 
@@ -755,7 +834,7 @@ onMounted(() => {
 
   // 初始化推荐开关状态
   initializeRecommendationsState();
-  
+
   // 初始化 Caption 开关状态
   initializeCaptionState();
 });

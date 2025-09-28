@@ -163,16 +163,16 @@ onUnmounted(() => {
 
 <style scoped>
 .artwork-gallery {
-  background: white;
-  border-radius: 1rem;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-xl);
   overflow: hidden;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
 }
 
 .main-image {
   position: relative;
   aspect-ratio: 1;
-  background: #f3f4f6;
+  background: var(--color-bg-tertiary);
   overflow: hidden;
 }
 
@@ -202,11 +202,11 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f3f4f6;
+  background: var(--color-bg-tertiary);
 }
 
 .image-error {
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-size: 0.875rem;
 }
 
@@ -236,16 +236,16 @@ onUnmounted(() => {
   width: 60px;
   height: 60px;
   border: 2px solid transparent;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
   overflow: hidden;
   cursor: pointer;
-  transition: border-color 0.2s;
+  transition: border-color var(--transition-normal);
   background: none;
   padding: 0;
 }
 
 .thumbnail.active {
-  border-color: #3b82f6;
+  border-color: var(--color-primary);
 }
 
 .thumbnail img {
@@ -257,14 +257,14 @@ onUnmounted(() => {
 .thumbnail-placeholder {
   width: 100%;
   height: 100%;
-  background: #f3f4f6;
+  background: var(--color-bg-tertiary);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .placeholder-content {
-  color: #9ca3af;
+  color: var(--color-text-tertiary);
   font-size: 0.75rem;
   font-weight: 500;
 }
