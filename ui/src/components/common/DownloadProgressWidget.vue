@@ -50,7 +50,7 @@
             </div>
 
             <!-- 批量下载的详细进度 -->
-            <div v-if="task.type === 'batch' || task.type === 'artist'" class="batch-progress">
+            <div v-if="task.type === 'batch' || task.type === 'artist' || task.type === 'art'" class="batch-progress">
               <div class="batch-stats">
                 <div class="stat-item">
                   <span class="stat-label">已完成:</span>
@@ -481,41 +481,114 @@ onUnmounted(() => {
 /* 批量下载进度样式 */
 .batch-progress {
   margin-bottom: 0.75rem;
-  padding: 0.75rem;
-  background: white;
-  border-radius: 0.375rem;
-  border: 1px solid #e2e8f0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
 }
 
 .batch-stats {
-  display: flex;
-  gap: 1rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
   margin-bottom: 0.75rem;
 }
 
 .stat-item {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
+  padding: 0.75rem 0.5rem;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
 }
 
-.stat-label {
-  font-size: 0.75rem;
-  color: #6b7280;
-  font-weight: 500;
+.stat-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #e2e8f0, #cbd5e1);
+  transition: all 0.2s ease;
+}
+
+.stat-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.stat-item:hover::before {
+  background: linear-gradient(90deg, #3b82f6, #1d4ed8);
 }
 
 .stat-value {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-bottom: 0.125rem;
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 0.625rem;
+  color: #64748b;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .stat-value.success {
   color: #059669;
+  background: linear-gradient(135deg, #059669, #047857);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.stat-value.success + .stat-label {
+  color: #047857;
+}
+
+.stat-item:has(.stat-value.success)::before {
+  background: linear-gradient(90deg, #10b981, #059669);
 }
 
 .stat-value.error {
   color: #dc2626;
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.stat-value.error + .stat-label {
+  color: #b91c1c;
+}
+
+.stat-item:has(.stat-value.error)::before {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+.stat-item:has(.stat-value:not(.success):not(.error))::before {
+  background: linear-gradient(90deg, #6366f1, #4f46e5);
+}
+
+.stat-item:has(.stat-value:not(.success):not(.error)) .stat-value {
+  color: #4f46e5;
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.stat-item:has(.stat-value:not(.success):not(.error)) .stat-label {
+  color: #4f46e5;
 }
 
 .recent-completed h5 {

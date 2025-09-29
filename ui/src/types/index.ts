@@ -98,7 +98,7 @@ export interface LoginStatus {
 // 下载任务
 export interface DownloadTask {
   id: string;
-  type: 'artwork' | 'batch' | 'artist';
+  type: 'artwork' | 'batch' | 'artist' | 'art';
   status: 'downloading' | 'completed' | 'failed' | 'partial' | 'cancelled' | 'paused';
   progress: number;
   total_files: number;
