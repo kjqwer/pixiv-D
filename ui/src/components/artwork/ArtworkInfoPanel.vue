@@ -9,7 +9,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- 按钮操作区域 - 单独的第二行 -->
         <div class="artwork-actions">
             <!-- 下载按钮 -->
@@ -267,7 +267,7 @@ const handleCaptionToggleChange = (event: Event) => {
     font-weight: 600;
     color: var(--color-text-primary);
     line-height: 1.3;
-    max-width: 420px;
+    max-width: 400px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

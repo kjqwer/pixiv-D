@@ -211,11 +211,21 @@ const activeTasks = computed(() => {
 
 // 获取任务标题
 const getTaskTitle = (task: DownloadTask) => {
+  // 优先使用后端生成的任务标题
+  if (task.task_title) {
+    return task.task_title;
+  }
+
+  // 兼容旧版本的任务标题生成逻辑
   if (task.type === 'artwork') {
     return task.artwork_title || `作品 ${task.artwork_id}`;
   } else if (task.type === 'artist') {
     return `作者作品 - ${task.artist_name || '未知作者'}`;
   } else if (task.type === 'batch') {
+    // 如果有任务描述，使用任务描述
+    if (task.task_description) {
+      return `${task.task_description} (${task.total_files} 个作品)`;
+    }
     return `批量下载 (${task.total_files} 个作品)`;
   }
   return '未知任务';
@@ -239,6 +249,7 @@ const getTypeText = (type: string) => {
   const typeMap: Record<string, string> = {
     'artwork': '单个作品',
     'artist': '作者作品',
+    'art': '作者作品',
     'batch': '批量下载',
     'ranking': '排行榜下载'
   };
@@ -251,13 +262,33 @@ const getHistoryTitle = (item: any) => {
     const title = item.artwork_title || '未知作品';
     const artist = item.artist_name || '未知作者';
     return `${title} (${artist})`;
-  } else if (item.type === 'artist') {
+  } else if (item.type === 'artist' || item.type === 'art') {
     const artist = item.artist_name || '未知作者';
-    return `作者作品 (${artist})`;
+    const count = item.total_files || 0;
+    // 如果有任务描述，优先使用任务描述
+    if (item.task_description) {
+      return `${item.task_description} - ${count} 个作品`;
+    }
+    return `作者作品 (${artist}) - ${count} 个作品`;
   } else if (item.type === 'batch') {
-    return `批量下载 (${item.total_files || 0} 个作品)`;
+    const count = item.total_files || 0;
+    // 如果有任务描述，使用任务描述
+    if (item.task_description) {
+      return `${item.task_description} - ${count} 个作品`;
+    }
+    return `批量下载 - ${count} 个作品`;
   } else if (item.type === 'ranking') {
-    return `排行榜下载 (${item.total_files || 0} 个作品)`;
+    const count = item.total_files || 0;
+    let title = '排行榜下载';
+    if (item.mode && item.ranking_type) {
+      const modeText = item.mode === 'daily' ? '日榜' : 
+                      item.mode === 'weekly' ? '周榜' : 
+                      item.mode === 'monthly' ? '月榜' : item.mode;
+      const typeText = item.ranking_type === 'illust' ? '插画' : 
+                      item.ranking_type === 'manga' ? '漫画' : item.ranking_type;
+      title = `${modeText}${typeText}`;
+    }
+    return `${title} - ${count} 个作品`;
   }
   return '未知下载任务';
 };
@@ -307,10 +338,10 @@ const fetchHistory = async () => {
 // 监听任务完成，刷新历史记录
 watch(tasks, (newTasks, oldTasks) => {
   // 检查是否有任务完成
-  const completedTasks = newTasks.filter(task => 
+  const completedTasks = newTasks.filter(task =>
     ['completed', 'failed', 'cancelled', 'partial'].includes(task.status)
   );
-  
+
   if (completedTasks.length > 0) {
     // 延迟刷新历史记录
     setTimeout(() => {

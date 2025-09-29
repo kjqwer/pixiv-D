@@ -107,6 +107,9 @@ export interface DownloadTask {
   artwork_id?: number;
   artist_name?: string;
   artwork_title?: string;
+  task_description?: string;
+  task_title?: string;
+  mode?: string;
   start_time: string;
   end_time?: string;
   error?: string;
@@ -135,4 +138,4 @@ export interface DownloadParams {
   quality?: 'high' | 'medium' | 'low';
   format?: 'auto' | 'jpg' | 'png';
   concurrent?: number;
-} 
+}

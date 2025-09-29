@@ -123,11 +123,21 @@ const indicatorClass = computed(() => {
 
 // 获取任务标题
 const getTaskTitle = (task: DownloadTask) => {
+  // 优先使用后端生成的任务标题
+  if (task.task_title) {
+    return task.task_title;
+  }
+
+  // 兼容旧版本的任务标题生成逻辑
   if (task.type === 'artwork') {
     return task.artwork_title || `作品 ${task.artwork_id}`;
   } else if (task.type === 'artist') {
     return `作者作品 - ${task.artist_name || '未知作者'}`;
   } else if (task.type === 'batch') {
+    // 如果有任务描述，使用任务描述
+    if (task.task_description) {
+      return `${task.task_description} (${task.total_files} 个作品)`;
+    }
     return `批量下载 (${task.total_files} 个作品)`;
   }
   return '未知任务';

@@ -80,12 +80,11 @@ class ArtistService {
 
       const response = await this.makeRequest('GET', `/v1/user/illusts?${stringify(params)}`);
 
-      // 获取作者作品列表
-
+      // 获取作者作品列表 - 不在这里处理 limit，让调用方处理
       return {
         success: true,
         data: {
-          artworks: response.illusts,
+          artworks: response.illusts || [],
           next_url: response.next_url,
         },
       };

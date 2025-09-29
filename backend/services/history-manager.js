@@ -82,7 +82,11 @@ class HistoryManager {
       // 只保存关键信息
       artwork_id: item.artwork_id,
       artist_name: item.artist_name,
-      artwork_title: item.artwork_title
+      artist_id: item.artist_id,
+      artwork_title: item.artwork_title,
+      mode: item.mode,
+      ranking_type: item.ranking_type,
+      task_description: item.task_description
     };
 
     this.history.unshift(simplifiedItem);
@@ -219,4 +223,4 @@ class HistoryManager {
   }
 }
 
-module.exports = HistoryManager; 
+module.exports = HistoryManager;

@@ -626,72 +626,12 @@ class DownloadService {
    * 批量下载作品
    */
   async downloadMultipleArtworks(artworkIds, options = {}) {
-    // 获取动态并发配置
-    const concurrentConfig = await this.getConcurrentConfig();
-    const { concurrent = concurrentConfig.concurrentDownloads, size = 'original', quality = 'high', format = 'auto', skipExisting = true } = options;
-
     try {
-      // 检查重复下载
-      let filteredIds = artworkIds;
-      let skippedCount = 0;
-
-      if (skipExisting) {
-        const downloadedIds = await this.getDownloadedArtworkIds();
-        const downloadedSet = new Set(downloadedIds);
-
-        filteredIds = artworkIds.filter(id => !downloadedSet.has(id));
-        skippedCount = artworkIds.length - filteredIds.length;
-      }
-
-      // 创建任务记录
-      const task = this.taskManager.createTask('batch', {
-        artwork_ids: artworkIds,
-        filtered_ids: filteredIds,
-        total_files: filteredIds.length,
-        completed_files: 0,
-        failed_files: 0,
-        skipped: skippedCount,
-        results: [],
+      // 使用统一的批量下载方法
+      return await this.downloadBatchArtworks(artworkIds, {
+        ...options,
+        taskType: 'batch',
       });
-
-      await this.taskManager.saveTasks();
-
-      // 立即发送初始状态更新，让前端能立即看到进度条
-      this.progressManager.notifyProgressUpdate(task.id, task);
-
-      // 如果没有需要下载的作品，直接返回
-      if (filteredIds.length === 0) {
-        await this.taskManager.updateTask(task.id, {
-          status: 'completed',
-          end_time: new Date(),
-        });
-
-        return {
-          success: true,
-          data: {
-            task_id: task.id,
-            total_artworks: artworkIds.length,
-            completed_artworks: 0,
-            failed_artworks: 0,
-            skipped_artworks: skippedCount,
-            message: '所有作品都已下载完成',
-          },
-        };
-      }
-
-      // 异步执行批量下载
-      this.downloadExecutor.executeBatchDownload(task, filteredIds, options);
-
-      return {
-        success: true,
-        data: {
-          task_id: task.id,
-          total_artworks: task.total,
-          completed_artworks: task.completed,
-          failed_artworks: task.failed,
-          message: '批量下载任务已创建，正在后台执行',
-        },
-      };
     } catch (error) {
       logger.error('批量下载失败:', error);
       return {
@@ -849,10 +789,130 @@ class DownloadService {
   }
 
   /**
+   * 下载批量作品 - 统一的批量下载方法
+   * @param {Array} items - 要下载的项目列表（可以是作品ID数组或作品对象数组）
+   * @param {Object} options - 下载选项
+   */
+  async downloadBatchArtworks(items, options = {}) {
+    const { size = 'original', quality = 'high', format = 'auto', skipExisting = true, maxConcurrent = 3, taskType = 'batch' } = options;
+
+    try {
+      // 生成任务描述
+      let taskDescription = '';
+      let taskTitle = '';
+      
+      if (taskType === 'ranking') {
+        const modeMap = {
+          'day': '日榜',
+          'week': '周榜', 
+          'month': '月榜',
+          'rookie': '新人榜'
+        };
+        const typeMap = {
+          'art': '插画',
+          'manga': '漫画',
+          'novel': '小说'
+        };
+        const modeText = modeMap[options.mode] || options.mode;
+        const typeText = typeMap[options.type] || options.type;
+        taskDescription = `${modeText}${typeText}排行榜`;
+        taskTitle = `排行榜下载 - ${taskDescription}`;
+      } else if (taskType === 'artist') {
+        const artistName = options.artist_name || `作者ID: ${options.artist_id}`;
+        taskDescription = `作者作品 - ${artistName}`;
+        taskTitle = `作者作品下载 - ${artistName}`;
+      } else {
+        taskDescription = '批量下载';
+        taskTitle = '批量下载';
+      }
+
+      // 创建任务记录
+      const task = this.taskManager.createTask(taskType, {
+        total_files: 0,
+        completed_files: 0,
+        failed_files: 0,
+        skipped: 0,
+        results: [],
+        task_description: taskDescription,
+        task_title: taskTitle,
+        // 保留原有的任务特定字段
+        ...(options.artist_id && { artist_id: options.artist_id }),
+        ...(options.artist_name && { artist_name: options.artist_name }),
+        ...(options.mode && { mode: options.mode }),
+        ...(options.type && { type: options.type }),
+      });
+
+      await this.taskManager.saveTasks();
+
+      // 获取已下载的作品ID
+      const downloadedIds = skipExisting ? await this.getDownloadedArtworkIds() : [];
+      const downloadedSet = new Set(downloadedIds);
+
+      // 过滤已下载的作品
+      let newItems;
+      if (skipExisting) {
+        newItems = items.filter(item => {
+          const artworkId = typeof item === 'object' ? item.id : item;
+          return !downloadedSet.has(artworkId);
+        });
+      } else {
+        newItems = items;
+      }
+
+      const skippedCount = items.length - newItems.length;
+
+      await this.taskManager.updateTask(task.id, {
+        skipped: skippedCount,
+        total_files: newItems.length,
+      });
+
+      // 如果没有需要下载的作品，直接返回
+      if (newItems.length === 0) {
+        await this.taskManager.updateTask(task.id, {
+          status: 'completed',
+          end_time: new Date(),
+        });
+
+        return {
+          success: true,
+          data: {
+            task_id: task.id,
+            total_artworks: items.length,
+            completed_artworks: 0,
+            failed_artworks: 0,
+            skipped_artworks: skippedCount,
+            message: '所有作品都已下载完成',
+          },
+        };
+      }
+
+      // 异步执行批量下载
+      this.downloadExecutor.executeBatchDownload(task, newItems, options);
+
+      return {
+        success: true,
+        data: {
+          task_id: task.id,
+          total_artworks: task.total_files,
+          completed_artworks: task.completed_files,
+          failed_artworks: task.failed_files,
+          message: '批量下载任务已创建，正在后台执行',
+        },
+      };
+    } catch (error) {
+      logger.error('批量下载失败:', error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
    * 下载作者作品
    */
   async downloadArtistArtworks(artistId, options = {}) {
-    const { type = 'art', limit = 50, size = 'original', quality = 'high', format = 'auto', skipExisting = true, maxConcurrent = 3, pageSize = 30 } = options;
+    const { type = 'art', limit = 50, pageSize = 30 } = options;
 
     try {
       // 先获取作者信息
@@ -866,23 +926,6 @@ class DownloadService {
         logger.warn(`获取作者 ${artistId} 信息失败:`, err.message);
       }
 
-      // 创建任务记录
-      const task = this.taskManager.createTask('artist', {
-        artist_id: artistId,
-        artist_name: artistName,
-        total_files: 0,
-        completed_files: 0,
-        failed_files: 0,
-        skipped: 0,
-        results: [],
-      });
-
-      await this.taskManager.saveTasks();
-
-      // 获取已下载的作品ID
-      const downloadedIds = skipExisting ? await this.getDownloadedArtworkIds() : [];
-      const downloadedSet = new Set(downloadedIds);
-
       // 分页获取作者作品列表
       let allArtworks = [];
       let offset = 0;
@@ -892,7 +935,6 @@ class DownloadService {
         const artworksResult = await this.artistService.getArtistArtworks(artistId, {
           type,
           offset: offset,
-          limit: Math.min(pageSize, limit - allArtworks.length),
         });
 
         if (!artworksResult.success) {
@@ -903,66 +945,28 @@ class DownloadService {
         if (artworks.length === 0) {
           hasMore = false;
         } else {
-          allArtworks.push(...artworks);
+          // 确保不超过指定的 limit
+          const remainingSlots = limit - allArtworks.length;
+          const artworksToAdd = artworks.slice(0, remainingSlots);
+          
+          allArtworks.push(...artworksToAdd);
           offset += artworks.length;
 
           // 基于 next_url 判断是否还有更多页面
-          hasMore = !!artworksResult.data.next_url;
+          hasMore = !!artworksResult.data.next_url && allArtworks.length < limit;
 
           // 添加延迟避免请求过于频繁
           await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
 
-      // 过滤已下载的作品
-      const newArtworks = skipExisting ? allArtworks.filter(artwork => !downloadedSet.has(artwork.id)) : allArtworks;
-
-      const skippedCount = allArtworks.length - newArtworks.length;
-
-      await this.taskManager.updateTask(task.id, {
-        skipped: skippedCount,
-        total_files: newArtworks.length,
+      // 使用统一的批量下载方法
+      return await this.downloadBatchArtworks(allArtworks, {
+        ...options,
+        taskType: 'artist',
+        artist_id: artistId,
+        artist_name: artistName,
       });
-
-      // 作者作品下载统计
-
-      // 如果没有需要下载的作品，直接返回
-      if (newArtworks.length === 0) {
-        await this.taskManager.updateTask(task.id, {
-          status: 'completed',
-          end_time: new Date(),
-        });
-
-        return {
-          success: true,
-          data: {
-            task_id: task.id,
-            artist_id: artistId,
-            artist_name: artistName,
-            total_artworks: allArtworks.length,
-            completed_artworks: 0,
-            failed_artworks: 0,
-            skipped_artworks: skippedCount,
-            message: '所有作品都已下载完成',
-          },
-        };
-      }
-
-      // 异步执行作者作品下载
-      this.downloadExecutor.executeArtistDownload(task, newArtworks, options);
-
-      return {
-        success: true,
-        data: {
-          task_id: task.id,
-          artist_id: artistId,
-          artist_name: artistName,
-          total_artworks: task.total_files,
-          completed_artworks: task.completed_files,
-          failed_artworks: task.failed_files,
-          message: '作者作品下载任务已创建，正在后台执行',
-        },
-      };
     } catch (error) {
       logger.error('作者作品下载失败:', error);
       return {
@@ -976,35 +980,21 @@ class DownloadService {
    * 下载排行榜作品
    */
   async downloadRankingArtworks(options = {}) {
-    const { mode = 'day', type = 'art', limit = 50, size = 'original', quality = 'high', format = 'auto', skipExisting = true, maxConcurrent = 3, pageSize = 30 } = options;
+    const { mode = 'day', type = 'art', limit = 50, pageSize = 30 } = options;
 
     try {
-      // 创建任务记录
-      const task = this.taskManager.createTask('ranking', {
-        mode: mode,
-        type: type,
-        total_files: 0,
-        completed_files: 0,
-        failed_files: 0,
-        skipped: 0,
-        results: [],
-      });
-
-      await this.taskManager.saveTasks();
-
-      // 获取已下载的作品ID
-      const downloadedIds = skipExisting ? await this.getDownloadedArtworkIds() : [];
-      const downloadedSet = new Set(downloadedIds);
-
       // 分页获取排行榜作品列表
       let allArtworks = [];
       let offset = 0;
       let hasMore = true;
 
       while (hasMore && allArtworks.length < limit) {
+        const remainingLimit = limit - allArtworks.length;
+        const requestLimit = Math.min(pageSize, remainingLimit);
+        
         const rankingResult = await this.getRankingArtworks(mode, type, {
           offset: offset,
-          limit: Math.min(pageSize, limit - allArtworks.length),
+          limit: requestLimit,
         });
 
         if (!rankingResult.success) {
@@ -1015,66 +1005,28 @@ class DownloadService {
         if (artworks.length === 0) {
           hasMore = false;
         } else {
-          allArtworks.push(...artworks);
+          // 确保不超过指定的 limit
+          const remainingSlots = limit - allArtworks.length;
+          const artworksToAdd = artworks.slice(0, remainingSlots);
+          
+          allArtworks.push(...artworksToAdd);
           offset += artworks.length;
 
           // 基于 next_url 判断是否还有更多页面
-          hasMore = !!rankingResult.data.next_url;
+          hasMore = !!rankingResult.data.next_url && allArtworks.length < limit;
 
           // 添加延迟避免请求过于频繁
           await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
 
-      // 过滤已下载的作品
-      const newArtworks = skipExisting ? allArtworks.filter(artwork => !downloadedSet.has(artwork.id)) : allArtworks;
-
-      const skippedCount = allArtworks.length - newArtworks.length;
-
-      await this.taskManager.updateTask(task.id, {
-        skipped: skippedCount,
-        total_files: newArtworks.length,
+      // 使用统一的批量下载方法
+      return await this.downloadBatchArtworks(allArtworks, {
+        ...options,
+        taskType: 'ranking',
+        mode: mode,
+        type: type,
       });
-
-      // 排行榜作品下载统计
-
-      // 如果没有需要下载的作品，直接返回
-      if (newArtworks.length === 0) {
-        await this.taskManager.updateTask(task.id, {
-          status: 'completed',
-          end_time: new Date(),
-        });
-
-        return {
-          success: true,
-          data: {
-            task_id: task.id,
-            mode: mode,
-            type: type,
-            total_artworks: allArtworks.length,
-            completed_artworks: 0,
-            failed_artworks: 0,
-            skipped_artworks: skippedCount,
-            message: '所有作品都已下载完成',
-          },
-        };
-      }
-
-      // 异步执行排行榜作品下载
-      this.downloadExecutor.executeRankingDownload(task, newArtworks, options);
-
-      return {
-        success: true,
-        data: {
-          task_id: task.id,
-          mode: mode,
-          type: type,
-          total_artworks: task.total,
-          completed_artworks: task.completed,
-          failed_artworks: task.failed,
-          message: '排行榜作品下载任务已创建，正在后台执行',
-        },
-      };
     } catch (error) {
       logger.error('排行榜作品下载失败:', error);
       return {
@@ -1101,11 +1053,20 @@ class DownloadService {
         limit,
       });
 
+      // 检查 ArtworkService 返回的结果
+      if (!result.success) {
+        throw new Error(result.error || '获取排行榜数据失败');
+      }
+
+      // 确保数据结构正确
+      const artworks = result.data?.artworks || [];
+      const nextUrl = result.data?.next_url || null;
+
       return {
         success: true,
         data: {
-          artworks: result.artworks,
-          next_url: result.next_url || null,
+          artworks: artworks,
+          next_url: nextUrl,
         },
       };
     } catch (error) {

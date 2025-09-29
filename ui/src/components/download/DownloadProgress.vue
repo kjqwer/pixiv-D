@@ -1,29 +1,16 @@
 <template>
   <div class="download-progress" v-if="task">
     <div class="progress-header">
-      <h4 class="progress-title">{{ task.artwork_title || '下载中...' }}</h4>
+      <h4 class="progress-title">{{ getTaskTitle(task) }}</h4>
       <div class="progress-actions">
-        <button 
-          v-if="task.status === 'downloading'" 
-          @click="pauseTask" 
-          class="btn btn-sm btn-secondary"
-          :disabled="loading"
-        >
+        <button v-if="task.status === 'downloading'" @click="pauseTask" class="btn btn-sm btn-secondary"
+          :disabled="loading">
           暂停
         </button>
-        <button 
-          v-if="task.status === 'paused'" 
-          @click="resumeTask" 
-          class="btn btn-sm btn-primary"
-          :disabled="loading"
-        >
+        <button v-if="task.status === 'paused'" @click="resumeTask" class="btn btn-sm btn-primary" :disabled="loading">
           恢复
         </button>
-        <button 
-          @click="cancelTask" 
-          class="btn btn-sm btn-danger"
-          :disabled="loading"
-        >
+        <button @click="cancelTask" class="btn btn-sm btn-danger" :disabled="loading">
           取消
         </button>
       </div>
@@ -31,11 +18,7 @@
 
     <div class="progress-overview">
       <div class="progress-bar">
-        <div 
-          class="progress-fill" 
-          :style="{ width: `${task.progress}%` }"
-          :class="progressClass"
-        ></div>
+        <div class="progress-fill" :style="{ width: `${task.progress}%` }" :class="progressClass"></div>
       </div>
       <div class="progress-text">
         {{ task.progress }}% ({{ task.completed_files }}/{{ task.total_files }})
@@ -58,7 +41,7 @@
           <span class="stat-value">{{ task.total_files - task.completed_files - task.failed_files }}</span>
         </div>
       </div>
-      
+
       <!-- 最近完成的作品列表 -->
       <div v-if="task.recent_completed && task.recent_completed.length > 0" class="recent-completed">
         <h4>最近完成:</h4>
@@ -119,6 +102,27 @@ const statusClass = computed(() => {
 });
 
 // 方法
+const getTaskTitle = (task: DownloadTask) => {
+  // 优先使用后端生成的任务标题
+  if (task.task_title) {
+    return task.task_title;
+  }
+
+  // 兼容旧版本的任务标题生成逻辑
+  if (task.type === 'artwork') {
+    return task.artwork_title || `作品 ${task.artwork_id}`;
+  } else if (task.type === 'artist') {
+    return `作者作品 - ${task.artist_name || '未知作者'}`;
+  } else if (task.type === 'batch') {
+    // 如果有任务描述，使用任务描述
+    if (task.task_description) {
+      return `${task.task_description} (${task.total_files} 个作品)`;
+    }
+    return `批量下载 (${task.total_files} 个作品)`;
+  }
+  return '下载中...';
+};
+
 const getStatusText = (status: string) => {
   const statusMap: Record<string, string> = {
     downloading: '下载中',
@@ -525,4 +529,4 @@ const cancelTask = async () => {
     gap: 0.5rem;
   }
 }
-</style> 
+</style>

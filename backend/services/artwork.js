@@ -264,15 +264,22 @@ class ArtworkService {
         content,
         filter,
         offset,
-        limit,
       };
 
       const response = await this.makeRequest('GET', `/v1/illust/ranking?${stringify(params)}`);
 
+      // 获取排行榜作品列表
+      let artworks = response.illusts || [];
+      
+      // 如果指定了 limit，则截取相应数量的作品
+      if (limit && limit < artworks.length) {
+        artworks = artworks.slice(0, limit);
+      }
+
       return {
         success: true,
         data: {
-          artworks: response.illusts,
+          artworks: artworks,
           next_url: response.next_url,
           mode,
           date: response.date,
