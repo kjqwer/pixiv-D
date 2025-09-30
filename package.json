@@ -18,7 +18,6 @@
     "start": "node backend/start.js",
     "dev": "node backend/start.js",
     "test": "node backend/test-login.js",
-    "set-proxy": "node backend/set-proxy.js",
     "build": "pkg . && node scripts/add-icon.js",
     "bp": "npm run build && node scripts/create-portable.js"
   },

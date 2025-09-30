@@ -44,7 +44,7 @@ const ModuleColors = {
   'PixivBackend': '\x1b[35m', // 紫色
   'PixivAuth': '\x1b[36m',   // 青色
   'TaskManager': '\x1b[33m', // 黄色
-  'ImageCache': '\x1b[37m',  // 白色
+  'ImageCache': '\x1b[92m',  // 亮绿色
   'HistoryManager': '\x1b[90m', // 灰色
   'ProxyConfig': '\x1b[95m', // 亮紫色
   'Download': '\x1b[93m',    // 亮黄色
@@ -52,8 +52,12 @@ const ModuleColors = {
   'Artist': '\x1b[92m',      // 亮绿色
   'Repository': '\x1b[94m',  // 亮蓝色
   'ErrorHandler': '\x1b[91m', // 亮红色
-  'FileManager': '\x1b[98m', // 亮青色
-  'ProgressManager': '\x1b[99m', // 亮紫色
+  'FileManager': '\x1b[36m', // 青色
+  'ProgressManager': '\x1b[35m', // 紫色
+  'WatchlistManager': '\x1b[94m', // 亮蓝色
+  'UpdateRoute': '\x1b[93m', // 亮黄色
+  'ArtistService': '\x1b[95m', // 亮紫色
+  'DownloadService': '\x1b[96m', // 亮青色
   'Default': '\x1b[39m'      // 默认颜色
 };
 

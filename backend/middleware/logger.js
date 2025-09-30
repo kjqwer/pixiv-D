@@ -71,8 +71,17 @@ function loggerMiddleware(req, res, next) {
   // 过滤掉健康检查请求
   const isHealthCheck = req.path === '/health';
 
-  // 只记录重要的API请求，排除静态资源、图片代理、下载任务查询、仓库预览和健康检查
-  if (!isStaticResource && !isImageProxy && !isDownloadTasksQuery && !isRepositoryPreview && !isHealthCheck) {
+  // 过滤掉获取作者作品的API请求
+  const isArtistArtworksQuery = /^\/api\/artist\/\d+\/artworks/.test(req.path);
+
+  // 过滤掉作品详情请求
+  const isArtworkDetailQuery = /^\/api\/artwork\/\d+/.test(req.path);
+
+  // 过滤掉仓库下载检查请求
+  const isRepositoryCheckDownloadedQuery = /^\/api\/repository\/check-downloaded\/\d+/.test(req.path);
+
+  // 只记录重要的API请求，排除静态资源、图片代理、下载任务查询、仓库预览、健康检查、作者作品查询、作品详情和仓库下载检查
+  if (!isStaticResource && !isImageProxy && !isDownloadTasksQuery && !isRepositoryPreview && !isHealthCheck && !isArtistArtworksQuery && !isArtworkDetailQuery && !isRepositoryCheckDownloadedQuery) {
     const start = Date.now();
 
     // 原始响应结束方法

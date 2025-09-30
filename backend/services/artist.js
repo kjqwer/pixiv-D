@@ -201,7 +201,7 @@ class ArtistService {
           limit,
         };
 
-        logger.info(`请求关注列表: offset=${currentOffset}, limit=${limit}`);
+        // logger.info(`请求关注列表: offset=${currentOffset}, limit=${limit}`);
         const response = await this.makeRequest('GET', `/v1/user/following?${stringify(params)}`);
 
         // 转换数据格式以匹配前端期望
@@ -214,12 +214,12 @@ class ArtistService {
         }));
 
         allArtists.push(...artists);
-        logger.info(`本次获取到 ${artists.length} 个作者，累计 ${allArtists.length} 个`);
+        // logger.info(`本次获取到 ${artists.length} 个作者，累计 ${allArtists.length} 个`);
 
         // 如果返回的数量少于limit，说明已经获取完所有数据
         if (artists.length < limit) {
           hasMore = false;
-          logger.info('已获取完所有关注的作者');
+          logger.info(`已获取完所有关注的作者, 共 ${allArtists.length} 个`);
         } else {
           currentOffset += artists.length;
         }
@@ -382,7 +382,7 @@ class ArtistService {
       if (method === 'GET') {
         try {
           await this.apiCache.set(method, endpoint, data || {}, responseData);
-          logger.info(`API缓存已保存: ${method} ${endpoint}`);
+          // logger.info(`API缓存已保存: ${method} ${endpoint}`);
         } catch (error) {
           logger.error('保存API缓存失败:', error);
         }
