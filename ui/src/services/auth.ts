@@ -48,6 +48,13 @@ class AuthService {
   }
 
   /**
+   * 手动刷新token
+   */
+  async refreshToken(): Promise<ApiResponse> {
+    return apiService.post('/api/auth/refresh-token');
+  }
+
+  /**
    * 登出
    */
   async logout(): Promise<ApiResponse> {
@@ -56,4 +63,4 @@ class AuthService {
 }
 
 export const authService = new AuthService();
-export default authService; 
+export default authService;

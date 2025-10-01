@@ -35,19 +35,23 @@
 
         <!-- 统计信息 -->
         <div class="registry-stats">
-          <h4>统计信息</h4>
+          <div class="stats-header">
+            <h4>统计信息</h4>
+            <div class="last-updated">
+              <span class="update-label">最后更新：</span>
+              <span class="update-time">{{ formatDate(stats?.lastUpdated) }}</span>
+            </div>
+          </div>
           <div class="stats-grid">
             <div class="stat-item">
-              <span class="stat-label">作者数量:</span>
+              <div class="stat-icon">👥</div>
+              <span class="stat-label">作者数量</span>
               <span class="stat-value">{{ stats?.totalArtists || 0 }}</span>
             </div>
             <div class="stat-item">
-              <span class="stat-label">作品数量:</span>
+              <div class="stat-icon">🎨</div>
+              <span class="stat-label">作品数量</span>
               <span class="stat-value">{{ stats?.totalArtworks || 0 }}</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-label">最后更新:</span>
-              <span class="stat-value">{{ formatDate(stats?.lastUpdated) }}</span>
             </div>
           </div>
         </div>
@@ -56,26 +60,54 @@
         <div class="registry-config">
           <h4>配置选项</h4>
           <div class="config-form">
-            <div class="form-group">
-              <label>
-                <input type="radio" v-model="detectionMethod" value="registry" @change="updateDetectionMethod" />
-                使用注册表检测
-              </label>
-              <small>优先使用JSON注册表检测作品是否已下载</small>
-            </div>
-            <div class="form-group">
-              <label>
-                <input type="radio" v-model="detectionMethod" value="scan" @change="updateDetectionMethod" />
-                使用扫盘检测
-              </label>
-              <small>直接扫描文件系统检测作品是否已下载</small>
-            </div>
-            <div class="form-group">
-              <label>
-                <input type="radio" v-model="detectionMethod" value="hybrid" @change="updateDetectionMethod" />
-                混合检测模式
-              </label>
-              <small>优先使用注册表检测，失败时回退到扫盘检测</small>
+            <div class="config-section">
+              <div class="config-section-title">
+                <SvgIcon name="settings" class="section-icon" />
+                检测模式选择
+              </div>
+              <div class="config-options">
+                <div class="config-option" :class="{ active: detectionMethod === 'registry' }">
+                  <label>
+                    <input type="radio" v-model="detectionMethod" value="registry" @change="updateDetectionMethod" />
+                    <div class="option-content">
+                      <div class="option-header">
+                        <SvgIcon name="database" class="option-icon" />
+                        <span class="option-title">注册表检测</span>
+                        <span class="option-badge recommended">推荐</span>
+                      </div>
+                      <small class="option-description">优先使用JSON注册表检测作品是否已下载，速度最快</small>
+                    </div>
+                  </label>
+                </div>
+
+                <div class="config-option" :class="{ active: detectionMethod === 'scan' }">
+                  <label>
+                    <input type="radio" v-model="detectionMethod" value="scan" @change="updateDetectionMethod" />
+                    <div class="option-content">
+                      <div class="option-header">
+                        <SvgIcon name="folder-search" class="option-icon" />
+                        <span class="option-title">扫盘检测</span>
+                        <span class="option-badge basic">基础</span>
+                      </div>
+                      <small class="option-description">直接扫描文件系统检测作品是否已下载，准确度最高</small>
+                    </div>
+                  </label>
+                </div>
+
+                <div class="config-option" :class="{ active: detectionMethod === 'hybrid' }">
+                  <label>
+                    <input type="radio" v-model="detectionMethod" value="hybrid" @change="updateDetectionMethod" />
+                    <div class="option-content">
+                      <div class="option-header">
+                        <SvgIcon name="layers" class="option-icon" />
+                        <span class="option-title">混合检测模式</span>
+                        <span class="option-badge smart">智能</span>
+                      </div>
+                      <small class="option-description">优先使用注册表检测，失败时自动回退到扫盘检测</small>
+                    </div>
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -83,32 +115,44 @@
         <!-- 操作按钮 -->
         <div class="registry-actions">
           <h4>管理操作</h4>
-          <div class="action-buttons">
-            <button @click="refreshStats" class="btn btn-secondary" :disabled="loading">
-              <SvgIcon name="refresh" class="btn-icon" />
-              刷新统计
-            </button>
-            
-            <button @click="exportRegistry" class="btn btn-primary" :disabled="loading">
-              <SvgIcon name="download" class="btn-icon" />
-              导出注册表
-            </button>
-            
-            <label class="btn btn-primary" :class="{ disabled: loading }">
-              <SvgIcon name="upload" class="btn-icon" />
-              导入注册表
-              <input type="file" @change="handleFileImport" accept=".json" style="display: none;" :disabled="loading" />
-            </label>
-            
-            <button @click="rebuildRegistry" class="btn btn-warning" :disabled="loading">
-              <SvgIcon name="rebuild" class="btn-icon" />
-              同步文件系统
-            </button>
-            
-            <button @click="cleanupRegistry" class="btn btn-danger" :disabled="loading">
-              <SvgIcon name="trash" class="btn-icon" />
-              清理注册表
-            </button>
+
+          <!-- 基础操作组 -->
+          <div class="action-group">
+            <div class="action-group-title">基础操作</div>
+            <div class="action-buttons basic-actions">
+              <button @click="refreshStats" class="btn btn-enhanced btn-secondary" :disabled="loading">
+                <SvgIcon name="refresh" class="btn-icon" />
+                刷新统计
+              </button>
+
+              <button @click="exportRegistry" class="btn btn-enhanced btn-primary" :disabled="loading">
+                <SvgIcon name="download" class="btn-icon" />
+                导出注册表
+              </button>
+
+              <label class="btn btn-enhanced btn-primary" :class="{ disabled: loading }">
+                <SvgIcon name="upload" class="btn-icon" />
+                导入注册表
+                <input type="file" @change="handleFileImport" accept=".json" style="display: none;"
+                  :disabled="loading" />
+              </label>
+            </div>
+          </div>
+
+          <!-- 高级操作组 -->
+          <div class="action-group">
+            <div class="action-group-title">高级操作</div>
+            <div class="action-buttons advanced-actions">
+              <button @click="rebuildRegistry" class="btn btn-enhanced btn-warning" :disabled="loading">
+                <SvgIcon name="rebuild" class="btn-icon" />
+                同步文件系统
+              </button>
+
+              <button @click="cleanupRegistry" class="btn btn-enhanced btn-danger" :disabled="loading">
+                <SvgIcon name="clean" class="btn-icon" />
+                清理注册表
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -165,7 +209,7 @@ const handleFileImport = async (event: Event) => {
   if (result.success) {
     showSuccess(`注册表导入成功，处理了 ${result.data?.imported || 0} 条记录`);
   }
-  
+
   // 清空文件输入
   target.value = '';
 };
@@ -175,7 +219,7 @@ const rebuildRegistry = async () => {
   if (!confirm('确定要同步文件系统到注册表吗？这将扫描整个下载目录并添加新发现的作品，可能需要一些时间。')) {
     return;
   }
-  
+
   const result = await registryStore.rebuildRegistry();
   if (result.success) {
     showSuccess(`文件系统同步完成，新增 ${result.data?.addedArtworks || 0} 个作品，跳过 ${result.data?.skippedArtworks || 0} 个已存在作品`);
@@ -187,7 +231,7 @@ const cleanupRegistry = async () => {
   if (!confirm('确定要清理注册表吗？这将移除不存在的文件记录。')) {
     return;
   }
-  
+
   const result = await registryStore.cleanupRegistry();
   if (result.success) {
     showSuccess(`注册表清理完成，移除了 ${result.data?.removedArtworks || 0} 条无效记录`);
@@ -198,7 +242,7 @@ const cleanupRegistry = async () => {
 const updateDetectionMethod = async () => {
   let useRegistryCheck = false;
   let fallbackToScan = false;
-  
+
   switch (detectionMethod.value) {
     case 'registry':
       useRegistryCheck = true;
@@ -213,12 +257,12 @@ const updateDetectionMethod = async () => {
       fallbackToScan = true;
       break;
   }
-  
+
   const result = await registryStore.updateConfig({
     useRegistryCheck,
     fallbackToScan
   });
-  
+
   if (result.success) {
     showSuccess('配置更新成功');
   }
@@ -230,7 +274,7 @@ const updateConfig = async () => {
     useRegistryCheck: config.value.useRegistryCheck,
     fallbackToScan: config.value.fallbackToScan
   });
-  
+
   if (result.success) {
     showSuccess('配置更新成功');
   }
@@ -277,7 +321,7 @@ onMounted(async () => {
     // 如果获取配置失败，使用默认值
     detectionMethod.value = 'hybrid';
   }
-  
+
   // 初始化时加载统计数据
   refreshStats();
 });
@@ -297,57 +341,66 @@ watch(config, () => {
 }
 
 .registry-toggle {
-  width: 3rem;
-  height: 3rem;
+  width: 3.5rem;
+  height: 3.5rem;
   border-radius: 50%;
-  background: #3b82f6;
+  background: var(--color-info, #06b6d4);
   border: none;
   color: white;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-  transition: all 0.3s ease;
+  box-shadow: var(--shadow-lg, 0 4px 12px rgba(6, 182, 212, 0.3));
+  transition: all var(--transition-normal, 0.3s ease);
+  position: relative;
 }
 
 .registry-toggle:hover {
-  background: #2563eb;
+  background: var(--color-info-hover, #0891b2);
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+  box-shadow: var(--shadow-xl, 0 6px 16px rgba(6, 182, 212, 0.4));
 }
 
 .registry-toggle.active {
-  background: #1d4ed8;
+  background: var(--color-info-active, #0e7490);
+  box-shadow: var(--shadow-inner, inset 0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
 .registry-icon {
   width: 1.5rem;
   height: 1.5rem;
+  transition: transform var(--transition-normal);
+}
+
+.registry-toggle.active .registry-icon {
+  transform: rotate(180deg);
 }
 
 .registry-panel {
   position: absolute;
   bottom: 4rem;
   left: 0;
-  width: 400px;
-  max-height: 600px;
-  background: white;
-  border-radius: 0.75rem;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  border: 1px solid #e5e7eb;
+  width: 420px;
+  max-height: 650px;
+  background: var(--color-bg-primary, white);
+  border-radius: var(--radius-xl, 1rem);
+  box-shadow: var(--shadow-2xl, 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--color-border, #e5e7eb);
   overflow: hidden;
   animation: slideUp 0.3s ease-out;
+  backdrop-filter: blur(10px);
 }
 
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(20px) scale(0.95);
   }
+
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -355,31 +408,54 @@ watch(config, () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.5rem;
-  background: #f8fafc;
-  border-bottom: 1px solid #e5e7eb;
+  padding: var(--spacing-xl, 1.5rem);
+  background: var(--color-bg-secondary, #f8fafc);
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  position: relative;
+}
+
+.registry-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-info), var(--color-success), var(--color-warning));
 }
 
 .registry-header h3 {
   margin: 0;
-  font-size: 1.125rem;
+  font-size: 1.25rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--color-text-primary, #1f2937);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.registry-header h3::before {
+  content: '📋';
+  font-size: 1.125rem;
 }
 
 .close-btn {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 0.375rem;
-  color: #6b7280;
-  transition: all 0.2s;
+  padding: var(--spacing-sm, 0.5rem);
+  border-radius: var(--radius-md, 0.375rem);
+  color: var(--color-text-secondary, #6b7280);
+  transition: all var(--transition-normal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .close-btn:hover {
-  background: #e5e7eb;
-  color: #374151;
+  background: var(--color-bg-hover, #e5e7eb);
+  color: var(--color-text-primary, #374151);
+  transform: scale(1.1);
 }
 
 .close-icon {
@@ -388,170 +464,781 @@ watch(config, () => {
 }
 
 .registry-content {
-  padding: 1.5rem;
-  max-height: 500px;
+  padding: var(--spacing-xl, 1.5rem);
+  max-height: 550px;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
 }
 
-.loading, .error {
-  margin-bottom: 1rem;
+.registry-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.registry-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.registry-content::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.registry-content::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-hover);
+}
+
+.loading,
+.error {
+  margin-bottom: var(--spacing-lg, 1rem);
 }
 
 .success-message {
-  margin-bottom: 1rem;
-  padding: 0.75rem;
-  background: #dcfce7;
-  border: 1px solid #bbf7d0;
-  border-radius: 0.5rem;
+  margin-bottom: var(--spacing-lg, 1rem);
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: var(--color-success-light, #dcfce7);
+  border: 1px solid var(--color-success-border, #bbf7d0);
+  border-radius: var(--radius-md, 0.5rem);
+  position: relative;
+  overflow: hidden;
+  animation: slideIn 0.3s ease-out;
+}
+
+.success-message::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+
+  100% {
+    left: 100%;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .success-content {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  color: #166534;
+  gap: var(--spacing-sm, 0.5rem);
+  color: var(--color-success-text, #166534);
   font-size: 0.875rem;
+  font-weight: 500;
 }
 
 .success-icon {
   width: 1rem;
   height: 1rem;
-  color: #16a34a;
+  color: var(--color-success, #16a34a);
+  flex-shrink: 0;
 }
 
-.registry-stats, .registry-config, .registry-actions {
-  margin-bottom: 1.5rem;
+.registry-stats,
+.registry-config,
+.registry-actions {
+  margin-bottom: var(--spacing-xl, 1.5rem);
 }
 
-.registry-stats h4, .registry-config h4, .registry-actions h4 {
-  margin: 0 0 0.75rem 0;
-  font-size: 1rem;
+.registry-stats h4,
+.registry-config h4,
+.registry-actions h4 {
+  margin: 0 0 var(--spacing-lg) 0;
+  font-size: 1.125rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--color-text-primary, #1f2937);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.registry-stats h4::before {
+  content: '';
+  width: 4px;
+  height: 20px;
+  background: var(--color-info);
+  border-radius: 2px;
+}
+
+.registry-config h4::before {
+  content: '';
+  width: 4px;
+  height: 20px;
+  background: var(--color-warning);
+  border-radius: 2px;
+}
+
+.registry-actions h4::before {
+  content: '';
+  width: 4px;
+  height: 20px;
+  background: var(--color-success);
+  border-radius: 2px;
 }
 
 .stats-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--spacing-xl, 1.5rem);
+  background: linear-gradient(135deg, var(--color-bg-secondary, #f8fafc), var(--color-bg-tertiary, #f1f5f9));
+  padding: var(--spacing-xl, 1.5rem);
+  border-radius: var(--radius-xl, 1rem);
+  border: 1px solid var(--color-border, #e5e7eb);
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.05));
+}
+
+.stats-grid::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-info), var(--color-success), var(--color-warning));
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+
+.stats-grid::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 20% 80%, rgba(59, 130, 246, 0.03), transparent 50%),
+              radial-gradient(circle at 80% 20%, rgba(16, 185, 129, 0.03), transparent 50%);
+  pointer-events: none;
 }
 
 .stat-item {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--spacing-sm, 0.5rem);
+  text-align: center;
+  padding: var(--spacing-lg, 1rem);
+  background: var(--color-bg-primary, white);
+  border-radius: var(--radius-lg, 0.5rem);
+  border: 1px solid var(--color-border-light, #f3f4f6);
+  transition: all var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-xs, 0 1px 2px rgba(0, 0, 0, 0.05));
+}
+
+.stat-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.stat-item:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05));
+  border-color: var(--color-border-hover);
+}
+
+.stat-item:hover::before {
+  opacity: 1;
+}
+
+.stat-icon {
+  font-size: 2rem;
+  margin-bottom: var(--spacing-sm, 0.5rem);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  transition: transform var(--transition-normal);
+}
+
+.stat-item:hover .stat-icon {
+  transform: scale(1.1);
 }
 
 .stat-label {
-  font-size: 0.875rem;
-  color: #6b7280;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary, #6b7280);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: var(--spacing-xs, 0.25rem);
 }
 
 .stat-value {
-  font-weight: 600;
-  color: #1f2937;
+  font-weight: 700;
+  color: var(--color-primary, #3b82f6);
+  font-size: 1.5rem;
+  font-family: var(--font-mono, 'Courier New', monospace);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2rem;
+  background: linear-gradient(135deg, var(--color-primary-light, #eff6ff), var(--color-bg-primary, white));
+  border-radius: var(--radius-md, 0.375rem);
+  margin: var(--spacing-xs, 0.25rem) 0;
+  padding: var(--spacing-sm, 0.5rem);
+  border: 1px solid var(--color-primary-light, #dbeafe);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  transition: all var(--transition-normal);
+}
+
+.stat-item:hover .stat-value {
+  color: var(--color-primary-hover, #2563eb);
+  background: linear-gradient(135deg, var(--color-primary-light, #eff6ff), var(--color-primary-lighter, #f0f9ff));
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
 }
 
 .config-form {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--spacing-md, 0.75rem);
+  background: var(--color-bg-tertiary, #f8fafc);
+  padding: var(--spacing-lg, 1rem);
+  border-radius: var(--radius-lg, 0.5rem);
+  border: 1px solid var(--color-border-light, #e2e8f0);
+  position: relative;
+}
+
+.config-form::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--color-warning);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--spacing-xs, 0.25rem);
+  padding: var(--spacing-sm, 0.5rem);
+  background: var(--color-bg-primary, white);
+  border-radius: var(--radius-md, 0.375rem);
+  border: 1px solid var(--color-border-light, #f3f4f6);
+  transition: all var(--transition-normal);
+}
+
+.form-group:hover {
+  border-color: var(--color-border-hover);
+  box-shadow: var(--shadow-xs);
 }
 
 .form-group label {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--spacing-sm, 0.5rem);
   font-size: 0.875rem;
   font-weight: 500;
-  color: #374151;
+  color: var(--color-text-primary, #374151);
+  cursor: pointer;
+  padding: var(--spacing-xs, 0.25rem) 0;
+}
+
+.form-group input[type="radio"] {
+  width: 1.125rem;
+  height: 1.125rem;
+  accent-color: var(--color-warning);
   cursor: pointer;
 }
 
 .form-group small {
   font-size: 0.75rem;
-  color: #6b7280;
-  margin-left: 1.5rem;
+  color: var(--color-text-tertiary, #6b7280);
+  margin-left: var(--spacing-xl, 1.5rem);
+  font-style: italic;
+  line-height: 1.4;
 }
 
 .action-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--spacing-md, 0.75rem);
+}
+
+.action-group {
+  margin-bottom: var(--spacing-lg, 1rem);
+  background: var(--color-bg-secondary, #f8fafc);
+  border-radius: var(--radius-lg, 0.5rem);
+  border: 1px solid var(--color-border-light, #e2e8f0);
+  overflow: hidden;
+  position: relative;
+}
+
+.action-group::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+}
+
+.action-group-title {
+  padding: var(--spacing-md, 0.75rem) var(--spacing-lg, 1rem);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #374151);
+  background: var(--color-bg-tertiary, #f1f5f9);
+  border-bottom: 1px solid var(--color-border-light, #e2e8f0);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  align-items: center;
+  gap: var(--spacing-sm, 0.5rem);
+}
+
+.action-group-title::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-primary);
+}
+
+.basic-actions {
+  padding: var(--spacing-lg, 1rem);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.advanced-actions {
+  padding: var(--spacing-lg, 1rem);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.btn-enhanced {
+  position: relative;
+  overflow: hidden;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-enhanced::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.btn-enhanced:hover::after {
+  opacity: 1;
+}
+
+.btn-enhanced:hover:not(:disabled):not(.disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-enhanced:active:not(:disabled):not(.disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 
 .btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-radius: 0.375rem;
+  gap: var(--spacing-sm, 0.5rem);
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-radius: var(--radius-md, 0.375rem);
   font-size: 0.875rem;
   font-weight: 500;
   border: none;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
   text-decoration: none;
+  position: relative;
+  overflow: hidden;
 }
 
-.btn:disabled, .btn.disabled {
-  opacity: 0.5;
+.btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.btn:hover::before {
+  left: 100%;
+}
+
+.btn:disabled,
+.btn.disabled {
+  opacity: 0.6;
   cursor: not-allowed;
+}
+
+.btn:hover:not(:disabled):not(.disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn:active:not(:disabled):not(.disabled) {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-icon {
   width: 1rem;
   height: 1rem;
+  flex-shrink: 0;
 }
 
 .btn-primary {
-  background: #3b82f6;
+  background: var(--color-primary, #3b82f6);
   color: white;
+  border: 1px solid var(--color-primary);
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: #2563eb;
+.btn-primary:hover:not(:disabled):not(.disabled) {
+  background: var(--color-primary-hover, #2563eb);
+  border-color: var(--color-primary-hover);
 }
 
 .btn-secondary {
-  background: #6b7280;
+  background: var(--color-secondary, #6b7280);
   color: white;
+  border: 1px solid var(--color-secondary);
 }
 
-.btn-secondary:hover:not(:disabled) {
-  background: #4b5563;
+.btn-secondary:hover:not(:disabled):not(.disabled) {
+  background: var(--color-secondary-hover, #4b5563);
+  border-color: var(--color-secondary-hover);
 }
 
 .btn-warning {
-  background: #f59e0b;
+  background: var(--color-warning, #f59e0b);
   color: white;
+  border: 1px solid var(--color-warning);
 }
 
-.btn-warning:hover:not(:disabled) {
-  background: #d97706;
+.btn-warning:hover:not(:disabled):not(.disabled) {
+  background: var(--color-warning-hover, #d97706);
+  border-color: var(--color-warning-hover);
 }
 
 .btn-danger {
-  background: #ef4444;
+  background: var(--color-danger, #ef4444);
   color: white;
+  border: 1px solid var(--color-danger);
 }
 
-.btn-danger:hover:not(:disabled) {
-  background: #dc2626;
+.btn-danger:hover:not(:disabled):not(.disabled) {
+  background: var(--color-danger-hover, #dc2626);
+  border-color: var(--color-danger-hover);
 }
 
 /* 响应式设计 */
 @media (max-width: 768px) {
+  .registry-widget {
+    bottom: 1rem;
+    left: 1rem;
+  }
+
   .registry-panel {
     width: calc(100vw - 2rem);
-    max-width: 400px;
+    max-width: 420px;
   }
+
+  .registry-content {
+    padding: var(--spacing-lg, 1rem);
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+  }
+
+  .action-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .btn {
+    padding: var(--spacing-md);
+    font-size: 0.8rem;
+  }
+
+  .btn-icon {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .registry-toggle {
+    width: 3rem;
+    height: 3rem;
+  }
+
+  .registry-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .registry-header {
+    padding: var(--spacing-lg, 1rem);
+  }
+
+  .registry-header h3 {
+    font-size: 1rem;
+  }
+
+  .stats-grid {
+    padding: var(--spacing-md);
+  }
+
+  .config-form {
+    padding: var(--spacing-md);
+  }
+}
+
+/* 统计信息增强样式 */
+.stat-icon {
+  font-size: 1.5rem;
+  margin-bottom: var(--spacing-xs);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.stat-trend {
+  margin-top: var(--spacing-xs);
+  opacity: 0.7;
+}
+
+.trend-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--color-success);
+}
+
+/* 配置选项增强样式 */
+.config-section {
+  background: var(--color-bg-primary, white);
+  border-radius: var(--radius-lg, 0.5rem);
+  border: 1px solid var(--color-border-light, #e2e8f0);
+  overflow: hidden;
+  position: relative;
+}
+
+.config-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-warning), var(--color-info));
+}
+
+.config-section-title {
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: var(--color-bg-secondary, #f8fafc);
+  border-bottom: 1px solid var(--color-border-light, #e2e8f0);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #374151);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.section-icon {
+  width: 1rem;
+  height: 1rem;
+  color: var(--color-warning);
+}
+
+.config-options {
+  padding: var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.config-option {
+  background: var(--color-bg-tertiary, #f8fafc);
+  border: 2px solid var(--color-border-light, #e2e8f0);
+  border-radius: var(--radius-lg, 0.5rem);
+  transition: all var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+}
+
+.config-option::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: transparent;
+  transition: background var(--transition-normal);
+}
+
+.config-option:hover {
+  border-color: var(--color-border-hover);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+.config-option.active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light, #eff6ff);
+  box-shadow: var(--shadow-md);
+}
+
+.config-option.active::before {
+  background: var(--color-primary);
+}
+
+.config-option label {
+  display: block;
+  cursor: pointer;
+  padding: var(--spacing-lg);
+  margin: 0;
+}
+
+.config-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.option-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.option-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-xs);
+}
+
+.option-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--color-text-secondary);
+  transition: color var(--transition-normal);
+}
+
+.config-option.active .option-icon {
+  color: var(--color-primary);
+}
+
+.option-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  flex: 1;
+}
+
+.option-badge {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
+.option-badge.recommended {
+  background: var(--color-success-light, #dcfce7);
+  color: var(--color-success-text, #166534);
+  border: 1px solid var(--color-success-border, #bbf7d0);
+}
+
+.option-badge.basic {
+  background: var(--color-info-light, #e0f2fe);
+  color: var(--color-info-text, #0c4a6e);
+  border: 1px solid var(--color-info-border, #7dd3fc);
+}
+
+.option-badge.smart {
+  background: var(--color-warning-light, #fef3c7);
+  color: var(--color-warning-text, #92400e);
+  border: 1px solid var(--color-warning-border, #fcd34d);
+}
+
+.option-description {
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary, #6b7280);
+  line-height: 1.4;
+  margin: 0;
+  font-style: normal;
+}
+
+.config-option.active .option-description {
+  color: var(--color-text-secondary);
+}
+
+/* 统计信息样式 */
+.stats-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-lg, 1rem);
+}
+
+.last-updated {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs, 0.25rem);
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary, #6b7280);
+}
+
+.update-label {
+  font-weight: 500;
+  color: var(--color-text-secondary, #6b7280);
+}
+
+.update-time {
+  font-family: var(--font-mono, 'Courier New', monospace);
+  color: var(--color-text-tertiary, #9ca3af);
+  font-weight: 400;
 }
 </style>

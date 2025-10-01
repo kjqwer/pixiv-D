@@ -134,18 +134,47 @@
 
             <!-- 缓存操作 -->
             <div class="cache-actions">
-              <button @click="saveConfig" class="btn btn-primary" :disabled="saving">
-                {{ saving ? '保存中...' : '保存配置' }}
-              </button>
-              <button @click="clearExpiredCache" class="btn btn-secondary" :disabled="clearing">
-                {{ clearing ? '清理中...' : '清理过期缓存' }}
-              </button>
-              <button @click="clearAllCache" class="btn btn-danger" :disabled="clearing">
-                {{ clearing ? '清理中...' : '清理所有缓存' }}
-              </button>
-              <button @click="resetConfig" class="btn btn-warning" :disabled="resetting">
-                {{ resetting ? '重置中...' : '重置配置' }}
-              </button>
+              <!-- 主要操作按钮组 -->
+              <div class="action-group primary-actions">
+                <h6 class="action-group-title">配置管理</h6>
+                <div class="action-buttons grid grid-cols-2">
+                  <button @click="saveConfig" class="btn btn-primary btn-enhanced" :disabled="saving">
+                    <SvgIcon name="save" class="btn-icon" />
+                    {{ saving ? '保存中...' : '保存配置' }}
+                  </button>
+                  <button @click="refreshToken" class="btn btn-info btn-enhanced" :disabled="refreshing">
+                    <SvgIcon name="refresh" class="btn-icon" />
+                    {{ refreshing ? '刷新中...' : '刷新Token' }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- 缓存管理按钮组 -->
+              <div class="action-group secondary-actions">
+                <h6 class="action-group-title">缓存管理</h6>
+                <div class="action-buttons grid grid-cols-2">
+                  <button @click="clearExpiredCache" class="btn btn-secondary btn-enhanced hover-primary"
+                    :disabled="clearing">
+                    <SvgIcon name="clean" class="btn-icon" />
+                    {{ clearing ? '清理中...' : '清理过期' }}
+                  </button>
+                  <button @click="clearAllCache" class="btn btn-warning btn-enhanced hover-danger" :disabled="clearing">
+                    <SvgIcon name="delete" class="btn-icon" />
+                    {{ clearing ? '清理中...' : '清理全部' }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- 危险操作按钮组 -->
+              <div class="action-group danger-actions">
+                <h6 class="action-group-title">重置操作</h6>
+                <div class="action-buttons">
+                  <button @click="resetConfig" class="btn btn-danger btn-enhanced" :disabled="resetting">
+                    <SvgIcon name="reset" class="btn-icon" />
+                    {{ resetting ? '重置中...' : '重置为默认配置' }}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -157,6 +186,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import cacheService, { type CacheConfig, type CacheStats } from '@/services/cache';
+import authService from '@/services/auth';
 import LoadingSpinner from './LoadingSpinner.vue';
 import ErrorMessage from './ErrorMessage.vue';
 
@@ -167,6 +197,7 @@ const error = ref<string | null>(null);
 const clearing = ref(false);
 const resetting = ref(false);
 const saving = ref(false);
+const refreshing = ref(false);
 const successMessage = ref<string | null>(null);
 
 // 数据
@@ -448,6 +479,24 @@ const resetConfig = async () => {
   }
 };
 
+const refreshToken = async () => {
+  try {
+    refreshing.value = true;
+    error.value = null;
+    const response = await authService.refreshToken();
+    if (response.success) {
+      showSuccess('Token刷新成功');
+    } else {
+      error.value = response.error || 'Token刷新失败';
+    }
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Token刷新失败';
+    console.error('Token刷新失败:', err);
+  } finally {
+    refreshing.value = false;
+  }
+};
+
 const clearError = () => {
   error.value = null;
 };
@@ -490,56 +539,63 @@ onMounted(() => {
   width: 3.5rem;
   height: 3.5rem;
   border-radius: 50%;
-  background: #3b82f6;
+  background: var(--color-primary, #3b82f6);
   color: white;
   border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-  transition: all 0.3s ease;
+  box-shadow: var(--shadow-lg, 0 4px 12px rgba(59, 130, 246, 0.3));
+  transition: all var(--transition-normal, 0.3s ease);
   position: relative;
 }
 
 .settings-toggle:hover {
-  background: #2563eb;
+  background: var(--color-primary-hover, #2563eb);
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+  box-shadow: var(--shadow-xl, 0 6px 16px rgba(59, 130, 246, 0.4));
 }
 
 .settings-toggle.active {
-  background: #1d4ed8;
+  background: var(--color-primary-active, #1d4ed8);
+  box-shadow: var(--shadow-inner, inset 0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
 .settings-icon {
   width: 1.5rem;
   height: 1.5rem;
+  transition: transform var(--transition-normal);
+}
+
+.settings-toggle.active .settings-icon {
+  transform: rotate(45deg);
 }
 
 .settings-panel {
   position: absolute;
   bottom: 4rem;
   right: 0;
-  width: 400px;
-  max-height: 600px;
-  background: white;
-  border-radius: 1rem;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-  border: 1px solid #e5e7eb;
+  width: 420px;
+  max-height: 650px;
+  background: var(--color-bg-primary, white);
+  border-radius: var(--radius-xl, 1rem);
+  box-shadow: var(--shadow-2xl, 0 10px 25px rgba(0, 0, 0, 0.15));
+  border: 1px solid var(--color-border, #e5e7eb);
   overflow: hidden;
   animation: slideUp 0.3s ease-out;
+  backdrop-filter: blur(10px);
 }
 
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(20px) scale(0.95);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -547,31 +603,54 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
-  background: #f9fafb;
+  padding: var(--spacing-xl, 1.5rem);
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  background: var(--color-bg-secondary, #f9fafb);
+  position: relative;
+}
+
+.settings-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-info), var(--color-success));
 }
 
 .settings-header h3 {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--color-text-primary, #1f2937);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.settings-header h3::before {
+  content: '⚙️';
+  font-size: 1.125rem;
 }
 
 .close-btn {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 0.375rem;
-  color: #6b7280;
-  transition: all 0.2s;
+  padding: var(--spacing-sm, 0.5rem);
+  border-radius: var(--radius-md, 0.375rem);
+  color: var(--color-text-secondary, #6b7280);
+  transition: all var(--transition-normal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .close-btn:hover {
-  background: #e5e7eb;
-  color: #374151;
+  background: var(--color-bg-hover, #e5e7eb);
+  color: var(--color-text-primary, #374151);
+  transform: scale(1.1);
 }
 
 .close-icon {
@@ -580,45 +659,98 @@ onMounted(() => {
 }
 
 .settings-content {
-  padding: 1.5rem;
-  max-height: 500px;
+  padding: var(--spacing-xl, 1.5rem);
+  max-height: 550px;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.settings-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.settings-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settings-content::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.settings-content::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-hover);
 }
 
 .settings-section {
-  margin-bottom: 2rem;
+  margin-bottom: var(--spacing-2xl, 2rem);
 }
 
 .settings-section h4 {
-  margin: 0 0 1rem 0;
+  margin: 0 0 var(--spacing-lg) 0;
   font-size: 1.125rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--color-text-primary, #1f2937);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.settings-section h4::before {
+  content: '';
+  width: 4px;
+  height: 20px;
+  background: var(--color-primary);
+  border-radius: 2px;
 }
 
 .loading {
   display: flex;
   justify-content: center;
-  padding: 2rem;
+  padding: var(--spacing-2xl, 2rem);
 }
 
 .error {
-  margin-bottom: 1rem;
+  margin-bottom: var(--spacing-lg, 1rem);
 }
 
 .success-message {
-  background: #10b981;
+  background: var(--color-success, #10b981);
   color: white;
-  padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  margin-bottom: 1rem;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-radius: var(--radius-md, 0.5rem);
+  margin-bottom: var(--spacing-lg, 1rem);
   animation: slideIn 0.3s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+.success-message::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+
+  100% {
+    left: 100%;
+  }
 }
 
 .success-content {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--spacing-sm, 0.5rem);
 }
 
 .success-icon {
@@ -640,18 +772,31 @@ onMounted(() => {
 }
 
 .cache-stats {
-  background: #f9fafb;
-  border-radius: 0.5rem;
-  padding: 1rem;
-  margin-bottom: 1.5rem;
-  border: 1px solid #e5e7eb;
+  background: var(--color-bg-secondary, #f9fafb);
+  border-radius: var(--radius-lg, 0.5rem);
+  padding: var(--spacing-lg, 1rem);
+  margin-bottom: var(--spacing-xl, 1.5rem);
+  border: 1px solid var(--color-border, #e5e7eb);
+  position: relative;
+  overflow: hidden;
+}
+
+.cache-stats::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-info), var(--color-success));
 }
 
 .stat-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--spacing-sm, 0.5rem);
+  padding: var(--spacing-xs, 0.25rem) 0;
 }
 
 .stat-item:last-child {
@@ -659,78 +804,245 @@ onMounted(() => {
 }
 
 .stat-label {
-  color: #6b7280;
+  color: var(--color-text-secondary, #6b7280);
   font-size: 0.875rem;
+  font-weight: 500;
 }
 
 .stat-value {
   font-weight: 600;
-  color: #1f2937;
+  color: var(--color-text-primary, #1f2937);
+  font-family: var(--font-mono, 'Courier New', monospace);
+  text-align: center;
+  justify-content: center;
 }
 
 .config-form {
-  margin-bottom: 1.5rem;
+  margin-bottom: var(--spacing-xl, 1.5rem);
 }
 
 .form-group {
-  margin-bottom: 1rem;
+  margin-bottom: var(--spacing-lg, 1rem);
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--spacing-sm, 0.5rem);
   font-weight: 500;
-  color: #374151;
+  color: var(--color-text-primary, #374151);
   font-size: 0.875rem;
 }
 
 .form-group input[type="number"],
 .form-group input[type="text"] {
   width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-border, #d1d5db);
+  border-radius: var(--radius-md, 0.375rem);
   font-size: 0.875rem;
-  transition: border-color 0.2s;
+  transition: all var(--transition-normal);
+  background: var(--color-bg-primary, white);
 }
 
 .form-group input[type="number"]:focus,
 .form-group input[type="text"]:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: var(--color-primary, #3b82f6);
+  box-shadow: 0 0 0 3px var(--color-primary-alpha, rgba(59, 130, 246, 0.1));
+  transform: translateY(-1px);
 }
 
 .form-group input[type="checkbox"] {
-  margin-right: 0.5rem;
+  margin-right: var(--spacing-sm, 0.5rem);
+  transform: scale(1.1);
 }
 
 .config-section {
-  margin-bottom: 1.5rem;
-  padding: 1rem;
-  background: #f8fafc;
-  border-radius: 0.5rem;
-  border: 1px solid #e2e8f0;
+  margin-bottom: var(--spacing-xl, 1.5rem);
+  padding: var(--spacing-lg, 1rem);
+  background: var(--color-bg-tertiary, #f8fafc);
+  border-radius: var(--radius-lg, 0.5rem);
+  border: 1px solid var(--color-border-light, #e2e8f0);
+  position: relative;
+}
+
+.config-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--color-info);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 .config-section h5 {
-  margin: 0 0 1rem 0;
+  margin: 0 0 var(--spacing-lg) 0;
   font-size: 1rem;
   font-weight: 600;
-  color: #2d3748;
+  color: var(--color-text-primary, #2d3748);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.config-section h5::before {
+  content: '📊';
+  font-size: 0.875rem;
 }
 
 .form-help {
   display: block;
   font-size: 0.75rem;
-  color: #718096;
-  margin-top: 0.25rem;
+  color: var(--color-text-tertiary, #718096);
+  margin-top: var(--spacing-xs, 0.25rem);
+  font-style: italic;
 }
 
 .cache-actions {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--spacing-xl);
+  margin-top: var(--spacing-xl);
+}
+
+.action-group {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  border: 1px solid var(--color-border);
+  transition: all var(--transition-normal);
+}
+
+.action-group:hover {
+  box-shadow: var(--shadow-sm);
+  border-color: var(--color-border-hover);
+}
+
+.action-group-title {
+  margin: 0 0 var(--spacing-md) 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.action-group-title::before {
+  content: '';
+  width: 3px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--color-primary);
+}
+
+.primary-actions .action-group-title::before {
+  background: var(--color-primary);
+}
+
+.secondary-actions .action-group-title::before {
+  background: var(--color-info);
+}
+
+.danger-actions .action-group-title::before {
+  background: var(--color-danger);
+}
+
+.action-buttons {
+  gap: var(--spacing-md);
+}
+
+.btn-icon {
+  width: 1rem;
+  height: 1rem;
+  margin-right: var(--spacing-sm);
+  flex-shrink: 0;
+}
+
+/* 使用主题中的按钮增强样式 */
+.btn-enhanced {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-enhanced::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.btn-enhanced:hover::before {
+  left: 100%;
+}
+
+.btn-enhanced:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-enhanced:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+/* 特殊悬停效果 */
+.hover-primary:hover:not(:disabled) {
+  background: var(--color-primary) !important;
+  color: white !important;
+  border-color: var(--color-primary) !important;
+}
+
+.hover-danger:hover:not(:disabled) {
+  background: var(--color-danger) !important;
+  color: white !important;
+  border-color: var(--color-danger) !important;
+}
+
+/* 网格布局适配 */
+.grid {
+  display: grid;
+}
+
+.grid-cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+  .action-buttons.grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .action-group {
+    padding: var(--spacing-md);
+  }
+
+  .btn-enhanced {
+    padding: var(--spacing-md);
+    font-size: 0.8rem;
+  }
+
+  .btn-icon {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
 }
 
 .btn {
@@ -785,6 +1097,15 @@ onMounted(() => {
 
 .btn-warning:hover:not(:disabled) {
   background: #d97706;
+}
+
+.btn-info {
+  background: #06b6d4;
+  color: white;
+}
+
+.btn-info:hover:not(:disabled) {
+  background: #0891b2;
 }
 
 @media (max-width: 768px) {
