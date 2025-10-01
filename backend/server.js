@@ -28,6 +28,8 @@ class PixivServer {
     this.app = express();
     this.backend = null;
     this.port = 3000; // 默认端口，会在init时重新设置
+    this.logLevel = process.env.LOG_LEVEL || 'info'; // 获取日志级别
+    this.isVerboseMode = ['debug', 'trace'].includes(this.logLevel.toLowerCase()); // 检查是否为详细模式
   }
 
   /**
@@ -38,6 +40,17 @@ class PixivServer {
 
     // 重新设置端口（从环境变量获取）
     this.port = process.env.PORT || 3000;
+
+    // 如果启用了详细模式，输出调试信息
+    if (this.isVerboseMode) {
+      logger.info(`详细模式已启用 (日志级别: ${this.logLevel.toUpperCase()})`);
+      logger.debug('环境变量:', {
+        NODE_ENV: process.env.NODE_ENV,
+        PORT: process.env.PORT,
+        PROXY_PORT: process.env.PROXY_PORT,
+        LOG_LEVEL: process.env.LOG_LEVEL
+      });
+    }
 
     // 设置代理
     proxyConfig.setEnvironmentVariables();
@@ -105,6 +118,11 @@ class PixivServer {
       logger.info(`登录状态: ${this.backend.isLoggedIn ? '已登录' : '未登录'}`);
       if (this.backend.isLoggedIn) {
         logger.info(`用户: ${this.backend.config.user?.account}`);
+      }
+      if (this.isVerboseMode) {
+        logger.info(`日志级别: ${this.logLevel.toUpperCase()}`);
+        logger.debug(`服务器端口: ${this.port}`);
+        logger.debug(`代理端口: ${process.env.PROXY_PORT || '未设置'}`);
       }
       logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     });

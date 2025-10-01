@@ -1,6 +1,6 @@
 {
   "name": "pixiv-manager",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Pixiv 下载浏览管理器",
   "main": "backend/start.js",
   "bin": "backend/start.js",
@@ -15,9 +15,7 @@
     ]
   },
   "scripts": {
-    "start": "node backend/start.js",
     "dev": "node backend/start.js",
-    "test": "node backend/test-login.js",
     "build": "pkg . && node scripts/add-icon.js",
     "bp": "npm run build && node scripts/create-portable.js"
   },

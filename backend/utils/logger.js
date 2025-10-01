@@ -41,7 +41,7 @@ const ModuleColors = {
   'Server': '\x1b[32m',      // 绿色
   'API': '\x1b[32m',      // 绿色
   'Start': '\x1b[34m',       // 蓝色
-  'PixivBackend': '\x1b[35m', // 紫色
+  'PixivCore': '\x1b[35m', // 紫色
   'PixivAuth': '\x1b[36m',   // 青色
   'TaskManager': '\x1b[33m', // 黄色
   'ImageCache': '\x1b[92m',  // 亮绿色
@@ -54,7 +54,9 @@ const ModuleColors = {
   'ErrorHandler': '\x1b[91m', // 亮红色
   'FileManager': '\x1b[36m', // 青色
   'ProgressManager': '\x1b[35m', // 紫色
+  'DownloadRegistry': '\x1b[94m', // 亮蓝色
   'WatchlistManager': '\x1b[94m', // 亮蓝色
+  'CacheConfigManager': '\x1b[94m', // 亮蓝色
   'UpdateRoute': '\x1b[93m', // 亮黄色
   'ArtistService': '\x1b[95m', // 亮紫色
   'DownloadService': '\x1b[96m', // 亮青色
@@ -152,7 +154,24 @@ class Logger {
     let formattedMessage = `[${timeStr}] [${levelName}] [${this.module}] ${message}`;
     
     if (data !== null && data !== undefined) {
-      if (typeof data === 'object') {
+      if (data instanceof Error) {
+        // 特殊处理 Error 对象
+        formattedMessage += `\n  Error: ${data.message}`;
+        if (data.stack) {
+          formattedMessage += `\n  Stack: ${data.stack}`;
+        }
+        // 如果有其他可枚举属性，也包含进来
+        const errorProps = Object.getOwnPropertyNames(data).filter(prop => 
+          prop !== 'message' && prop !== 'stack' && prop !== 'name'
+        );
+        if (errorProps.length > 0) {
+          const additionalProps = {};
+          errorProps.forEach(prop => {
+            additionalProps[prop] = data[prop];
+          });
+          formattedMessage += `\n  Additional: ${JSON.stringify(additionalProps, null, 2)}`;
+        }
+      } else if (typeof data === 'object') {
         formattedMessage += ` ${JSON.stringify(data, null, 2)}`;
       } else {
         formattedMessage += ` ${data}`;

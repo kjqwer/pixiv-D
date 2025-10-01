@@ -1,6 +1,9 @@
 # 环境
 node_modules/
 
+
+test
+
 # 下载文件夹
 downloads/
 data/

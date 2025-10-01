@@ -258,7 +258,7 @@ const handleDownload = async () => {
     // 清理下载状态
     downloading.value = true;
 
-    // 如果已经下载过，则强制重新下载（跳过现有文件检查）
+    // 如果已经下载过，则强制重新下载（不跳过现有文件）
     const skipExisting = !isDownloaded.value;
     const response = await downloadService.downloadArtwork(artwork.value.id, {
       skipExisting

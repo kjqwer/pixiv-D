@@ -213,6 +213,40 @@ class DownloadService {
       eventSource.close();
     };
   }
+  /**
+   * 获取下载注册表统计信息
+   */
+  async getRegistryStats() {
+    return apiService.get('/api/download/registry/stats');
+  }
+
+  /**
+   * 导出下载注册表
+   */
+  async exportRegistry() {
+    return apiService.get('/api/download/registry/export');
+  }
+
+  /**
+   * 导入下载注册表
+   */
+  async importRegistry(registryData: any) {
+    return apiService.post('/api/download/registry/import', { registryData });
+  }
+
+  /**
+   * 重建下载注册表
+   */
+  async rebuildRegistry() {
+    return apiService.post('/api/download/registry/rebuild');
+  }
+
+  /**
+   * 清理下载注册表
+   */
+  async cleanupRegistry() {
+    return apiService.post('/api/download/registry/cleanup');
+  }
 }
 
-export default new DownloadService(); 
+export default new DownloadService();

@@ -48,6 +48,9 @@ class CacheConfigManager {
         chunkSize: 1024 * 1024, // 1MB块大小
         retryAttempts: 3, // 重试次数
         retryDelay: 2000, // 重试延迟
+        // 下载检测配置
+        useRegistryCheck: true, // 是否使用注册表检测（默认启用）
+        fallbackToScan: false, // 检测失败时是否回退到扫盘检测
         maxFileSize: 50 * 1024 * 1024, // 最大文件大小 50MB
       },
       // 新增Windows特定配置

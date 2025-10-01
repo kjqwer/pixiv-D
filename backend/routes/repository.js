@@ -141,7 +141,7 @@ router.get('/artworks/:artworkId', async (req, res) => {
 router.delete('/artworks/:artworkId', async (req, res) => {
   try {
     const { artworkId } = req.params
-    const result = await repositoryService.deleteArtwork(artworkId)
+    const result = await repositoryService.deleteArtwork(artworkId, req)
     res.json(ResponseUtil.success(result))
   } catch (error) {
     res.status(500).json(ResponseUtil.error(error.message))
@@ -380,4 +380,4 @@ function getContentType(extension) {
   return contentTypes[extension.toLowerCase()] || 'application/octet-stream'
 }
 
-module.exports = router 
+module.exports = router

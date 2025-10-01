@@ -75,7 +75,7 @@ function loggerMiddleware(req, res, next) {
   const isArtistArtworksQuery = /^\/api\/artist\/\d+\/artworks/.test(req.path);
 
   // 过滤掉作品详情请求
-  const isArtworkDetailQuery = /^\/api\/artwork\/\d+/.test(req.path);
+  const isArtworkDetailQuery = /^\/(?:api\/)?artwork\/\d+/.test(req.path);
 
   // 过滤掉仓库下载检查请求
   const isRepositoryCheckDownloadedQuery = /^\/api\/repository\/check-downloaded\/\d+/.test(req.path);

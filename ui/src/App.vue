@@ -8,6 +8,7 @@ import { useUpdateStore } from '@/stores/update'
 import SettingsWidget from '@/components/common/SettingsWidget.vue'
 import DownloadProgressWidget from '@/components/common/DownloadProgressWidget.vue'
 import WatchlistWidget from '@/components/common/WatchlistWidget.vue'
+import RegistryWidget from '@/components/common/RegistryWidget.vue'
 import UpdateChecker from '@/components/common/UpdateChecker.vue'
 
 const route = useRoute()
@@ -95,6 +96,9 @@ onMounted(async () => {
 
     <!-- 设置小组件 - 只在登录时显示 -->
     <SettingsWidget v-if="isLoggedIn" />
+
+    <!-- 下载注册表管理小组件 - 只在登录时显示 -->
+    <RegistryWidget v-if="isLoggedIn" />
 
     <!-- 下载进度小组件 - 只在登录时显示，在下载管理页面隐藏 -->
     <DownloadProgressWidget v-if="showDownloadWidget" />

@@ -738,12 +738,29 @@ class RepositoryService {
   }
 
   // 删除作品
-  async deleteArtwork(artworkId) {
+  async deleteArtwork(artworkId, req) {
     try {
       // 优化：直接通过文件系统查找，避免全仓库扫描
       const artwork = await this.findArtworkByIdOptimized(artworkId)
       if (!artwork) {
         throw new Error('作品不存在')
+      }
+      
+      // 从注册表中移除作品记录
+      try {
+        // 使用共享的下载服务实例，而不是创建新实例
+        const downloadService = req.backend?.getDownloadService();
+        if (downloadService) {
+          await downloadService.downloadRegistry.removeArtwork(artwork.artist, artworkId);
+          logger.debug('已从下载注册表中移除作品', { 
+            artistName: artwork.artist, 
+            artworkId: artworkId 
+          });
+        } else {
+          logger.warn('无法获取下载服务实例，跳过注册表更新');
+        }
+      } catch (error) {
+        logger.warn('从下载注册表中移除作品失败:', error.message);
       }
       
       await fs.rm(artwork.path, { recursive: true, force: true })

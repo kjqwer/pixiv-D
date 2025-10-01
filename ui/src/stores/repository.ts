@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { getApiBaseUrl } from '@/services/api'
 
 export interface RepositoryConfig {
   downloadDir: string
@@ -183,7 +184,16 @@ export const useRepositoryStore = defineStore('repository', () => {
 
   // 检查作品是否已下载
   const checkArtworkDownloaded = async (artworkId: number) => {
-    return await apiCall(`/check-downloaded/${artworkId}`)
+    // 使用新的下载检测API，支持注册表检测和回退机制
+    const response = await fetch(`${getApiBaseUrl()}/api/download/check/${artworkId}`)
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+    const result = await response.json()
+    if (!result.success) {
+      throw new Error(result.error || 'API调用失败')
+    }
+    return result.data
   }
 
   // 检查目录是否存在
@@ -223,4 +233,4 @@ export const useRepositoryStore = defineStore('repository', () => {
     checkDirectoryExists,
     migrateFromOldToNew,
   }
-}) 
+})

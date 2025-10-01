@@ -753,4 +753,193 @@ router.get('/stats', async (req, res) => {
   }
 });
 
-module.exports = router; 
+/**
+ * 导出下载注册表
+ * GET /api/download/registry/export
+ */
+router.get('/registry/export', async (req, res) => {
+  try {
+    const downloadService = req.backend.getDownloadService();
+    const registryData = await downloadService.downloadRegistry.exportRegistry();
+    
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename="download-registry.json"');
+    res.json(registryData);
+  } catch (error) {
+    logger.error('导出下载注册表失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 导入下载注册表
+ * POST /api/download/registry/import
+ */
+router.post('/registry/import', async (req, res) => {
+  try {
+    const { registryData } = req.body;
+    
+    if (!registryData) {
+      return res.status(400).json({
+        success: false,
+        error: '缺少注册表数据'
+      });
+    }
+    
+    const downloadService = req.backend.getDownloadService();
+    const result = await downloadService.downloadRegistry.importRegistry(registryData);
+    
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    logger.error('导入下载注册表失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 手动全盘扫描更新注册表
+ * POST /api/download/registry/rebuild
+ */
+router.post('/registry/rebuild', async (req, res) => {
+  try {
+    const downloadService = req.backend.getDownloadService();
+    const fileManager = downloadService.fileManager;
+    const result = await downloadService.downloadRegistry.rebuildFromFileSystem(fileManager);
+    
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    logger.error('重建下载注册表失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 获取下载注册表统计信息
+ * GET /api/download/registry/stats
+ */
+router.get('/registry/stats', async (req, res) => {
+  try {
+    const downloadService = req.backend.getDownloadService();
+    const stats = await downloadService.downloadRegistry.getStats();
+    
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    logger.error('获取下载注册表统计信息失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 清理下载注册表
+ * POST /api/download/registry/cleanup
+ */
+router.post('/registry/cleanup', async (req, res) => {
+  try {
+    const downloadService = req.backend.getDownloadService();
+    const fileManager = downloadService.fileManager;
+    const result = await downloadService.downloadRegistry.cleanupRegistry(fileManager);
+    
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    logger.error('清理下载注册表失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 获取下载检测配置
+ * GET /api/download/registry/config
+ */
+router.get('/registry/config', async (req, res) => {
+  try {
+    const downloadService = req.backend.getDownloadService();
+    const config = await downloadService.cacheConfigManager.loadConfig();
+    
+    // 提取下载相关的配置
+    const downloadConfig = {
+      useRegistryCheck: config.download?.useRegistryCheck !== false, // 默认启用
+      fallbackToScan: config.download?.fallbackToScan === true // 默认不启用
+    };
+    
+    res.json({
+      success: true,
+      data: downloadConfig
+    });
+  } catch (error) {
+    logger.error('获取下载检测配置失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 更新下载检测配置
+ * PUT /api/download/registry/config
+ */
+router.put('/registry/config', async (req, res) => {
+  try {
+    const { useRegistryCheck, fallbackToScan } = req.body;
+    
+    if (typeof useRegistryCheck !== 'boolean' || typeof fallbackToScan !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        error: '配置参数必须是布尔值'
+      });
+    }
+    
+    const downloadService = req.backend.getDownloadService();
+    
+    // 更新配置
+    const updatedConfig = await downloadService.cacheConfigManager.updateConfig({
+      download: {
+        useRegistryCheck,
+        fallbackToScan
+      }
+    });
+    
+    res.json({
+      success: true,
+      data: {
+        useRegistryCheck: updatedConfig.download?.useRegistryCheck !== false,
+        fallbackToScan: updatedConfig.download?.fallbackToScan === true
+      }
+    });
+  } catch (error) {
+    logger.error('更新下载检测配置失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+module.exports = router;

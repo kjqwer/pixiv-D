@@ -6,6 +6,7 @@ const FileManager = require('./file-manager');
 const ProgressManager = require('./progress-manager');
 const HistoryManager = require('./history-manager');
 const DownloadExecutor = require('./download-executor');
+const DownloadRegistry = require('./download-registry');
 const CacheConfigManager = require('../config/cache-config');
 const fs = require('fs-extra'); // Added for fs-extra
 const { defaultLogger } = require('../utils/logger');
@@ -40,6 +41,7 @@ class DownloadService {
     this.taskManager = new TaskManager(this.dataPath);
     this.progressManager = new ProgressManager();
     this.historyManager = new HistoryManager(this.dataPath);
+    this.downloadRegistry = new DownloadRegistry(this.dataPath);
     // 先创建下载执行器，稍后在init方法中设置downloadService引用
     this.downloadExecutor = new DownloadExecutor(this.fileManager, this.taskManager, this.progressManager, this.historyManager, this);
 
@@ -78,6 +80,7 @@ class DownloadService {
       // 初始化各个管理器
       await this.taskManager.init();
       await this.historyManager.init();
+      await this.downloadRegistry.init();
 
       this.initialized = true;
       // 下载服务初始化完成
@@ -464,6 +467,40 @@ class DownloadService {
 
   async isArtworkDownloaded(artworkId) {
     try {
+      // 获取配置，决定使用哪种检测方式
+      const cacheConfig = await this.cacheConfigManager.loadConfig();
+      const useRegistryCheck = cacheConfig.download?.useRegistryCheck !== false; // 默认启用
+      const fallbackToScan = cacheConfig.download?.fallbackToScan === true; // 默认不启用
+
+      // 优先使用注册表检测（如果启用）
+      if (useRegistryCheck) {
+        try {
+          const isDownloaded = await this.downloadRegistry.isArtworkDownloaded(artworkId);
+          if (isDownloaded || !fallbackToScan) {
+            return isDownloaded;
+          }
+          // 如果注册表显示未下载但启用了回退，继续使用扫盘检测
+        } catch (error) {
+          logger.warn('注册表检测失败，使用扫盘检测:', error.message);
+          if (!fallbackToScan) {
+            return false;
+          }
+        }
+      }
+
+      // 使用原有的扫盘检测逻辑
+      return await this.isArtworkDownloadedByScan(artworkId);
+    } catch (error) {
+      logger.error('检查作品下载状态失败:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 通过扫描文件系统检测作品是否已下载（原有逻辑）
+   */
+  async isArtworkDownloadedByScan(artworkId) {
+    try {
       const downloadPath = await this.fileManager.getDownloadPath();
 
       // 扫描所有作者目录
@@ -520,7 +557,7 @@ class DownloadService {
 
       return false;
     } catch (error) {
-      logger.error('检查作品下载状态失败:', error);
+      logger.error('扫盘检查作品下载状态失败:', error);
       return false;
     }
   }
@@ -1074,6 +1111,79 @@ class DownloadService {
       return {
         success: false,
         error: error.message,
+      };
+    }
+  }
+
+  /**
+   * 删除已下载的文件
+   * @param {string} artist - 作者名称
+   * @param {string} artwork - 作品目录名称
+   * @returns {Object} 删除结果
+   */
+  async deleteDownloadedFiles(artist, artwork) {
+
+    try {
+      const downloadPath = await this.fileManager.getDownloadPath();
+      const artworkPath = path.join(downloadPath, artist, artwork);
+      
+      // 检查作品目录是否存在
+      const artworkStat = await this.fileManager.getFileInfo(artworkPath);
+      if (!artworkStat.exists) {
+        return {
+          success: false,
+          error: '作品目录不存在'
+        };
+      }
+
+      // 从作品目录名称中提取作品ID
+      const artworkMatch = artwork.match(/^(\d+)_(.+)$/);
+      if (!artworkMatch) {
+        return {
+          success: false,
+          error: '无效的作品目录格式'
+        };
+      }
+      
+      const artworkId = parseInt(artworkMatch[1]);
+
+      // 删除作品目录
+      await this.fileManager.removeDirectory(artworkPath);
+      
+      // 从注册表中移除作品记录
+      try {
+        await this.downloadRegistry.removeArtwork(artist, artworkId);
+        logger.debug('已从下载注册表中移除作品', { 
+          artistName: artist, 
+          artworkId: artworkId 
+        });
+      } catch (error) {
+        logger.warn('从下载注册表中移除作品失败:', error.message);
+      }
+
+      // 检查作者目录是否为空，如果为空则删除
+      const artistPath = path.join(downloadPath, artist);
+      try {
+        const artistEntries = await this.fileManager.listDirectory(artistPath);
+        const hasArtworks = artistEntries.some(entry => entry.match(/^\d+_/));
+        
+        if (!hasArtworks) {
+          await this.fileManager.removeDirectory(artistPath);
+          logger.debug('已删除空的作者目录', { artistName: artist });
+        }
+      } catch (error) {
+        logger.warn(`检查作者目录失败: ${error.message}`);
+      }
+
+      return {
+        success: true,
+        message: '作品删除成功'
+      };
+    } catch (error) {
+      logger.error('删除作品失败:', error);
+      return {
+        success: false,
+        error: error.message
       };
     }
   }

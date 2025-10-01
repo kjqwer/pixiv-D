@@ -139,6 +139,19 @@ class DownloadExecutor {
       await this.taskManager.saveTasks();
       this.progressManager.notifyProgressUpdate(task.id, task);
 
+      // 如果下载成功，更新下载注册表
+      if (task.status === 'completed') {
+        try {
+          await this.downloadService.downloadRegistry.addArtwork(task.artist_name, task.artwork_id);
+          logger.debug('已更新下载注册表', { 
+            artistName: task.artist_name, 
+            artworkId: task.artwork_id 
+          });
+        } catch (error) {
+          logger.warn('更新下载注册表失败:', error.message);
+        }
+      }
+
       // 添加到历史记录
       const historyItem = {
         id: task.id,

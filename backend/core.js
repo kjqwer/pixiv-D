@@ -8,7 +8,7 @@ const CONFIG_FILE_DIR = require('appdata-path').getAppDataPath('pmanager');
 const CONFIG_FILE = Path.resolve(CONFIG_FILE_DIR, 'config.json');
 
 // 创建logger实例
-const logger = defaultLogger.child('PixivBackend');
+const logger = defaultLogger.child('PixivCore');
 
 // 默认配置
 const defaultConfig = {

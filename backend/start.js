@@ -11,10 +11,6 @@ if (!process.env.UV_THREADPOOL_SIZE) {
 }
 
 const PixivServer = require('./server');
-const { defaultLogger } = require('./utils/logger');
-
-// 创建logger实例
-const logger = defaultLogger.child('Start');
 
 // 解析命令行参数
 function parseArguments() {
@@ -35,7 +31,12 @@ function parseArguments() {
       if (!isNaN(port)) {
         options.serverPort = port;
       }
-    }
+    } else if (arg.startsWith('--log-level=')) {
+      const level = arg.split('=')[1].toUpperCase();
+      if (['ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE'].includes(level)) {
+        options.logLevel = level;
+      }
+    } 
     // 处理 --key value 格式（向后兼容）
     else if (arg === '--proxy-port' && i + 1 < args.length) {
       const port = parseInt(args[i + 1]);
@@ -47,6 +48,12 @@ function parseArguments() {
       const port = parseInt(args[i + 1]);
       if (!isNaN(port)) {
         options.serverPort = port;
+      }
+      i++; // 跳过下一个参数
+    } else if (arg === '--log-level' && i + 1 < args.length) {
+      const level = args[i + 1].toUpperCase();
+      if (['ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE'].includes(level)) {
+        options.logLevel = level;
       }
       i++; // 跳过下一个参数
     }
@@ -61,6 +68,15 @@ const cliOptions = parseArguments();
 // 设置环境变量
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
 
+// 设置日志级别环境变量
+if (cliOptions.logLevel) {
+  process.env.LOG_LEVEL = cliOptions.logLevel.toLowerCase();
+}
+
+// 在设置环境变量后导入logger
+const { defaultLogger } = require('./utils/logger');
+const logger = defaultLogger.child('Start');
+
 // 如果提供了代理端口，设置环境变量
 if (cliOptions.proxyPort) {
   process.env.PROXY_PORT = cliOptions.proxyPort.toString();
@@ -71,6 +87,11 @@ if (cliOptions.proxyPort) {
 if (cliOptions.serverPort) {
   process.env.PORT = cliOptions.serverPort.toString();
   logger.info(`服务器端口已设置为: ${cliOptions.serverPort}`);
+}
+
+// 输出日志级别信息
+if (cliOptions.logLevel) {
+  logger.info(`日志级别: ${cliOptions.logLevel}`);
 }
 
 logger.info('启动 Pixiv 后端服务器...');
