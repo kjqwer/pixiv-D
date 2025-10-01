@@ -32,6 +32,9 @@ class ApiCacheService {
     // 创建配置管理器
     this.configManager = new CacheConfigManager();
     
+    // 防重复删除机制 - 跟踪正在删除的文件
+    this.deletingFiles = new Set();
+    
     // 默认缓存配置
     this.config = {
       maxAge: 5 * 60 * 1000, // 5分钟缓存（API数据变化较快）
@@ -298,6 +301,12 @@ class ApiCacheService {
       // 计算总大小和收集文件信息
       for (const file of files) {
         const filePath = path.join(this.cacheDir, file);
+        
+        // 防止重复删除同一个文件
+        if (this.deletingFiles.has(filePath)) {
+          continue;
+        }
+        
         try {
           const stats = await fs.stat(filePath);
           totalSize += stats.size;
@@ -323,21 +332,43 @@ class ApiCacheService {
         // 按修改时间排序，删除最旧的文件
         fileStats.sort((a, b) => a.mtime.getTime() - b.mtime.getTime());
         
+        let deletedCount = 0;
+        let errorCount = 0;
+        
         for (const file of fileStats) {
-          const deleteSuccess = await FileUtils.safeDeleteFile(file.path);
-          if (deleteSuccess) {
-            totalSize -= file.size;
-            logger.debug(`删除过大API缓存文件: ${file.path}`);
-          } else {
-            logger.debug(`删除过大API缓存文件失败: ${file.path}`);
+          // 防止重复删除
+          if (this.deletingFiles.has(file.path)) {
+            continue;
           }
           
-          if (totalSize <= this.config.maxSize * 0.8) { // 清理到80%
-            break;
+          // 标记文件为删除中
+          this.deletingFiles.add(file.path);
+          
+          try {
+            const deleteSuccess = await this.safeDeleteFileWithRetry(file.path);
+            if (deleteSuccess) {
+              totalSize -= file.size;
+              deletedCount++;
+              logger.debug(`删除过大API缓存文件: ${file.path}`);
+            } else {
+              errorCount++;
+              logger.debug(`删除过大API缓存文件失败: ${file.path}`);
+            }
+            
+            if (totalSize <= this.config.maxSize * 0.8) { // 清理到80%
+              break;
+            }
+          } finally {
+            // 移除删除标记
+            this.deletingFiles.delete(file.path);
           }
         }
         
-        logger.info(`API缓存清理完成，当前大小: ${totalSize}`);
+        if (errorCount > 0) {
+          logger.info(`API缓存清理完成，当前大小: ${totalSize}，成功删除 ${deletedCount} 个文件，失败 ${errorCount} 个文件`);
+        } else {
+          logger.info(`API缓存清理完成，当前大小: ${totalSize}，删除了 ${deletedCount} 个文件`);
+        }
       }
     } catch (error) {
       logger.error('检查API缓存大小失败:', error);
@@ -355,38 +386,45 @@ class ApiCacheService {
       let errorCount = 0;
       let skippedCount = 0;
       const now = Date.now();
+      const errorDetails = {
+        permission: 0,
+        busy: 0,
+        system: 0,
+        other: 0
+      };
 
       for (const file of files) {
         const filePath = path.join(this.cacheDir, file);
+        
+        // 防止重复删除同一个文件
+        if (this.deletingFiles.has(filePath)) {
+          logger.debug(`API缓存文件正在删除中，跳过: ${filePath}`);
+          skippedCount++;
+          continue;
+        }
+        
         try {
           const stats = await fs.stat(filePath);
           
           const age = now - stats.mtime.getTime();
           if (age > this.config.maxAge) {
-            // 简单的文件占用检查（仅在Windows上）
-            if (process.platform === 'win32') {
-              try {
-                // 尝试以独占模式打开文件来检查是否被占用
-                const handle = await fs.open(filePath, 'r');
-                await handle.close();
-              } catch (openError) {
-                if (openError.code === 'EBUSY' || openError.code === 'EPERM') {
-                  logger.debug(`跳过被占用的过期API缓存文件: ${filePath}`);
-                  skippedCount++;
-                  continue;
-                }
-              }
-            }
+            // 标记文件为删除中
+            this.deletingFiles.add(filePath);
             
-            // 使用改进的安全删除方法
-            const deleteSuccess = await FileUtils.safeDeleteFile(filePath);
-            if (deleteSuccess) {
-              cleanedCount++;
-              logger.debug(`成功删除过期API缓存文件: ${filePath}`);
-            } else {
-              errorCount++;
-              // 减少日志噪音，只在debug级别记录
-              logger.debug(`删除过期API缓存文件失败: ${filePath}`);
+            try {
+              // 使用带重试的删除方法
+              const deleteSuccess = await this.safeDeleteFileWithRetry(filePath);
+              if (deleteSuccess) {
+                cleanedCount++;
+                logger.debug(`成功删除过期API缓存文件: ${filePath}`);
+              } else {
+                errorCount++;
+                errorDetails.other++;
+                logger.debug(`删除过期API缓存文件失败: ${filePath}`);
+              }
+            } finally {
+              // 无论成功失败，都要移除删除标记
+              this.deletingFiles.delete(filePath);
             }
           }
         } catch (error) {
@@ -394,9 +432,28 @@ class ApiCacheService {
           if (error.code === 'ENOENT') {
             logger.debug(`过期API缓存文件不存在，跳过: ${filePath}`);
           } else {
+            const errorInfo = this.categorizeError(error);
             logger.debug(`检查过期API缓存文件失败: ${filePath}`, error.message);
             errorCount++;
+            
+            // 统计错误类型
+            switch (errorInfo.type) {
+              case 'permission':
+                errorDetails.permission++;
+                break;
+              case 'busy':
+                errorDetails.busy++;
+                break;
+              case 'system':
+                errorDetails.system++;
+                break;
+              default:
+                errorDetails.other++;
+            }
           }
+          
+          // 移除删除标记
+          this.deletingFiles.delete(filePath);
         }
       }
 
@@ -404,7 +461,21 @@ class ApiCacheService {
         if (errorCount === 0 && skippedCount === 0) {
           logger.info(`清理了 ${cleanedCount} 个过期API缓存文件`);
         } else {
-          logger.info(`API缓存清理完成，成功删除 ${cleanedCount} 个文件，失败 ${errorCount} 个文件，跳过 ${skippedCount} 个被占用文件`);
+          let errorMsg = `API缓存清理完成，成功删除 ${cleanedCount} 个文件，失败 ${errorCount} 个文件，跳过 ${skippedCount} 个被占用文件`;
+          
+          if (errorCount > 0) {
+            const errorBreakdown = [];
+            if (errorDetails.permission > 0) errorBreakdown.push(`权限错误 ${errorDetails.permission} 个`);
+            if (errorDetails.busy > 0) errorBreakdown.push(`文件占用 ${errorDetails.busy} 个`);
+            if (errorDetails.system > 0) errorBreakdown.push(`系统错误 ${errorDetails.system} 个`);
+            if (errorDetails.other > 0) errorBreakdown.push(`其他错误 ${errorDetails.other} 个`);
+            
+            if (errorBreakdown.length > 0) {
+              errorMsg += ` (${errorBreakdown.join(', ')})`;
+            }
+          }
+          
+          logger.info(errorMsg);
         }
       }
     } catch (error) {
@@ -430,39 +501,94 @@ class ApiCacheService {
   async clearAllCache() {
     try {
       const files = await fs.readdir(this.cacheDir);
-      let cleanedCount = 0;
-      let errorCount = 0;
-      
+      let deletedCount = 0;
+      let failedCount = 0;
+      let skippedCount = 0;
+      const errorDetails = {
+        permission: 0,
+        busy: 0,
+        system: 0,
+        other: 0
+      };
+
       for (const file of files) {
         const filePath = path.join(this.cacheDir, file);
+        
+        // 防止重复删除同一个文件
+        if (this.deletingFiles.has(filePath)) {
+          logger.debug(`API缓存文件正在删除中，跳过: ${filePath}`);
+          skippedCount++;
+          continue;
+        }
+        
+        // 标记文件为删除中
+        this.deletingFiles.add(filePath);
+        
         try {
-          const deleteSuccess = await FileUtils.safeDeleteFile(filePath);
+          // 使用带重试的删除方法
+          const deleteSuccess = await this.safeDeleteFileWithRetry(filePath);
           if (deleteSuccess) {
-            cleanedCount++;
-            logger.debug(`删除API缓存文件: ${filePath}`);
+            deletedCount++;
+            logger.debug(`成功删除API缓存文件: ${filePath}`);
           } else {
-            errorCount++;
+            failedCount++;
+            errorDetails.other++;
             logger.debug(`删除API缓存文件失败: ${filePath}`);
           }
         } catch (error) {
-          // 如果文件不存在，静默忽略
-          if (error.code === 'ENOENT') {
-            logger.debug(`API缓存文件不存在，跳过: ${filePath}`);
-          } else {
-            logger.debug(`删除API缓存文件出错: ${filePath}`, error.message);
-            errorCount++;
+          const errorInfo = this.categorizeError(error);
+          logger.debug(`删除API缓存文件时发生错误: ${filePath}`, error.message);
+          failedCount++;
+          
+          // 统计错误类型
+          switch (errorInfo.type) {
+            case 'permission':
+              errorDetails.permission++;
+              break;
+            case 'busy':
+              errorDetails.busy++;
+              break;
+            case 'system':
+              errorDetails.system++;
+              break;
+            default:
+              errorDetails.other++;
           }
+        } finally {
+          // 无论成功失败，都要移除删除标记
+          this.deletingFiles.delete(filePath);
         }
       }
-      
-      if (errorCount === 0) {
-        logger.info(`所有API缓存已清理，共删除 ${cleanedCount} 个文件`);
+
+      // 清空缓存索引
+      this.cacheIndex.clear();
+      await this.saveCacheIndex();
+
+      if (deletedCount > 0 || failedCount > 0 || skippedCount > 0) {
+        if (failedCount === 0 && skippedCount === 0) {
+          logger.info(`成功清空所有API缓存，删除了 ${deletedCount} 个文件`);
+        } else {
+          let errorMsg = `API缓存清空完成，成功删除 ${deletedCount} 个文件，失败 ${failedCount} 个文件，跳过 ${skippedCount} 个被占用文件`;
+          
+          if (failedCount > 0) {
+            const errorBreakdown = [];
+            if (errorDetails.permission > 0) errorBreakdown.push(`权限错误 ${errorDetails.permission} 个`);
+            if (errorDetails.busy > 0) errorBreakdown.push(`文件占用 ${errorDetails.busy} 个`);
+            if (errorDetails.system > 0) errorBreakdown.push(`系统错误 ${errorDetails.system} 个`);
+            if (errorDetails.other > 0) errorBreakdown.push(`其他错误 ${errorDetails.other} 个`);
+            
+            if (errorBreakdown.length > 0) {
+              errorMsg += ` (${errorBreakdown.join(', ')})`;
+            }
+          }
+          
+          logger.info(errorMsg);
+        }
       } else {
-        logger.info(`API缓存清理完成，成功删除 ${cleanedCount} 个文件，失败 ${errorCount} 个文件`);
+        logger.info('API缓存目录为空，无需清理');
       }
     } catch (error) {
-      logger.error('清理所有API缓存失败:', error);
-      throw error;
+      logger.error('清空API缓存失败:', error);
     }
   }
 
@@ -543,6 +669,86 @@ class ApiCacheService {
     this.config = { ...this.config, ...defaultConfig };
     return defaultConfig;
   }
+
+  /**
+   * 带重试的安全删除文件
+   * @param {string} filePath 文件路径
+   * @param {number} maxRetries 最大重试次数
+   * @returns {Promise<boolean>} 删除是否成功
+   */
+  async safeDeleteFileWithRetry(filePath, maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const success = await FileUtils.safeDeleteFile(filePath);
+        if (success) {
+          return true;
+        }
+        
+        // 如果删除失败但不是最后一次尝试，等待后重试
+        if (attempt < maxRetries) {
+          const delay = Math.min(1000 * attempt, 5000); // 递增延迟，最大5秒
+          logger.debug(`删除API缓存文件失败，${delay}ms后重试 (${attempt}/${maxRetries}): ${filePath}`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      } catch (error) {
+        logger.debug(`删除API缓存文件异常 (${attempt}/${maxRetries}): ${filePath}`, error.message);
+        
+        // 如果是最后一次尝试，返回失败
+        if (attempt === maxRetries) {
+          return false;
+        }
+        
+        // 等待后重试
+        const delay = Math.min(1000 * attempt, 5000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * 分类错误类型
+   * @param {Error} error 错误对象
+   * @returns {Object} 错误分类信息
+   */
+  categorizeError(error) {
+    const errorInfo = {
+      type: 'unknown',
+      retryable: false,
+      message: error.message || '未知错误'
+    };
+
+    if (!error.code) {
+      return errorInfo;
+    }
+
+    switch (error.code) {
+      case 'EPERM':
+      case 'EACCES':
+        errorInfo.type = 'permission';
+        errorInfo.retryable = true;
+        break;
+      case 'EBUSY':
+        errorInfo.type = 'busy';
+        errorInfo.retryable = true;
+        break;
+      case 'ENOENT':
+        errorInfo.type = 'not_found';
+        errorInfo.retryable = false; // 文件不存在，不需要重试
+        break;
+      case 'EMFILE':
+      case 'ENFILE':
+        errorInfo.type = 'resource';
+        errorInfo.retryable = true;
+        break;
+      default:
+        errorInfo.type = 'system';
+        errorInfo.retryable = false;
+    }
+
+    return errorInfo;
+  }
 }
 
-module.exports = ApiCacheService; 
+module.exports = ApiCacheService;

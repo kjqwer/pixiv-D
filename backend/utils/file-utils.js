@@ -21,6 +21,15 @@ class FileUtils {
         return true;
       }
 
+      // 在 Windows 上进行更全面的文件占用检查
+      if (process.platform === 'win32') {
+        const isOccupied = await this.isFileOccupied(filePath);
+        if (isOccupied) {
+          logger.debug(`文件被占用，跳过删除: ${filePath}`);
+          return false;
+        }
+      }
+
       // 尝试删除文件
       await fs.remove(filePath);
       logger.debug(`文件删除成功: ${filePath}`);
@@ -29,25 +38,7 @@ class FileUtils {
       // 如果是权限错误，尝试Windows特定的删除方法
       if (error.code === 'EPERM' || error.code === 'EACCES') {
         if (process.platform === 'win32') {
-          try {
-            // 尝试修改文件属性后删除
-            const nativeFs = require('fs').promises;
-            
-            try {
-              await nativeFs.chmod(filePath, 0o666);
-            } catch (chmodError) {
-              // 忽略chmod错误
-              logger.debug(`修改文件权限失败: ${filePath}`, chmodError.message);
-            }
-
-            // 再次尝试删除
-            await nativeFs.unlink(filePath);
-            logger.info(`修改权限后删除成功: ${filePath}`);
-            return true;
-          } catch (forceError) {
-            logger.warn(`Windows权限删除失败: ${filePath}`, forceError.message);
-            return false;
-          }
+          return await this.forceDeleteFileWindows(filePath);
         } else {
           logger.warn(`删除文件权限不足: ${filePath}`, error.message);
           return false;
@@ -60,7 +51,65 @@ class FileUtils {
         return true;
       }
 
+      if (error.code === 'EBUSY') {
+        logger.debug(`文件被占用，删除失败: ${filePath}`);
+        return false;
+      }
+
       logger.warn(`删除文件失败: ${filePath}`, error.message);
+      return false;
+    }
+  }
+
+  /**
+   * 检查文件是否被占用（Windows专用）
+   */
+  static async isFileOccupied(filePath) {
+    try {
+      const nativeFs = require('fs').promises;
+      
+      // 尝试以独占模式打开文件
+      const handle = await nativeFs.open(filePath, 'r+');
+      await handle.close();
+      return false; // 文件未被占用
+    } catch (error) {
+      if (error.code === 'EBUSY' || error.code === 'EPERM' || error.code === 'EACCES') {
+        return true; // 文件被占用
+      }
+      // 其他错误认为文件未被占用
+      return false;
+    }
+  }
+
+  /**
+   * 强制删除文件（Windows专用）
+   */
+  static async forceDeleteFileWindows(filePath) {
+    try {
+      const nativeFs = require('fs').promises;
+      
+      // 尝试修改文件属性
+      try {
+        await nativeFs.chmod(filePath, 0o666);
+        logger.debug(`修改文件权限成功: ${filePath}`);
+      } catch (chmodError) {
+        logger.debug(`修改文件权限失败: ${filePath}`, chmodError.message);
+      }
+
+      // 短暂等待，让系统释放文件句柄
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // 再次尝试删除
+      await nativeFs.unlink(filePath);
+      logger.info(`强制删除成功: ${filePath}`);
+      return true;
+    } catch (forceError) {
+      if (forceError.code === 'ENOENT') {
+        logger.debug(`强制删除时文件不存在: ${filePath}`);
+        return true;
+      }
+      
+      logger.warn(`强制删除失败: ${filePath}`, forceError.message);
       return false;
     }
   }

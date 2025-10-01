@@ -324,7 +324,7 @@ class DownloadRegistry {
       totalArtworks: this.getTotalArtworkCount()
     };
 
-    logger.info('注册表导入完成', result);
+    logger.info(`注册表导入完成，导入了 ${result.addedArtists} 个作者，${result.addedArtworks} 个作品，跳过了 ${result.skippedArtworks} 个重复作品。当前总计：${result.totalArtists} 个作者，${result.totalArtworks} 个作品`);
     return result;
   }
 
