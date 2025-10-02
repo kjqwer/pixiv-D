@@ -26,8 +26,26 @@ async function createPortable() {
 
 title Pixiv Manager
 
+REM ========================================
+REM Proxy Configuration - Modify port according to your proxy software
+REM Common ports: Clash=7890, V2Ray=10809, Shadowsocks=1080
+REM ========================================
 set PROXY_PORT=7890
+
+REM ========================================
+REM Server Port Configuration - Default 3000
+REM ========================================
 set SERVER_PORT=3000
+
+REM ========================================
+REM Log Level Configuration - Options: ERROR, WARN, INFO, DEBUG, TRACE
+REM ERROR: Show only error messages
+REM WARN:  Show warning and above level messages
+REM INFO:  Show general information and above level messages (default)
+REM DEBUG: Show debug information and above level messages
+REM TRACE: Show all level messages (most detailed)
+REM ========================================
+set LOG_LEVEL=INFO
 
 echo.
 echo ========================================
@@ -39,8 +57,8 @@ cd /d "%~dp0"
 
 echo Current proxy port: %PROXY_PORT%
 echo Current server port: %SERVER_PORT%
-echo To change proxy port, edit PROXY_PORT=xxxx in this file
-echo To change server port, edit SERVER_PORT=xxxx in this file
+echo Log level: %LOG_LEVEL%
+echo To modify settings, edit this file with notepad
 echo.
 
 echo Starting backend server...
@@ -49,8 +67,12 @@ echo.
 echo Tip: Press Ctrl+C to stop server
 echo.
 
-:: Start server and pass proxy port and server port
-pixiv-manager.exe --proxy-port=%PROXY_PORT% --server-port=%SERVER_PORT%
+REM Start server and pass proxy port, server port and log level
+if "%PROXY_PORT%"=="" (
+  pixiv-manager.exe --server-port=%SERVER_PORT% --log-level=%LOG_LEVEL%
+) else (
+  pixiv-manager.exe --proxy-port=%PROXY_PORT% --server-port=%SERVER_PORT% --log-level=%LOG_LEVEL%
+)
 
 echo.
 echo Server stopped
@@ -81,6 +103,14 @@ pause
 ### 服务器端口设置
 修改（SERVER_PORT=xxxx）的端口号，默认为3000
 
+### 日志级别设置
+修改（LOG_LEVEL=xxxx）的日志级别，可选值：
+- ERROR: 只显示错误信息
+- WARN: 显示警告及以上级别信息
+- INFO: 显示一般信息及以上级别信息（默认）
+- DEBUG: 显示调试信息及以上级别信息
+- TRACE: 显示所有级别信息（最详细）
+
 ## 注意事项
 
 - 首次运行可能需要几秒钟启动时间
@@ -104,4 +134,4 @@ pause
   }
 }
 
-createPortable(); 
+createPortable();
