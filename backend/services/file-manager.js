@@ -262,7 +262,7 @@ class FileManager {
   /**
    * 简单的文件下载方法
    */
-  async downloadFile(url, filePath) {
+  async downloadFile(url, filePath, abortController = null) {
     const downloadConfig = await this.getDownloadConfig();
     const maxRetries = downloadConfig.retryAttempts;
     let lastError = null;
@@ -272,6 +272,11 @@ class FileManager {
       let response = null;
       
       try {
+        // 检查是否已被中断
+        if (abortController && abortController.signal.aborted) {
+          throw new Error('下载已被中断');
+        }
+
         // 使用增强的文件工具类确保目录存在
         const dirPath = path.dirname(filePath);
         const dirCreated = await FileUtils.safeEnsureDirEnhanced(dirPath);
@@ -288,6 +293,11 @@ class FileManager {
           }
         }
 
+        // 再次检查是否已被中断
+        if (abortController && abortController.signal.aborted) {
+          throw new Error('下载已被中断');
+        }
+
         response = await axios({
           method: 'GET',
           url: url,
@@ -296,7 +306,8 @@ class FileManager {
             'Referer': 'https://www.pixiv.net/',
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
           },
-          timeout: downloadConfig.timeout
+          timeout: downloadConfig.timeout,
+          signal: abortController ? abortController.signal : undefined
         });
 
         // 使用增强的写入流创建方法
@@ -314,6 +325,24 @@ class FileManager {
               response.data.destroy();
             }
           };
+
+          // 监听中断信号
+          if (abortController) {
+            abortController.signal.addEventListener('abort', () => {
+              if (isResolved) return;
+              isResolved = true;
+              
+              logger.info(`下载被中断: ${filePath}`);
+              cleanup();
+              
+              // 删除未完成的文件
+              this.safeDeleteFile(filePath).catch(error => {
+                logger.warn('删除被中断的文件失败', { filePath, error: error.message });
+              });
+              
+              reject(new Error('下载被中断'));
+            });
+          }
 
           writer.on('finish', async () => {
             if (isResolved) return;
@@ -378,6 +407,9 @@ class FileManager {
           // 清理超时定时器
           writer.on('finish', () => clearTimeout(timeout));
           writer.on('error', () => clearTimeout(timeout));
+          if (abortController) {
+            abortController.signal.addEventListener('abort', () => clearTimeout(timeout));
+          }
         });
         
       } catch (error) {
@@ -391,7 +423,25 @@ class FileManager {
         
         lastError = error;
         
-        // 处理文件系统错误
+        // 首先检查是否是中断错误，如果是则直接抛出，不重试
+        if (error.message === '下载已被中断' || 
+            error.code === 'ERR_CANCELED' || 
+            error.name === 'AbortError' ||
+            (error.message && error.message.includes('canceled'))) {
+          
+          logger.error(`下载文件失败 (尝试 ${attempt}/${maxRetries}): ${filePath}`, {
+            error: error.message,
+            stack: error.stack,
+            url,
+            retryable: false,
+            attempt,
+            reason: 'download_interrupted'
+          });
+          
+          throw error;
+        }
+        
+        // 处理其他文件系统错误
         const errorResult = ErrorHandler.handleFileSystemError(error, filePath, 'download');
         
         logger.error(`下载文件失败 (尝试 ${attempt}/${maxRetries}): ${filePath}`, {

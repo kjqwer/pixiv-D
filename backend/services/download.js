@@ -239,6 +239,9 @@ class DownloadService {
       // 更新任务状态为取消中，防止并发操作
       await this.taskManager.updateTask(taskId, { status: 'cancelling' });
 
+      // 立即中断正在进行的下载
+      this.downloadExecutor.abortTask(taskId);
+
       // 清理未完成的文件
       await this.cleanupIncompleteFiles(task);
 
@@ -287,6 +290,9 @@ class DownloadService {
     try {
       // 更新任务状态为暂停中，防止并发操作
       await this.taskManager.updateTask(taskId, { status: 'pausing' });
+
+      // 立即中断正在进行的下载
+      this.downloadExecutor.abortTask(taskId);
 
       // 清理未完成的文件
       await this.cleanupIncompleteFiles(task);

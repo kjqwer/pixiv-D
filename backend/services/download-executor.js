@@ -16,6 +16,9 @@ class DownloadExecutor {
     this.progressManager = progressManager;
     this.historyManager = historyManager;
     this.downloadService = downloadService; // 添加下载服务引用
+    
+    // 存储每个任务的中断控制器
+    this.abortControllers = new Map();
   }
 
   /**
@@ -23,6 +26,10 @@ class DownloadExecutor {
    */
   async executeArtworkDownload(task, images, size, artworkDir, artwork) {
     try {
+      // 为这个任务创建中断控制器
+      const abortController = new AbortController();
+      this.abortControllers.set(task.id, abortController);
+      
       const results = [];
 
       for (let index = 0; index < images.length; index++) {
@@ -33,6 +40,8 @@ class DownloadExecutor {
         // 检查是否应该暂停
         if (this.shouldPause(task.id)) {
           logger.info('任务已暂停，停止下载:', task.id);
+          // 中断当前下载
+          abortController.abort();
           // 确保任务状态为暂停
           task.status = 'paused';
           await this.taskManager.saveTasks();
@@ -100,8 +109,8 @@ class DownloadExecutor {
           // 确保目录存在
           await this.fileManager.ensureDirectory(path.dirname(filePath));
 
-          // 下载文件并等待完成
-          await this.fileManager.downloadFile(imageUrl, filePath);
+          // 下载文件并等待完成，传入中断控制器
+          await this.fileManager.downloadFile(imageUrl, filePath, abortController);
 
           // 验证下载的文件完整性，传入期望的MIME类型
           const expectedMimeType = this.getMimeTypeFromUrl(imageUrl);
@@ -232,6 +241,9 @@ class DownloadExecutor {
       task.end_time = new Date();
       await this.taskManager.saveTasks();
       this.progressManager.notifyProgressUpdate(task.id, task);
+    } finally {
+      // 清理中断控制器
+      this.abortControllers.delete(task.id);
     }
   }
 
@@ -610,6 +622,19 @@ class DownloadExecutor {
 
     logger.info('任务恢复执行完成', { taskId });
     return { success: true };
+  }
+
+  /**
+   * 中断指定任务的下载
+   * @param {string} taskId - 任务ID
+   */
+  abortTask(taskId) {
+    const abortController = this.abortControllers.get(taskId);
+    if (abortController) {
+      logger.info('中断任务下载', { taskId });
+      abortController.abort();
+      this.abortControllers.delete(taskId);
+    }
   }
 
   /**
