@@ -198,33 +198,11 @@ const getAddButtonTitle = () => {
 const isCurrentUrl = (url: string) => {
   const currentUrl = currentPageUrl.value;
 
-  // 直接比较完整URL
-  if (currentUrl === url) {
-    return true;
-  }
-
-  // 比较路径部分
-  try {
-    const currentUrlObj = new URL(currentUrl);
-    const currentPath = currentUrlObj.pathname + currentUrlObj.search;
-
-    // 如果是完整URL，提取路径部分比较
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      const urlObj = new URL(url);
-      const urlPath = urlObj.pathname + urlObj.search;
-      return currentPath === urlPath;
-    }
-
-    // 如果是相对路径，直接比较
-    let relativePath = url;
-    if (!relativePath.startsWith('/')) {
-      relativePath = '/' + relativePath;
-    }
-
-    return currentPath === relativePath;
-  } catch {
-    return false;
-  }
+  // 使用store中的路径提取方法进行比较
+  const currentPath = watchlistStore.extractUrlPath(currentUrl);
+  const itemPath = watchlistStore.extractUrlPath(url);
+  
+  return currentPath === itemPath;
 };
 
 // 解析批量URL

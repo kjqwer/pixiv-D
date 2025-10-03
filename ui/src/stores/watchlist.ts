@@ -104,34 +104,32 @@ export const useWatchlistStore = defineStore('watchlist', () => {
     }
   };
 
-  // 检查URL是否已存在
-  const hasUrl = (url: string) => {
-    return items.value.some(item => item.url === url);
-  };
-
-  // 根据URL查找项目
-  const findByUrl = (url: string) => {
-    return items.value.find(item => item.url === url);
-  };
-
   // 清除错误
   const clearError = () => {
     error.value = null;
   };
 
-  // 提取作者ID的工具函数
-  const extractAuthorId = (url: string) => {
+  // 提取URL路径的工具函数（忽略baseURL）
+  const extractUrlPath = (url: string) => {
     try {
-      let path = '';
-      
       // 处理完整URL
       if (url.startsWith('http://') || url.startsWith('https://')) {
         const urlObj = new URL(url);
-        path = urlObj.pathname;
+        return urlObj.pathname + urlObj.search + urlObj.hash;
       } else {
         // 处理相对路径
-        path = url.startsWith('/') ? url : '/' + url;
+        return url.startsWith('/') ? url : '/' + url;
       }
+    } catch {
+      // 如果解析失败，返回原始URL
+      return url;
+    }
+  };
+
+  // 提取作者ID的工具函数
+  const extractAuthorId = (url: string) => {
+    try {
+      const path = extractUrlPath(url);
       
       // 匹配 /artist/数字 的模式
       const match = path.match(/\/artist\/(\d+)/);
@@ -141,14 +139,35 @@ export const useWatchlistStore = defineStore('watchlist', () => {
     }
   };
 
+  // 检查URL是否已存在（只比较路径部分）
+  const hasUrl = (url: string) => {
+    const targetPath = extractUrlPath(url);
+    return items.value.some(item => {
+      const itemPath = extractUrlPath(item.url);
+      return itemPath === targetPath;
+    });
+  };
+
+  // 根据URL查找项目（只比较路径部分）
+  const findByUrl = (url: string) => {
+    const targetPath = extractUrlPath(url);
+    return items.value.find(item => {
+      const itemPath = extractUrlPath(item.url);
+      return itemPath === targetPath;
+    });
+  };
+
   // 检查是否有相同作者但不同页面的项目
   const findSameAuthor = (url: string) => {
     const authorId = extractAuthorId(url);
     if (!authorId) return null;
     
+    const targetPath = extractUrlPath(url);
+    
     return items.value.find(item => {
       const itemAuthorId = extractAuthorId(item.url);
-      return itemAuthorId === authorId && item.url !== url;
+      const itemPath = extractUrlPath(item.url);
+      return itemAuthorId === authorId && itemPath !== targetPath;
     });
   };
 
@@ -163,6 +182,88 @@ export const useWatchlistStore = defineStore('watchlist', () => {
       const itemAuthorId = extractAuthorId(item.url);
       return itemAuthorId === authorId;
     });
+  };
+
+  // 导出待看名单数据
+  const exportWatchlist = () => {
+    const exportData = {
+      version: '1.0',
+      exportTime: new Date().toISOString(),
+      items: items.value.map(item => ({
+        id: item.id,
+        title: item.title,
+        url: item.url,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt
+      }))
+    };
+    
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(dataBlob);
+    link.download = `watchlist-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+  };
+
+  // 导入待看名单数据
+  const importWatchlist = async (file: File) => {
+    try {
+      const text = await file.text();
+      const importData = JSON.parse(text);
+      
+      // 验证数据格式
+      if (!importData.items || !Array.isArray(importData.items)) {
+        throw new Error('无效的导入文件格式');
+      }
+      
+      // 统计导入结果
+      let successCount = 0;
+      let skipCount = 0;
+      let errorCount = 0;
+      
+      for (const item of importData.items) {
+        try {
+          // 检查是否已存在（使用路径比较）
+          if (hasUrl(item.url)) {
+            skipCount++;
+            continue;
+          }
+          
+          // 添加项目
+          const success = await addItem({
+            url: item.url,
+            title: item.title
+          });
+          
+          if (success) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
+        } catch (err) {
+          console.error('导入项目失败:', item, err);
+          errorCount++;
+        }
+      }
+      
+      return {
+        success: true,
+        message: `导入完成：成功 ${successCount} 项，跳过 ${skipCount} 项，失败 ${errorCount} 项`,
+        stats: { successCount, skipCount, errorCount }
+      };
+    } catch (err) {
+      console.error('导入失败:', err);
+      return {
+        success: false,
+        message: err instanceof Error ? err.message : '导入失败',
+        stats: { successCount: 0, skipCount: 0, errorCount: 0 }
+      };
+    }
   };
 
   return {
@@ -185,6 +286,11 @@ export const useWatchlistStore = defineStore('watchlist', () => {
     extractAuthorId,
     findSameAuthor,
     hasSameAuthor,
-    findItemsByAuthor
+    findItemsByAuthor,
+    // 导出导入功能
+    exportWatchlist,
+    importWatchlist,
+    // URL路径提取工具
+    extractUrlPath
   };
-}); 
+});

@@ -4,6 +4,19 @@
       <h3>待看名单</h3>
       <div class="header-actions">
         <span class="item-count-text">{{ itemCount }} 项</span>
+        <button @click="exportWatchlist" class="export-btn" title="导出待看名单">
+          <SvgIcon name="download" class="export-icon" />
+        </button>
+        <button @click="triggerImport" class="import-btn" title="导入待看名单">
+          <SvgIcon name="upload" class="import-icon" />
+        </button>
+        <input
+          ref="fileInput"
+          type="file"
+          accept=".json"
+          style="display: none"
+          @change="handleFileImport"
+        />
         <button @click="$emit('showAddModal')" class="add-btn" title="手动添加">
           <SvgIcon name="add" class="add-icon" />
         </button>
@@ -27,6 +40,8 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue';
+import { useWatchlistStore } from '@/stores/watchlist';
 import WatchlistControls from './WatchlistControls.vue';
 import WatchlistContent from './WatchlistContent.vue';
 import type { WatchlistItem } from '@/services/watchlist';
@@ -58,6 +73,46 @@ defineEmits<{
   edit: [item: WatchlistItem];
   delete: [id: string];
 }>();
+
+// 获取watchlist store实例
+const watchlistStore = useWatchlistStore();
+
+// 文件输入引用
+const fileInput = ref<HTMLInputElement>();
+
+// 导出功能
+const exportWatchlist = () => {
+  watchlistStore.exportWatchlist();
+};
+
+// 触发导入文件选择
+const triggerImport = () => {
+  fileInput.value?.click();
+};
+
+// 处理文件导入
+const handleFileImport = async (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  
+  if (!file) return;
+  
+  try {
+    const result = await watchlistStore.importWatchlist(file);
+    
+    if (result.success) {
+      alert(result.message);
+    } else {
+      alert(`导入失败: ${result.message}`);
+    }
+  } catch (error) {
+    console.error('导入过程中发生错误:', error);
+    alert('导入过程中发生错误，请检查文件格式');
+  } finally {
+    // 清空文件输入
+    target.value = '';
+  }
+};
 </script>
 
 <style scoped>
@@ -120,7 +175,9 @@ defineEmits<{
 }
 
 .add-btn,
-.close-btn {
+.close-btn,
+.export-btn,
+.import-btn {
   width: 28px;
   height: 28px;
   border: none;
@@ -139,13 +196,25 @@ defineEmits<{
   color: var(--color-primary);
 }
 
+.export-btn:hover {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.import-btn:hover {
+  background: var(--color-info-light);
+  color: var(--color-info);
+}
+
 .close-btn:hover {
   background: var(--color-danger-light);
   color: var(--color-danger);
 }
 
 .add-icon,
-.close-icon {
+.close-icon,
+.export-icon,
+.import-icon {
   width: 14px;
   height: 14px;
 }
