@@ -20,7 +20,7 @@ REM INFO:  显示一般信息及以上级别信息 (默认)
 REM DEBUG: 显示调试信息及以上级别信息
 REM TRACE: 显示所有级别信息 (最详细)
 REM ========================================
-set LOG_LEVEL=
+set LOG_LEVEL=DEBUG
 
 echo.
 echo Pixiv Manager 启动中...

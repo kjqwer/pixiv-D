@@ -233,13 +233,42 @@ class DownloadService {
       return { success: false, error: '任务不存在' };
     }
 
-    await this.taskManager.updateTask(taskId, {
-      status: 'cancelled',
-      end_time: new Date(),
-    });
+    logger.info('开始取消任务', { taskId, status: task.status, type: task.type });
 
-    this.progressManager.notifyProgressUpdate(taskId, task);
-    return { success: true };
+    try {
+      // 更新任务状态为取消中，防止并发操作
+      await this.taskManager.updateTask(taskId, { status: 'cancelling' });
+
+      // 清理未完成的文件
+      await this.cleanupIncompleteFiles(task);
+
+      // 最终更新任务状态
+      await this.taskManager.updateTask(taskId, {
+        status: 'cancelled',
+        end_time: new Date(),
+      });
+
+      // 获取更新后的任务并通知
+      const updatedTask = this.taskManager.getTask(taskId);
+      this.progressManager.notifyProgressUpdate(taskId, updatedTask);
+      
+      logger.info('任务取消完成', { taskId });
+      return { success: true };
+    } catch (error) {
+      logger.error('取消任务失败', { taskId, error: error.message });
+      
+      // 如果清理失败，仍然标记为取消，但记录错误
+      await this.taskManager.updateTask(taskId, {
+        status: 'cancelled',
+        end_time: new Date(),
+        error: `取消时清理失败: ${error.message}`
+      });
+
+      const updatedTask = this.taskManager.getTask(taskId);
+      this.progressManager.notifyProgressUpdate(taskId, updatedTask);
+      
+      return { success: true, warning: `任务已取消，但清理时出现问题: ${error.message}` };
+    }
   }
 
   async pauseTask(taskId) {
@@ -253,13 +282,38 @@ class DownloadService {
       return { success: false, error: '只能暂停正在下载的任务' };
     }
 
-    await this.taskManager.updateTask(taskId, { status: 'paused' });
-    
-    // 获取更新后的任务
-    const updatedTask = this.taskManager.getTask(taskId);
-    this.progressManager.notifyProgressUpdate(taskId, updatedTask);
-    
-    return { success: true, data: updatedTask };
+    logger.info('开始暂停任务', { taskId, status: task.status, type: task.type });
+
+    try {
+      // 更新任务状态为暂停中，防止并发操作
+      await this.taskManager.updateTask(taskId, { status: 'pausing' });
+
+      // 清理未完成的文件
+      await this.cleanupIncompleteFiles(task);
+
+      // 最终更新任务状态为暂停
+      await this.taskManager.updateTask(taskId, { status: 'paused' });
+      
+      // 获取更新后的任务
+      const updatedTask = this.taskManager.getTask(taskId);
+      this.progressManager.notifyProgressUpdate(taskId, updatedTask);
+      
+      logger.info('任务暂停完成', { taskId });
+      return { success: true, data: updatedTask };
+    } catch (error) {
+      logger.error('暂停任务失败', { taskId, error: error.message });
+      
+      // 如果清理失败，仍然标记为暂停，但记录错误
+      await this.taskManager.updateTask(taskId, { 
+        status: 'paused',
+        error: `暂停时清理失败: ${error.message}`
+      });
+
+      const updatedTask = this.taskManager.getTask(taskId);
+      this.progressManager.notifyProgressUpdate(taskId, updatedTask);
+      
+      return { success: true, data: updatedTask, warning: `任务已暂停，但清理时出现问题: ${error.message}` };
+    }
   }
 
   async resumeTask(taskId) {
@@ -309,6 +363,288 @@ class DownloadService {
     }
 
     return { success: true, data: this.taskManager.getTask(taskId) };
+  }
+
+  /**
+   * 暂停批量下载任务
+   */
+  async pauseBatchTask(taskId) {
+    const task = this.taskManager.getTask(taskId);
+    if (!task) {
+      return { success: false, error: '任务不存在' };
+    }
+
+    // 检查是否为批量下载任务
+    if (!['batch', 'artist', 'art'].includes(task.type)) {
+      return { success: false, error: '此方法仅适用于批量下载任务' };
+    }
+
+    // 只允许暂停正在下载的任务
+    if (task.status !== 'downloading') {
+      return { success: false, error: '只能暂停正在下载的任务' };
+    }
+
+    logger.info('开始暂停批量下载任务', { taskId, status: task.status, type: task.type });
+
+    try {
+      // 直接设置任务状态为暂停，不进行文件清理
+      // 批量下载中的每个文件都是独立完成的，不需要清理
+      await this.taskManager.updateTask(taskId, { status: 'paused' });
+      
+      // 获取更新后的任务
+      const updatedTask = this.taskManager.getTask(taskId);
+      this.progressManager.notifyProgressUpdate(taskId, updatedTask);
+      
+      logger.info('批量下载任务暂停完成', { taskId });
+      return { success: true, data: updatedTask };
+    } catch (error) {
+      logger.error('暂停批量下载任务失败', { taskId, error: error.message });
+      return { success: false, error: `暂停任务失败: ${error.message}` };
+    }
+  }
+
+  /**
+   * 恢复批量下载任务
+   */
+  async resumeBatchTask(taskId) {
+    const task = this.taskManager.getTask(taskId);
+    if (!task) {
+      logger.error('恢复批量下载任务失败：任务不存在', { taskId });
+      return { success: false, error: '任务不存在' };
+    }
+
+    // 检查是否为批量下载任务
+    if (!['batch', 'artist', 'art'].includes(task.type)) {
+      return { success: false, error: '此方法仅适用于批量下载任务' };
+    }
+
+    // 只允许恢复暂停的任务
+    if (task.status !== 'paused') {
+      logger.warn('恢复批量下载任务失败：任务状态不是暂停状态', { 
+        taskId, 
+        currentStatus: task.status 
+      });
+      return { success: false, error: '只能恢复暂停的任务' };
+    }
+
+    // 重新开始批量下载执行
+    try {
+      logger.info('开始恢复批量下载任务执行', { taskId });
+      
+      // 直接设置任务状态为下载中
+      await this.taskManager.updateTask(taskId, { status: 'downloading' });
+      
+      // 获取原始的作品列表
+      const items = task.items || [];
+      if (items.length === 0) {
+        logger.error('批量下载任务没有作品列表，无法恢复', { taskId });
+        await this.taskManager.updateTask(taskId, { status: 'paused' });
+        return { success: false, error: '批量下载任务没有作品列表，无法恢复' };
+      }
+      
+      // 通知状态更新
+      const updatedTask = this.taskManager.getTask(taskId);
+      this.progressManager.notifyProgressUpdate(taskId, updatedTask);
+      
+      // 异步重新开始批量下载，不等待完成
+      setImmediate(async () => {
+        try {
+          await this.downloadExecutor.executeBatchDownload(task, items, {
+            size: task.size || 'original',
+            quality: task.quality || 'high',
+            format: task.format || 'auto',
+            concurrent: task.concurrent || 3
+          });
+        } catch (error) {
+          logger.error('批量下载任务恢复执行失败', { 
+            taskId, 
+            error: error.message,
+            stack: error.stack 
+          });
+          // 如果执行失败，设置任务状态为失败
+          await this.taskManager.updateTask(taskId, { 
+            status: 'failed',
+            error: error.message 
+          });
+          const failedTask = this.taskManager.getTask(taskId);
+          this.progressManager.notifyProgressUpdate(taskId, failedTask);
+        }
+      });
+      
+      logger.info('批量下载任务恢复成功', { 
+        taskId, 
+        newStatus: updatedTask.status 
+      });
+      
+      return { success: true, data: updatedTask };
+    } catch (error) {
+      logger.error('恢复批量下载任务失败', { 
+        taskId, 
+        error: error.message,
+        stack: error.stack 
+      });
+      // 如果恢复失败，保持暂停状态
+      await this.taskManager.updateTask(taskId, { status: 'paused' });
+      return { success: false, error: `恢复任务失败: ${error.message}` };
+    }
+  }
+
+  /**
+   * 清理未完成的文件
+   * @param {Object} task - 任务对象
+   */
+  async cleanupIncompleteFiles(task) {
+    if (!task) {
+      logger.warn('清理未完成文件：任务对象为空');
+      return;
+    }
+
+    logger.info('开始清理未完成文件', { taskId: task.id, type: task.type });
+
+    try {
+      if (task.type === 'artwork') {
+        await this.cleanupArtworkIncompleteFiles(task);
+      } else if (task.type === 'batch' || task.type === 'artist') {
+        // 批量下载任务通常不需要清理单个文件，因为每个作品都是独立处理的
+        logger.info('批量任务无需清理单个文件', { taskId: task.id, type: task.type });
+      }
+    } catch (error) {
+      logger.error('清理未完成文件失败', { taskId: task.id, error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * 清理单个作品任务的未完成文件
+   * @param {Object} task - 作品下载任务
+   */
+  async cleanupArtworkIncompleteFiles(task) {
+    if (!task.artwork_id || !task.artist_name || !task.artwork_title) {
+      logger.warn('作品任务信息不完整，跳过文件清理', { 
+        taskId: task.id,
+        artwork_id: task.artwork_id,
+        artist_name: task.artist_name,
+        artwork_title: task.artwork_title
+      });
+      return;
+    }
+
+    try {
+      // 构建作品目录路径
+      const downloadPath = await this.fileManager.getDownloadPath();
+      const artistName = this.fileManager.createSafeDirectoryName(task.artist_name);
+      const artworkTitle = this.fileManager.createSafeDirectoryName(task.artwork_title);
+      const artistDir = path.join(downloadPath, artistName);
+      const artworkDirName = `${task.artwork_id}_${artworkTitle}`;
+      const artworkDir = path.join(artistDir, artworkDirName);
+
+      // 检查作品目录是否存在
+      if (!(await this.fileManager.directoryExists(artworkDir))) {
+        logger.debug('作品目录不存在，无需清理', { taskId: task.id, artworkDir });
+        return;
+      }
+
+      // 获取目录中的所有文件
+      const files = await this.fileManager.listDirectory(artworkDir);
+      const imageFiles = files.filter(file => 
+        /\.(jpg|jpeg|png|gif|webp)$/i.test(file) && file !== 'artwork_info.json'
+      );
+
+      let cleanedCount = 0;
+      let errorCount = 0;
+
+      // 检查并删除未完成的图片文件
+      for (const fileName of imageFiles) {
+        const filePath = path.join(artworkDir, fileName);
+        
+        try {
+          // 检查文件完整性，根据文件扩展名推断MIME类型
+          const expectedMimeType = this.getMimeTypeFromExtension(fileName);
+          const integrity = await this.fileManager.checkFileIntegrity(filePath, null, expectedMimeType);
+          
+          if (!integrity.valid) {
+            // 文件不完整，删除它
+            const deleted = await this.fileManager.safeDeleteFile(filePath);
+            if (deleted) {
+              cleanedCount++;
+              logger.debug('删除未完成文件', { 
+                taskId: task.id, 
+                fileName, 
+                reason: integrity.reason 
+              });
+            } else {
+              errorCount++;
+              logger.warn('删除未完成文件失败', { 
+                taskId: task.id, 
+                fileName,
+                reason: '文件可能被占用'
+              });
+            }
+          }
+        } catch (error) {
+          errorCount++;
+          logger.warn('检查文件完整性失败', { 
+            taskId: task.id, 
+            fileName, 
+            error: error.message 
+          });
+        }
+      }
+
+      // 如果目录中只剩下artwork_info.json或为空，删除整个目录
+      const remainingFiles = await this.fileManager.listDirectory(artworkDir);
+      const remainingImageFiles = remainingFiles.filter(file => 
+        /\.(jpg|jpeg|png|gif|webp)$/i.test(file)
+      );
+
+      if (remainingImageFiles.length === 0) {
+        try {
+          await this.fileManager.removeDirectory(artworkDir);
+          logger.info('删除空的作品目录', { taskId: task.id, artworkDir });
+        } catch (error) {
+          logger.warn('删除空目录失败', { 
+            taskId: task.id, 
+            artworkDir, 
+            error: error.message 
+          });
+        }
+      }
+
+      logger.info('文件清理完成', { 
+        taskId: task.id, 
+        cleanedCount, 
+        errorCount,
+        totalImageFiles: imageFiles.length
+      });
+
+    } catch (error) {
+      logger.error('清理作品文件失败', { taskId: task.id, error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * 根据文件扩展名获取MIME类型
+   * @param {string} fileName - 文件名
+   * @returns {string} MIME类型
+   */
+  getMimeTypeFromExtension(fileName) {
+    const ext = path.extname(fileName).toLowerCase().replace('.', '');
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      case 'webp':
+        return 'image/webp';
+      case 'bmp':
+        return 'image/bmp';
+      default:
+        return 'image/jpeg'; // 默认为JPEG
+    }
   }
 
   // 代理方法 - 历史记录管理
@@ -651,7 +987,12 @@ class DownloadService {
         },
       };
     } catch (error) {
-      logger.error('下载作品失败:', error);
+      logger.error('下载作品失败:', {
+        artworkId,
+        error: error.message,
+        stack: error.stack,
+        options
+      });
       return {
         success: false,
         error: error.message,
@@ -687,9 +1028,27 @@ class DownloadService {
     try {
       // 检查是否已下载
       if (skipExisting && (await this.isArtworkDownloaded(artworkId))) {
+        // 获取作品信息用于返回
+        let artistName = 'Unknown Artist';
+        let artworkTitle = 'Untitled';
+        
+        try {
+          const artworkResult = await this.artworkService.getArtworkDetail(artworkId);
+          if (artworkResult.success && artworkResult.data) {
+            const artwork = artworkResult.data;
+            artistName = this.fileManager.createSafeDirectoryName(artwork.user?.name || 'Unknown Artist');
+            artworkTitle = this.fileManager.createSafeDirectoryName(artwork.title || 'Untitled');
+          }
+        } catch (error) {
+          logger.debug(`获取已下载作品信息失败: ${artworkId}`, error.message);
+        }
+        
         return {
           success: true,
           skipped: true,
+          artwork_id: artworkId,
+          artist_name: artistName,
+          artwork_title: artworkTitle,
           message: '作品已存在且完整，跳过下载',
         };
       }
@@ -779,7 +1138,14 @@ class DownloadService {
           await this.fileManager.downloadFile(imageUrl, filePath);
           results.push({ success: true, file: fileName });
         } catch (error) {
-          logger.error(`下载图片失败 ${index + 1}: ${error.message}`);
+          logger.error(`下载图片失败 ${index + 1}:`, {
+            artworkId,
+            imageIndex: index + 1,
+            imageUrl,
+            filePath,
+            error: error.message,
+            stack: error.stack
+          });
           results.push({ success: false, error: error.message });
         }
       }
@@ -791,9 +1157,73 @@ class DownloadService {
       // 检查下载结果
       const failedCount = results.filter(r => !r.success).length;
       const successCount = results.filter(r => r.success && !r.skipped).length;
+      const skippedCount = results.filter(r => r.success && r.skipped).length;
+
+      // 只有在所有文件都成功下载（包括跳过的文件）时才添加到注册表
+      const allFilesSuccessful = failedCount === 0;
+      
+      if (allFilesSuccessful) {
+        try {
+          // 执行文件完整性检查
+          let integrityCheckPassed = true;
+          for (let index = 0; index < images.length; index++) {
+            const fileName = `image_${index + 1}.${this.getFileExtension(images[index].original || images[index].large || images[index].medium)}`;
+            const filePath = path.join(artworkDir, fileName);
+            
+            if (await this.fileManager.fileExists(filePath)) {
+              // 检查文件大小
+              const stats = await fs.stat(filePath);
+              if (stats.size === 0) {
+                logger.warn(`文件大小为0，完整性检查失败: ${filePath}`);
+                integrityCheckPassed = false;
+                break;
+              }
+              
+              // 检查MIME类型 - 使用checkFileHeader方法来检测文件类型
+              const headerCheck = await this.fileManager.checkFileHeader(filePath);
+              if (!headerCheck.valid || !headerCheck.detectedType || !headerCheck.detectedType.startsWith('image/')) {
+                logger.warn(`文件MIME类型检查失败: ${filePath}, 检测结果: ${JSON.stringify(headerCheck)}`);
+                integrityCheckPassed = false;
+                break;
+              }
+            }
+          }
+          
+          if (integrityCheckPassed) {
+            // 添加到下载注册表（仅用于单个作品下载，批量下载在executeBatchDownload中处理）
+            await this.downloadRegistry.addArtwork(artistName, artworkId);
+            logger.debug(`作品 ${artworkId} 已添加到下载注册表`, {
+              artworkId,
+              artistName,
+              totalFiles: images.length,
+              completedFiles: successCount,
+              skippedFiles: skippedCount
+            });
+          } else {
+            logger.warn(`作品 ${artworkId} 文件完整性检查失败，未添加到下载注册表`, {
+              artworkId,
+              artistName
+            });
+          }
+        } catch (error) {
+          logger.error(`添加作品到下载注册表失败: ${artworkId}`, {
+            artworkId,
+            artistName,
+            error: error.message,
+            stack: error.stack
+          });
+        }
+      } else {
+        logger.debug(`作品 ${artworkId} 下载不完整，未添加到下载注册表`, {
+          artworkId,
+          artistName,
+          failedCount,
+          totalFiles: images.length
+        });
+      }
 
       return {
-        success: failedCount === 0,
+        success: allFilesSuccessful,
         artwork_id: artworkId,
         artist_name: artistName,
         artwork_title: artworkTitle,
@@ -803,7 +1233,12 @@ class DownloadService {
         results: results,
       };
     } catch (error) {
-      logger.error(`下载作品 ${artworkId} 失败:`, error);
+      logger.error(`下载作品 ${artworkId} 失败:`, {
+        artworkId,
+        error: error.message,
+        stack: error.stack,
+        options
+      });
       return {
         success: false,
         error: error.message,
@@ -872,6 +1307,7 @@ class DownloadService {
         results: [],
         task_description: taskDescription,
         task_title: taskTitle,
+        items: items, // 保存原始的作品列表，用于恢复任务
         // 保留原有的任务特定字段
         ...(options.artist_id && { artist_id: options.artist_id }),
         ...(options.artist_name && { artist_name: options.artist_name }),

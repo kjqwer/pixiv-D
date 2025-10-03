@@ -74,6 +74,20 @@ class DownloadService {
   }
 
   /**
+   * 暂停批量下载任务
+   */
+  async pauseBatchTask(taskId: string) {
+    return apiService.post(`/api/download/batch/pause/${taskId}`);
+  }
+
+  /**
+   * 恢复批量下载任务
+   */
+  async resumeBatchTask(taskId: string) {
+    return apiService.post(`/api/download/batch/resume/${taskId}`);
+  }
+
+  /**
    * 取消任务
    */
   async cancelTask(taskId: string) {

@@ -303,7 +303,19 @@ export const useDownloadStore = defineStore('download', () => {
   // 恢复任务
   const resumeTask = async (taskId: string) => {
     try {
-      const response = await downloadService.resumeTask(taskId);
+      // 获取任务信息以确定类型
+      const task = getTask(taskId);
+      let response;
+      
+      // 判断是否为批量下载任务（batch、artist、art类型都是批量下载）
+      if (task && ['batch', 'artist', 'art'].includes(task.type)) {
+        // 使用批量下载专用API
+        response = await downloadService.resumeBatchTask(taskId);
+      } else {
+        // 使用单个下载API
+        response = await downloadService.resumeTask(taskId);
+      }
+      
       if (response.success) {
         await fetchTasks();
         // 重新管理SSE连接
@@ -321,7 +333,19 @@ export const useDownloadStore = defineStore('download', () => {
   // 暂停任务
   const pauseTask = async (taskId: string) => {
     try {
-      const response = await downloadService.pauseTask(taskId);
+      // 获取任务信息以确定类型
+      const task = getTask(taskId);
+      let response;
+      
+      // 判断是否为批量下载任务（batch、artist、art类型都是批量下载）
+      if (task && ['batch', 'artist', 'art'].includes(task.type)) {
+        // 使用批量下载专用API
+        response = await downloadService.pauseBatchTask(taskId);
+      } else {
+        // 使用单个下载API
+        response = await downloadService.pauseTask(taskId);
+      }
+      
       if (response.success) {
         await fetchTasks();
       } else {
@@ -410,4 +434,4 @@ export const useDownloadStore = defineStore('download', () => {
     startRefreshInterval,
     stopRefreshInterval
   };
-}); 
+});

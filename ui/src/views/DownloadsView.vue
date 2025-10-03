@@ -62,6 +62,9 @@
                 </span>
               </div>
               <div class="task-actions">
+                <button v-if="task.status === 'downloading'" @click="pauseTask(task.id)" class="btn btn-warning btn-sm">
+                  暂停
+                </button>
                 <button v-if="task.status === 'downloading'" @click="cancelTask(task.id)" class="btn btn-danger btn-sm">
                   取消
                 </button>
@@ -281,11 +284,11 @@ const getHistoryTitle = (item: any) => {
     const count = item.total_files || 0;
     let title = '排行榜下载';
     if (item.mode && item.ranking_type) {
-      const modeText = item.mode === 'daily' ? '日榜' : 
-                      item.mode === 'weekly' ? '周榜' : 
-                      item.mode === 'monthly' ? '月榜' : item.mode;
-      const typeText = item.ranking_type === 'illust' ? '插画' : 
-                      item.ranking_type === 'manga' ? '漫画' : item.ranking_type;
+      const modeText = item.mode === 'daily' ? '日榜' :
+        item.mode === 'weekly' ? '周榜' :
+          item.mode === 'monthly' ? '月榜' : item.mode;
+      const typeText = item.ranking_type === 'illust' ? '插画' :
+        item.ranking_type === 'manga' ? '漫画' : item.ranking_type;
       title = `${modeText}${typeText}`;
     }
     return `${title} - ${count} 个作品`;
@@ -367,6 +370,16 @@ const resumeTask = async (taskId: string) => {
   } catch (err) {
     error.value = err instanceof Error ? err.message : '恢复任务失败';
     console.error('恢复任务失败:', err);
+  }
+};
+
+// 暂停任务
+const pauseTask = async (taskId: string) => {
+  try {
+    await downloadStore.pauseTask(taskId);
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '暂停任务失败';
+    console.error('暂停任务失败:', err);
   }
 };
 
@@ -783,7 +796,7 @@ onUnmounted(() => {
   background-clip: text;
 }
 
-.stat-value.success + .stat-label {
+.stat-value.success+.stat-label {
   color: #047857;
 }
 
@@ -799,7 +812,7 @@ onUnmounted(() => {
   background-clip: text;
 }
 
-.stat-value.error + .stat-label {
+.stat-value.error+.stat-label {
   color: #b91c1c;
 }
 
@@ -903,6 +916,19 @@ onUnmounted(() => {
   border-color: #b91c1c;
   transform: translateY(-1px);
   box-shadow: 0 4px 6px -1px rgba(220, 38, 38, 0.3);
+}
+
+.btn-warning {
+  background: #f59e0b;
+  color: white;
+  border: 1px solid #f59e0b;
+}
+
+.btn-warning:hover:not(:disabled) {
+  background: #d97706;
+  border-color: #d97706;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.3);
 }
 
 @media (max-width: 768px) {

@@ -440,6 +440,81 @@ router.post('/resume/:taskId', async (req, res) => {
 });
 
 /**
+ * 暂停批量下载任务
+ * POST /api/download/batch/pause/:taskId
+ */
+router.post('/batch/pause/:taskId', async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    
+    if (!taskId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Task ID is required'
+      });
+    }
+    
+    const downloadService = req.backend.getDownloadService();
+    const result = await downloadService.pauseBatchTask(taskId);
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        message: '批量下载任务已暂停'
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.error
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 恢复批量下载任务
+ * POST /api/download/batch/resume/:taskId
+ */
+router.post('/batch/resume/:taskId', async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    
+    if (!taskId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Task ID is required'
+      });
+    }
+    
+    const downloadService = req.backend.getDownloadService();
+    const result = await downloadService.resumeBatchTask(taskId);
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        data: result.data,
+        message: '批量下载任务已恢复'
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.error
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
  * 取消任务
  * DELETE /api/download/cancel/:taskId
  */

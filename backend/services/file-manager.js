@@ -111,7 +111,14 @@ class FileManager {
   /**
    * 检查文件完整性
    */
-  async checkFileIntegrity(filePath, expectedSize = null) {
+  /**
+   * 检查文件完整性
+   * @param {string} filePath - 文件路径
+   * @param {number} expectedSize - 期望的文件大小
+   * @param {string} expectedMimeType - 期望的MIME类型
+   * @returns {Object} 检查结果
+   */
+  async checkFileIntegrity(filePath, expectedSize = null, expectedMimeType = null) {
     try {
       if (!await fs.pathExists(filePath)) {
         return { valid: false, reason: '文件不存在' };
@@ -130,14 +137,125 @@ class FileManager {
       }
 
       // 检查文件是否过小（可能下载不完整）
-      if (stats.size < 512) { // 小于512字节的文件可能是损坏的
-        return { valid: false, reason: '文件过小，可能下载不完整', size: stats.size };
+      const minSize = this.getMinimumFileSize(filePath, expectedMimeType);
+      if (stats.size < minSize) {
+        return { valid: false, reason: '文件过小，可能下载不完整', size: stats.size, minSize };
+      }
+
+      // 检查文件头部是否符合预期格式
+      const headerCheck = await this.checkFileHeader(filePath, expectedMimeType);
+      if (!headerCheck.valid) {
+        return headerCheck;
       }
 
       // 文件存在且大小正常，认为有效
       return { valid: true, size: stats.size };
     } catch (error) {
       return { valid: false, reason: '检查文件失败', error: error.message };
+    }
+  }
+
+  /**
+   * 获取文件的最小合理大小
+   * @param {string} filePath - 文件路径
+   * @param {string} expectedMimeType - 期望的MIME类型
+   * @returns {number} 最小文件大小
+   */
+  getMinimumFileSize(filePath, expectedMimeType) {
+    const ext = path.extname(filePath).toLowerCase();
+    
+    // 根据文件类型设置最小大小
+    if (expectedMimeType) {
+      if (expectedMimeType.startsWith('image/')) {
+        return 1024; // 图片文件至少1KB
+      }
+    }
+    
+    // 根据扩展名判断
+    switch (ext) {
+      case '.jpg':
+      case '.jpeg':
+        return 1024; // JPEG文件至少1KB
+      case '.png':
+        return 512; // PNG文件至少512字节
+      case '.gif':
+        return 256; // GIF文件至少256字节
+      case '.webp':
+        return 512; // WebP文件至少512字节
+      case '.bmp':
+        return 1024; // BMP文件至少1KB
+      default:
+        return 256; // 其他文件至少256字节
+    }
+  }
+
+  /**
+   * 检查文件头部格式
+   * @param {string} filePath - 文件路径
+   * @param {string} expectedMimeType - 期望的MIME类型
+   * @returns {Object} 检查结果
+   */
+  async checkFileHeader(filePath, expectedMimeType) {
+    try {
+      // 读取文件前几个字节来检查文件头
+      const buffer = Buffer.alloc(16);
+      const fd = await fs.open(filePath, 'r');
+      
+      try {
+        const { bytesRead } = await fs.read(fd, buffer, 0, 16, 0);
+        
+        if (bytesRead < 4) {
+          return { valid: false, reason: '文件头部数据不足' };
+        }
+
+        // 检查常见图片格式的文件头
+        const header = buffer.toString('hex', 0, Math.min(bytesRead, 8));
+        
+        // JPEG文件头: FFD8FF
+        if (header.startsWith('ffd8ff')) {
+          if (expectedMimeType && !expectedMimeType.includes('jpeg') && !expectedMimeType.includes('jpg')) {
+            return { valid: false, reason: '文件格式不匹配：检测到JPEG但期望其他格式' };
+          }
+          return { valid: true, detectedType: 'image/jpeg' };
+        }
+        
+        // PNG文件头: 89504E47
+        if (header.startsWith('89504e47')) {
+          if (expectedMimeType && !expectedMimeType.includes('png')) {
+            return { valid: false, reason: '文件格式不匹配：检测到PNG但期望其他格式' };
+          }
+          return { valid: true, detectedType: 'image/png' };
+        }
+        
+        // GIF文件头: 474946
+        if (header.startsWith('474946')) {
+          if (expectedMimeType && !expectedMimeType.includes('gif')) {
+            return { valid: false, reason: '文件格式不匹配：检测到GIF但期望其他格式' };
+          }
+          return { valid: true, detectedType: 'image/gif' };
+        }
+        
+        // WebP文件头: 52494646...57454250
+        if (header.startsWith('52494646') && buffer.toString('hex', 8, 12) === '57454250') {
+          if (expectedMimeType && !expectedMimeType.includes('webp')) {
+            return { valid: false, reason: '文件格式不匹配：检测到WebP但期望其他格式' };
+          }
+          return { valid: true, detectedType: 'image/webp' };
+        }
+
+        // 如果没有明确的期望类型，且检测到了有效的图片头部，则认为有效
+        if (!expectedMimeType) {
+          return { valid: true, detectedType: 'unknown' };
+        }
+
+        // 如果有期望类型但未匹配到已知格式，可能是损坏的文件
+        return { valid: false, reason: '无法识别的文件格式或文件头部损坏' };
+        
+      } finally {
+        await fs.close(fd);
+      }
+    } catch (error) {
+      return { valid: false, reason: '检查文件头部失败', error: error.message };
     }
   }
 
@@ -217,11 +335,24 @@ class FileManager {
             if (isResolved) return;
             isResolved = true;
             
+            logger.error(`文件写入流错误: ${filePath}`, {
+              error: error.message,
+              stack: error.stack,
+              attempt,
+              url
+            });
+            
             // 下载失败时删除文件
             try {
-              await this.safeDeleteFile(filePath);
+              if (await fs.pathExists(filePath)) {
+                await this.safeDeleteFile(filePath);
+                logger.debug('已清理失败的下载文件', { filePath });
+              }
             } catch (removeError) {
-              logger.warn('清理失败文件时出错:', removeError.message);
+              logger.warn('清理失败文件时出错:', {
+                filePath,
+                error: removeError.message
+              });
             }
             
             cleanup();
@@ -232,6 +363,12 @@ class FileManager {
           const timeout = setTimeout(() => {
             if (isResolved) return;
             isResolved = true;
+            
+            logger.error(`下载超时: ${filePath}`, {
+              url,
+              timeout: downloadConfig.timeout + 60000,
+              attempt
+            });
             
             const timeoutError = new Error('下载超时');
             cleanup();
@@ -257,7 +394,13 @@ class FileManager {
         // 处理文件系统错误
         const errorResult = ErrorHandler.handleFileSystemError(error, filePath, 'download');
         
-        logger.error(`下载文件失败 (尝试 ${attempt}/${maxRetries}): ${filePath}`, error.message);
+        logger.error(`下载文件失败 (尝试 ${attempt}/${maxRetries}): ${filePath}`, {
+          error: error.message,
+          stack: error.stack,
+          url,
+          retryable: errorResult.retryable,
+          attempt
+        });
         
         // 如果不是可重试的错误，直接抛出
         if (!errorResult.retryable) {
@@ -266,7 +409,12 @@ class FileManager {
         
         // 如果是最后一次尝试，抛出错误
         if (attempt === maxRetries) {
-          logger.error(`下载文件最终失败: ${filePath}`, error.message);
+          logger.error(`下载文件最终失败: ${filePath}`, {
+            error: error.message,
+            stack: error.stack,
+            url,
+            totalAttempts: maxRetries
+          });
           throw error;
         }
         
@@ -417,9 +565,14 @@ class FileManager {
     try {
       if (await fs.pathExists(filePath)) {
         await fs.unlink(filePath);
+        logger.debug('文件删除成功', { filePath });
       }
     } catch (error) {
-      logger.error(`文件删除失败: ${filePath}`, error.message);
+      logger.error(`文件删除失败: ${filePath}`, {
+        error: error.message,
+        stack: error.stack,
+        code: error.code
+      });
       // 不抛出错误，避免影响其他操作
     }
   }
@@ -458,4 +611,4 @@ class FileManager {
   }
 }
 
-module.exports = FileManager; 
+module.exports = FileManager;

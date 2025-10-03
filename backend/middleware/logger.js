@@ -63,7 +63,9 @@ function loggerMiddleware(req, res, next) {
     req.path === '/api/download/tasks/active' ||
     req.path === '/api/download/tasks/summary' ||
     req.path === '/api/download/tasks/changes' ||
-    req.path === '/api/download/tasks/completed';
+    req.path === '/api/download/tasks/completed' ||
+    req.path === '/api/download/registry/stats' ||
+    /^\/api\/download\/check\/\d+/.test(req.path);
 
   // 过滤掉仓库预览请求（图片预览）
   const isRepositoryPreview = req.path === '/api/repository/preview';

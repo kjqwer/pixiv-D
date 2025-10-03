@@ -20,16 +20,19 @@ class ErrorHandler {
       isPkg: process.pkg !== undefined,
       platform: process.platform,
       errorCode: error.code,
-      errorMessage: error.message
+      errorMessage: error.message,
+      timestamp: new Date().toISOString()
     };
 
-    // 记录错误信息
+    // 记录详细错误信息
     logger.error(`文件系统错误 [${operation}]:`, {
       filePath: filePath,
       errorCode: error.code,
       errorMessage: error.message,
+      stack: error.stack,
       isPkg: errorInfo.isPkg,
-      platform: errorInfo.platform
+      platform: errorInfo.platform,
+      timestamp: errorInfo.timestamp
     });
 
     // 根据错误类型提供解决方案
