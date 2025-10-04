@@ -45,6 +45,9 @@ class DownloadService {
     // 先创建下载执行器，稍后在init方法中设置downloadService引用
     this.downloadExecutor = new DownloadExecutor(this.fileManager, this.taskManager, this.progressManager, this.historyManager, this);
 
+    // 启动监听器定期清理检查
+    this.progressManager.startPeriodicCleanup();
+
     this.initialized = false;
   }
 
@@ -92,7 +95,11 @@ class DownloadService {
 
   // 代理方法 - 进度管理
   addProgressListener(taskId, listener) {
-    return this.progressManager.addProgressListener(taskId, listener);
+    const result = this.progressManager.addProgressListener(taskId, listener);
+    if (!result) {
+      logger.warn(`添加进度监听器失败: ${taskId}`);
+    }
+    return result;
   }
 
   removeProgressListener(taskId, listener) {

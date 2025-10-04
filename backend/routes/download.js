@@ -712,52 +712,116 @@ router.get('/stream/:taskId', async (req, res) => {
   const downloadService = req.backend.getDownloadService();
   
   // 创建进度监听器
+  let isCleanedUp = false;
+  const cleanup = () => {
+    if (!isCleanedUp) {
+      isCleanedUp = true;
+      downloadService.removeProgressListener(taskId, progressListener);
+      logger.debug(`SSE连接已清理: ${taskId}`);
+    }
+  };
+
   const progressListener = (task) => {
-    if (task.id === taskId) {
+    if (task.id === taskId && !isCleanedUp) {
       // 使用setImmediate避免阻塞事件循环
       setImmediate(() => {
         try {
           // 检查连接是否仍然有效
-          if (!res.destroyed) {
-      res.write(`data: ${JSON.stringify({
-        type: 'progress',
-        data: task
-      })}\n\n`);
-      
-      // 如果任务完成，关闭连接
-      if (['completed', 'failed', 'cancelled', 'partial'].includes(task.status)) {
-        res.write(`data: ${JSON.stringify({
-          type: 'complete',
-          data: task
-        })}\n\n`);
-        res.end();
-        downloadService.removeProgressListener(taskId, progressListener);
-      }
+          if (!res.destroyed && !res.writableEnded) {
+            res.write(`data: ${JSON.stringify({
+              type: 'progress',
+              data: task
+            })}\n\n`);
+            
+            // 如果任务完成，关闭连接
+            if (['completed', 'failed', 'cancelled', 'partial'].includes(task.status)) {
+              res.write(`data: ${JSON.stringify({
+                type: 'complete',
+                data: task
+              })}\n\n`);
+              res.end();
+              cleanup();
+            }
+          } else {
+            // 连接已断开，清理监听器
+            cleanup();
           }
         } catch (error) {
           logger.error('SSE写入失败:', error);
           // 连接可能已断开，清理监听器
-          downloadService.removeProgressListener(taskId, progressListener);
+          cleanup();
+          try {
+            if (!res.destroyed) {
+              res.end();
+            }
+          } catch (endError) {
+            logger.error('关闭SSE连接失败:', endError);
+          }
         }
       });
     }
   };
 
   // 注册监听器
-  downloadService.addProgressListener(taskId, progressListener);
+  const listenerAdded = downloadService.addProgressListener(taskId, progressListener);
+  if (!listenerAdded) {
+    logger.error(`无法为任务 ${taskId} 添加监听器，可能已达到限制`);
+    res.status(503).json({
+      error: true,
+      message: 'Too many listeners, please try again later'
+    });
+    return;
+  }
 
   // 立即发送当前状态
   const currentTask = downloadService.getTask(taskId);
   if (currentTask) {
-    res.write(`data: ${JSON.stringify({
-      type: 'progress',
-      data: currentTask
-    })}\n\n`);
+    try {
+      res.write(`data: ${JSON.stringify({
+        type: 'progress',
+        data: currentTask
+      })}\n\n`);
+    } catch (error) {
+      logger.error('发送初始状态失败:', error);
+      cleanup();
+      return;
+    }
   }
 
+  // 设置连接超时（30秒）
+  const timeout = setTimeout(() => {
+    logger.warn(`SSE连接超时，主动关闭: ${taskId}`);
+    cleanup();
+    try {
+      if (!res.destroyed) {
+        res.end();
+      }
+    } catch (error) {
+      logger.error('超时关闭连接失败:', error);
+    }
+  }, 30000);
+
   // 客户端断开连接时清理
-  req.on('close', () => {
-    downloadService.removeProgressListener(taskId, progressListener);
+  req.on('close', cleanup);
+  req.on('error', (error) => {
+    logger.error('SSE请求错误:', error);
+    cleanup();
+  });
+
+  // 响应对象错误处理
+  res.on('error', (error) => {
+    logger.error('SSE响应错误:', error);
+    cleanup();
+  });
+
+  res.on('finish', () => {
+    clearTimeout(timeout);
+    cleanup();
+  });
+
+  res.on('close', () => {
+    clearTimeout(timeout);
+    cleanup();
   });
 });
 
