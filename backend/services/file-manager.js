@@ -316,6 +316,7 @@ class FileManager {
 
         return new Promise((resolve, reject) => {
           let isResolved = false;
+          let abortListener = null;
           
           const cleanup = () => {
             if (writer && !writer.destroyed) {
@@ -324,11 +325,16 @@ class FileManager {
             if (response && response.data && !response.data.destroyed) {
               response.data.destroy();
             }
+            // 清理 AbortSignal 监听器
+            if (abortController && abortListener) {
+              abortController.signal.removeEventListener('abort', abortListener);
+              abortListener = null;
+            }
           };
 
           // 监听中断信号
           if (abortController) {
-            abortController.signal.addEventListener('abort', () => {
+            abortListener = () => {
               if (isResolved) return;
               isResolved = true;
               
@@ -341,7 +347,8 @@ class FileManager {
               });
               
               reject(new Error('下载被中断'));
-            });
+            };
+            abortController.signal.addEventListener('abort', abortListener);
           }
 
           writer.on('finish', async () => {
@@ -404,11 +411,21 @@ class FileManager {
             reject(timeoutError);
           }, downloadConfig.timeout + 60000); // 动态超时 + 1分钟缓冲
           
-          // 清理超时定时器
-          writer.on('finish', () => clearTimeout(timeout));
-          writer.on('error', () => clearTimeout(timeout));
-          if (abortController) {
-            abortController.signal.addEventListener('abort', () => clearTimeout(timeout));
+          // 清理超时定时器和监听器
+          const clearTimeoutAndCleanup = () => {
+            clearTimeout(timeout);
+            cleanup();
+          };
+          
+          writer.on('finish', clearTimeoutAndCleanup);
+          writer.on('error', clearTimeoutAndCleanup);
+          if (abortListener) {
+            // 超时时也要清理监听器
+            const originalTimeout = timeout._onTimeout;
+            timeout._onTimeout = () => {
+              cleanup();
+              originalTimeout();
+            };
           }
         });
         

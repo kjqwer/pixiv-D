@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs-extra');
 const { defaultLogger } = require('../utils/logger');
+const abortControllerManager = require('../utils/abort-controller-manager');
 
 // 创建logger实例
 const logger = defaultLogger.child('DownloadExecutor');
@@ -17,18 +18,24 @@ class DownloadExecutor {
     this.historyManager = historyManager;
     this.downloadService = downloadService; // 添加下载服务引用
     
-    // 存储每个任务的中断控制器
-    this.abortControllers = new Map();
+    // 存储每个任务的中断控制器ID（使用管理器）
+    this.taskControllerIds = new Set();
   }
 
   /**
    * 执行单个作品下载
    */
   async executeArtworkDownload(task, images, size, artworkDir, artwork) {
+    const controllerId = `task_${task.id}`;
+    
     try {
-      // 为这个任务创建中断控制器
-      const abortController = new AbortController();
-      this.abortControllers.set(task.id, abortController);
+      // 使用管理器创建中断控制器
+      const abortController = abortControllerManager.createController(controllerId);
+      if (!abortController) {
+        throw new Error('无法创建 AbortController，可能已达到数量限制');
+      }
+      
+      this.taskControllerIds.add(controllerId);
       
       const results = [];
 
@@ -41,7 +48,8 @@ class DownloadExecutor {
         if (this.shouldPause(task.id)) {
           logger.info('任务已暂停，停止下载:', task.id);
           // 中断当前下载
-          abortController.abort();
+          abortControllerManager.abortAndCleanup(controllerId);
+          this.taskControllerIds.delete(controllerId);
           // 确保任务状态为暂停
           task.status = 'paused';
           await this.taskManager.saveTasks();
@@ -242,8 +250,9 @@ class DownloadExecutor {
       await this.taskManager.saveTasks();
       this.progressManager.notifyProgressUpdate(task.id, task);
     } finally {
-      // 清理中断控制器
-      this.abortControllers.delete(task.id);
+      // 确保清理中断控制器
+      abortControllerManager.abortAndCleanup(controllerId);
+      this.taskControllerIds.delete(controllerId);
     }
   }
 
@@ -629,11 +638,14 @@ class DownloadExecutor {
    * @param {string} taskId - 任务ID
    */
   abortTask(taskId) {
-    const abortController = this.abortControllers.get(taskId);
-    if (abortController) {
+    const controllerId = `task_${taskId}`;
+    const success = abortControllerManager.abortAndCleanup(controllerId);
+    
+    if (success) {
+      this.taskControllerIds.delete(controllerId);
       logger.info('中断任务下载', { taskId });
-      abortController.abort();
-      this.abortControllers.delete(taskId);
+    } else {
+      logger.debug('未找到要中断的任务控制器', { taskId });
     }
   }
 
