@@ -151,7 +151,10 @@ const getStatusText = (status: string) => {
     'failed': '失败',
     'cancelled': '已取消',
     'partial': '部分完成',
-    'paused': '已暂停'
+    'paused': '已暂停',
+    'pausing': '暂停中',
+    'resuming': '恢复中',
+    'cancelling': '取消中'
   };
   return statusMap[status] || status;
 };

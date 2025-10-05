@@ -99,7 +99,7 @@ export interface LoginStatus {
 export interface DownloadTask {
   id: string;
   type: 'artwork' | 'batch' | 'artist' | 'art';
-  status: 'downloading' | 'completed' | 'failed' | 'partial' | 'cancelled' | 'paused';
+  status: 'downloading' | 'completed' | 'failed' | 'partial' | 'cancelled' | 'paused' | 'pausing' | 'resuming' | 'cancelling';
   progress: number;
   total_files: number;
   completed_files: number;

@@ -62,17 +62,21 @@
                 </span>
               </div>
               <div class="task-actions">
-                <button v-if="task.status === 'downloading'" @click="pauseTask(task.id)" class="btn btn-warning btn-sm">
-                  暂停
+                <button v-if="task.status === 'downloading' || task.status === 'pausing'" @click="pauseTask(task.id)" 
+                  class="btn btn-warning btn-sm" :disabled="task.status === 'pausing'">
+                  {{ task.status === 'pausing' ? '暂停中...' : '暂停' }}
                 </button>
-                <button v-if="task.status === 'downloading'" @click="cancelTask(task.id)" class="btn btn-danger btn-sm">
-                  取消
+                <button v-if="task.status === 'downloading' || task.status === 'cancelling'" @click="cancelTask(task.id)" 
+                  class="btn btn-danger btn-sm" :disabled="task.status === 'cancelling'">
+                  {{ task.status === 'cancelling' ? '取消中...' : '取消' }}
                 </button>
-                <button v-if="task.status === 'paused'" @click="resumeTask(task.id)" class="btn btn-primary btn-sm">
-                  恢复
+                <button v-if="task.status === 'paused' || task.status === 'resuming'" @click="resumeTask(task.id)" 
+                  class="btn btn-primary btn-sm" :disabled="task.status === 'resuming'">
+                  {{ task.status === 'resuming' ? '恢复中...' : '恢复' }}
                 </button>
-                <button v-if="task.status === 'paused'" @click="cancelTask(task.id)" class="btn btn-danger btn-sm">
-                  删除
+                <button v-if="task.status === 'paused' || task.status === 'cancelling'" @click="cancelTask(task.id)" 
+                  class="btn btn-danger btn-sm" :disabled="task.status === 'cancelling'">
+                  {{ task.status === 'cancelling' ? '删除中...' : '删除' }}
                 </button>
               </div>
             </div>
@@ -242,7 +246,10 @@ const getStatusText = (status: string) => {
     'failed': '失败',
     'cancelled': '已取消',
     'partial': '部分完成',
-    'paused': '已暂停'
+    'paused': '已暂停',
+    'pausing': '暂停中',
+    'resuming': '恢复中',
+    'cancelling': '取消中'
   };
   return statusMap[status] || status;
 };
@@ -360,6 +367,10 @@ const cancelTask = async (taskId: string) => {
   } catch (err) {
     error.value = err instanceof Error ? err.message : '取消任务失败';
     console.error('取消任务失败:', err);
+    // 显示用户友好的错误提示
+    if (err instanceof Error) {
+      alert(`取消失败: ${err.message}`);
+    }
   }
 };
 
@@ -370,6 +381,10 @@ const resumeTask = async (taskId: string) => {
   } catch (err) {
     error.value = err instanceof Error ? err.message : '恢复任务失败';
     console.error('恢复任务失败:', err);
+    // 显示用户友好的错误提示
+    if (err instanceof Error) {
+      alert(`恢复失败: ${err.message}`);
+    }
   }
 };
 
@@ -380,6 +395,10 @@ const pauseTask = async (taskId: string) => {
   } catch (err) {
     error.value = err instanceof Error ? err.message : '暂停任务失败';
     console.error('暂停任务失败:', err);
+    // 显示用户友好的错误提示
+    if (err instanceof Error) {
+      alert(`暂停失败: ${err.message}`);
+    }
   }
 };
 

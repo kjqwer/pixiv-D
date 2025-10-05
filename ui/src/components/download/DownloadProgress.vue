@@ -3,15 +3,17 @@
     <div class="progress-header">
       <h4 class="progress-title">{{ getTaskTitle(task) }}</h4>
       <div class="progress-actions">
-        <button v-if="task.status === 'downloading'" @click="pauseTask" class="btn btn-sm btn-secondary"
-          :disabled="loading">
-          暂停
+        <button v-if="task.status === 'downloading' || task.status === 'pausing'" @click="pauseTask" class="btn btn-sm btn-secondary"
+          :disabled="loading || task.status === 'pausing'">
+          {{ task.status === 'pausing' ? '暂停中...' : '暂停' }}
         </button>
-        <button v-if="task.status === 'paused'" @click="resumeTask" class="btn btn-sm btn-primary" :disabled="loading">
-          恢复
+        <button v-if="task.status === 'paused' || task.status === 'resuming'" @click="resumeTask" class="btn btn-sm btn-primary" 
+          :disabled="loading || task.status === 'resuming'">
+          {{ task.status === 'resuming' ? '恢复中...' : '恢复' }}
         </button>
-        <button @click="cancelTask" class="btn btn-sm btn-danger" :disabled="loading">
-          取消
+        <button @click="cancelTask" class="btn btn-sm btn-danger" 
+          :disabled="loading || task.status === 'cancelling'">
+          {{ task.status === 'cancelling' ? '取消中...' : '取消' }}
         </button>
       </div>
     </div>
@@ -74,7 +76,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import downloadService from '@/services/download';
+import { useDownloadStore } from '@/stores/download';
 import type { DownloadTask } from '@/types';
 
 interface Props {
@@ -83,6 +85,7 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+const downloadStore = useDownloadStore();
 
 const emit = defineEmits<{
   update: [task: DownloadTask];
@@ -130,7 +133,10 @@ const getStatusText = (status: string) => {
     failed: '失败',
     partial: '部分完成',
     cancelled: '已取消',
-    paused: '已暂停'
+    paused: '已暂停',
+    pausing: '暂停中',
+    resuming: '恢复中',
+    cancelling: '取消中'
   };
   return statusMap[status] || status;
 };
@@ -144,34 +150,37 @@ const formatTime = (timeString: string) => {
 
 const pauseTask = async () => {
   try {
-    const response = await downloadService.pauseTask(props.task.id);
-    if (response.success) {
-      emit('update', { ...props.task, status: 'paused' });
-    }
+    await downloadStore.pauseTask(props.task.id);
   } catch (error) {
     console.error('暂停任务失败:', error);
+    // 显示用户友好的错误提示
+    if (error instanceof Error) {
+      alert(`暂停失败: ${error.message}`);
+    }
   }
 };
 
 const resumeTask = async () => {
   try {
-    const response = await downloadService.resumeTask(props.task.id);
-    if (response.success) {
-      emit('update', { ...props.task, status: 'downloading' });
-    }
+    await downloadStore.resumeTask(props.task.id);
   } catch (error) {
     console.error('恢复任务失败:', error);
+    // 显示用户友好的错误提示
+    if (error instanceof Error) {
+      alert(`恢复失败: ${error.message}`);
+    }
   }
 };
 
 const cancelTask = async () => {
   try {
-    const response = await downloadService.cancelTask(props.task.id);
-    if (response.success) {
-      emit('remove', props.task.id);
-    }
+    await downloadStore.cancelTask(props.task.id);
   } catch (error) {
     console.error('取消任务失败:', error);
+    // 显示用户友好的错误提示
+    if (error instanceof Error) {
+      alert(`取消失败: ${error.message}`);
+    }
   }
 };
 </script>

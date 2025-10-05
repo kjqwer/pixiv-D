@@ -156,7 +156,22 @@ export const useDownloadStore = defineStore('download', () => {
         // 更新任务状态
         const index = tasks.value.findIndex(t => t.id === taskId);
         if (index !== -1) {
-          tasks.value[index] = task;
+          // 保留临时状态（如pausing, resuming, cancelling）
+          const currentTask = tasks.value[index];
+          const isTemporaryStatus = ['pausing', 'resuming', 'cancelling'].includes(currentTask.status);
+          
+          if (!isTemporaryStatus) {
+            tasks.value[index] = task;
+          } else {
+            // 只更新进度相关字段，保留临时状态
+            tasks.value[index] = {
+              ...currentTask,
+              progress: task.progress,
+              completed_files: task.completed_files,
+              failed_files: task.failed_files,
+              recent_completed: task.recent_completed
+            };
+          }
         } else {
           // 如果是新任务，添加到列表
           tasks.value.push(task);
@@ -285,18 +300,42 @@ export const useDownloadStore = defineStore('download', () => {
   // 取消任务
   const cancelTask = async (taskId: string) => {
     try {
+      // 立即停止SSE连接
+      stopTaskStreaming(taskId);
+      
+      // 立即更新本地状态为取消中
+      updateTask(taskId, { status: 'cancelling' as any });
+      
       const response = await downloadService.cancelTask(taskId);
       if (response.success) {
-        // 立即停止SSE连接
-        stopTaskStreaming(taskId);
-        await fetchTasks();
+        // 立即从任务列表中移除
+        removeTask(taskId);
+        // 异步刷新任务列表以确保同步
+        setTimeout(() => fetchTasks(), 500);
       } else {
+        // 如果取消失败，恢复原状态
+        await fetchTasks();
         throw new Error(response.error || '取消任务失败');
       }
     } catch (err) {
-      error.value = err instanceof Error ? err.message : '取消任务失败';
+      // 如果是网络错误或超时，提供更友好的错误信息
+      let errorMessage = '取消任务失败';
+      if (err instanceof Error) {
+        if (err.message.includes('timeout') || err.message.includes('network')) {
+          errorMessage = '网络连接超时，请检查网络连接后重试';
+        } else if (err.message.includes('404')) {
+          errorMessage = '任务不存在或已被删除';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
+      error.value = errorMessage;
       console.error('取消任务失败:', err);
-      throw err;
+      
+      // 恢复任务状态
+      await fetchTasks();
+      throw new Error(errorMessage);
     }
   };
 
@@ -305,6 +344,10 @@ export const useDownloadStore = defineStore('download', () => {
     try {
       // 获取任务信息以确定类型
       const task = getTask(taskId);
+      
+      // 立即更新本地状态为恢复中
+      updateTask(taskId, { status: 'resuming' as any });
+      
       let response;
       
       // 判断是否为批量下载任务（batch、artist、art类型都是批量下载）
@@ -317,16 +360,38 @@ export const useDownloadStore = defineStore('download', () => {
       }
       
       if (response.success) {
-        await fetchTasks();
-        // 重新管理SSE连接
-        manageSSEConnections();
+        // 立即更新状态为下载中
+        updateTask(taskId, { status: 'downloading' });
+        // 立即建立SSE连接
+        startTaskStreaming(taskId);
+        // 异步刷新任务列表以确保同步
+        setTimeout(() => fetchTasks(), 500);
       } else {
+        // 如果恢复失败，恢复原状态
+        await fetchTasks();
         throw new Error(response.error || '恢复任务失败');
       }
     } catch (err) {
-      error.value = err instanceof Error ? err.message : '恢复任务失败';
+      // 提供更友好的错误信息
+      let errorMessage = '恢复任务失败';
+      if (err instanceof Error) {
+        if (err.message.includes('timeout') || err.message.includes('network')) {
+          errorMessage = '网络连接超时，请检查网络连接后重试';
+        } else if (err.message.includes('404')) {
+          errorMessage = '任务不存在或已被删除';
+        } else if (err.message.includes('already running')) {
+          errorMessage = '任务已在运行中';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
+      error.value = errorMessage;
       console.error('恢复任务失败:', err);
-      throw err;
+      
+      // 恢复任务状态
+      await fetchTasks();
+      throw new Error(errorMessage);
     }
   };
 
@@ -335,6 +400,10 @@ export const useDownloadStore = defineStore('download', () => {
     try {
       // 获取任务信息以确定类型
       const task = getTask(taskId);
+      
+      // 立即更新本地状态为暂停中
+      updateTask(taskId, { status: 'pausing' as any });
+      
       let response;
       
       // 判断是否为批量下载任务（batch、artist、art类型都是批量下载）
@@ -347,14 +416,38 @@ export const useDownloadStore = defineStore('download', () => {
       }
       
       if (response.success) {
-        await fetchTasks();
+        // 立即更新状态为已暂停
+        updateTask(taskId, { status: 'paused' });
+        // 停止SSE连接
+        stopTaskStreaming(taskId);
+        // 异步刷新任务列表以确保同步
+        setTimeout(() => fetchTasks(), 500);
       } else {
+        // 如果暂停失败，恢复原状态
+        await fetchTasks();
         throw new Error(response.error || '暂停任务失败');
       }
     } catch (err) {
-      error.value = err instanceof Error ? err.message : '暂停任务失败';
+      // 提供更友好的错误信息
+      let errorMessage = '暂停任务失败';
+      if (err instanceof Error) {
+        if (err.message.includes('timeout') || err.message.includes('network')) {
+          errorMessage = '网络连接超时，请检查网络连接后重试';
+        } else if (err.message.includes('404')) {
+          errorMessage = '任务不存在或已被删除';
+        } else if (err.message.includes('already paused')) {
+          errorMessage = '任务已暂停';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
+      error.value = errorMessage;
       console.error('暂停任务失败:', err);
-      throw err;
+      
+      // 恢复任务状态
+      await fetchTasks();
+      throw new Error(errorMessage);
     }
   };
 
