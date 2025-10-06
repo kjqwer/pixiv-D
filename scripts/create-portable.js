@@ -47,6 +47,13 @@ REM TRACE: Show all level messages (most detailed)
 REM ========================================
 set LOG_LEVEL=INFO
 
+REM ========================================
+REM Auto Open Browser Configuration - Options: true, false
+REM true:  Automatically open browser when server starts
+REM false: Do not automatically open browser (default)
+REM ========================================
+set AUTO_OPEN_BROWSER=false
+
 echo.
 echo ========================================
 echo Pixiv Manager Starting...
@@ -69,9 +76,9 @@ echo.
 
 REM Start server and pass proxy port, server port and log level
 if "%PROXY_PORT%"=="" (
-  pixiv-manager.exe --server-port=%SERVER_PORT% --log-level=%LOG_LEVEL%
+  pixiv-manager.exe --server-port=%SERVER_PORT% --log-level=%LOG_LEVEL% --auto-open-browser=%AUTO_OPEN_BROWSER%
 ) else (
-  pixiv-manager.exe --proxy-port=%PROXY_PORT% --server-port=%SERVER_PORT% --log-level=%LOG_LEVEL%
+  pixiv-manager.exe --proxy-port=%PROXY_PORT% --server-port=%SERVER_PORT% --log-level=%LOG_LEVEL% --auto-open-browser=%AUTO_OPEN_BROWSER%
 )
 
 echo.
@@ -110,6 +117,11 @@ pause
 - INFO: 显示一般信息及以上级别信息（默认）
 - DEBUG: 显示调试信息及以上级别信息
 - TRACE: 显示所有级别信息（最详细）
+
+### 自动打开浏览器设置
+修改（AUTO_OPEN_BROWSER=xxxx）的值来启用或禁用自动打开浏览器功能：
+- true: 启动服务器后自动打开浏览器
+- false: 不自动打开浏览器（默认）
 
 ## 注意事项
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import RandomRecommendations from '@/components/home/RandomRecommendations.vue';
 
@@ -7,8 +7,39 @@ const authStore = useAuthStore();
 
 const isLoggedIn = computed(() => authStore.isLoggedIn);
 
+// 随机推荐开关状态
+const showRecommendations = ref(true);
+
+// 从本地存储加载设置
+const loadSettings = () => {
+  const saved = localStorage.getItem('pixiv-home-settings');
+  if (saved) {
+    try {
+      const settings = JSON.parse(saved);
+      showRecommendations.value = settings.showRecommendations !== false;
+    } catch (e) {
+      console.warn('Failed to parse saved settings:', e);
+    }
+  }
+};
+
+// 保存设置到本地存储
+const saveSettings = () => {
+  const settings = {
+    showRecommendations: showRecommendations.value
+  };
+  localStorage.setItem('pixiv-home-settings', JSON.stringify(settings));
+};
+
+// 切换推荐显示状态
+const toggleRecommendations = () => {
+  showRecommendations.value = !showRecommendations.value;
+  saveSettings();
+};
+
 onMounted(async () => {
   await authStore.fetchLoginStatus();
+  loadSettings();
 });
 </script>
 
@@ -37,8 +68,33 @@ onMounted(async () => {
     </div>
 
     <!-- 随机推荐区域 -->
-    <div class="recommendations-section">
-      <RandomRecommendations v-if="isLoggedIn" />
+    <div v-if="isLoggedIn" class="recommendations-section">
+      <div class="container">
+        <div class="recommendations-header">
+          <h2 class="section-title">随机推荐</h2>
+          <div class="recommendations-toggle">
+            <label class="toggle-label">
+              <span class="toggle-text">显示推荐</span>
+              <div class="toggle-switch">
+                <input 
+                  type="checkbox" 
+                  :checked="showRecommendations"
+                  @change="toggleRecommendations"
+                >
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+          </div>
+        </div>
+        
+        <div v-if="showRecommendations" class="recommendations-content">
+          <RandomRecommendations />
+        </div>
+        
+        <div v-else class="recommendations-disabled">
+          <p class="disabled-message">随机推荐已关闭，您可以通过上方开关重新启用</p>
+        </div>
+      </div>
     </div>
 
     <div class="features-section">
@@ -120,7 +176,7 @@ onMounted(async () => {
 }
 
 .hero-section {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
   color: white;
   padding: 4rem 0;
   text-align: center;
@@ -129,79 +185,89 @@ onMounted(async () => {
 .hero-content {
   max-width: 800px;
   margin: 0 auto;
-  padding: 0 2rem;
+  padding: 0 var(--spacing-2xl);
 }
 
 .hero-title {
   font-size: 3rem;
   font-weight: 700;
-  margin-bottom: 1rem;
+  margin-bottom: var(--spacing-lg);
   line-height: 1.2;
 }
 
 .hero-subtitle {
   font-size: 1.25rem;
-  margin-bottom: 2rem;
+  margin-bottom: var(--spacing-2xl);
   opacity: 0.9;
   line-height: 1.6;
 }
 
 .hero-actions {
   display: flex;
-  gap: 1rem;
+  gap: var(--spacing-lg);
   justify-content: center;
   flex-wrap: wrap;
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
-  font-weight: 600;
-  text-decoration: none;
-  transition: all 0.2s;
-  border: none;
-  cursor: pointer;
-  font-size: 1rem;
-}
-
-.btn-primary {
-  background: #3b82f6;
-  color: white;
-}
-
-.btn-primary:hover {
-  background: #2563eb;
-  transform: translateY(-1px);
-}
-
-.btn-secondary {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-1px);
 }
 
 .container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 2rem;
+  padding: 0 var(--spacing-2xl);
 }
 
 .recommendations-section {
-  padding: 2rem 0;
-  background: white;
+  padding: var(--spacing-2xl) 0;
+  background: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.recommendations-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-2xl);
+}
+
+.recommendations-toggle {
+  display: flex;
+  align-items: center;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.recommendations-content {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.recommendations-disabled {
+  text-align: center;
+  padding: var(--spacing-2xl);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+}
+
+.disabled-message {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  margin: 0;
 }
 
 .features-section {
   padding: 4rem 0;
-  background: #f8fafc;
+  background: var(--color-bg-secondary);
 }
 
 .section-title {
@@ -209,38 +275,47 @@ onMounted(async () => {
   font-size: 2.5rem;
   font-weight: 700;
   margin-bottom: 3rem;
-  color: #1f2937;
+  color: var(--color-text-primary);
 }
 
 .features-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 2rem;
+  gap: var(--spacing-2xl);
 }
 
 .feature-card {
-  background: white;
-  padding: 2rem;
-  border-radius: 1rem;
+  background: var(--color-bg-primary);
+  padding: var(--spacing-2xl);
+  border-radius: var(--radius-xl);
   text-align: center;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s;
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-normal);
+  border: 1px solid var(--color-border);
 }
 
 .feature-card:hover {
   transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--color-primary);
 }
 
 .feature-icon {
   width: 4rem;
   height: 4rem;
-  margin: 0 auto 1.5rem;
-  background: #3b82f6;
+  margin: 0 auto var(--spacing-xl);
+  background: var(--color-primary);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
+  transition: all var(--transition-normal);
+}
+
+.feature-card:hover .feature-icon {
+  background: var(--color-primary-dark);
+  transform: scale(1.1);
 }
 
 .feature-icon svg {
@@ -251,16 +326,25 @@ onMounted(async () => {
 .feature-title {
   font-size: 1.25rem;
   font-weight: 600;
-  margin-bottom: 1rem;
-  color: #1f2937;
+  margin-bottom: var(--spacing-lg);
+  color: var(--color-text-primary);
 }
 
 .feature-description {
-  color: #6b7280;
+  color: var(--color-text-secondary);
   line-height: 1.6;
 }
 
-
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
 @media (max-width: 768px) {
   .hero-title {
@@ -285,6 +369,15 @@ onMounted(async () => {
     grid-template-columns: 1fr;
   }
 
+  .recommendations-header {
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    align-items: stretch;
+  }
 
+  .section-title {
+    font-size: 2rem;
+    margin-bottom: var(--spacing-xl);
+  }
 }
 </style>

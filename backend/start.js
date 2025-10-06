@@ -36,6 +36,9 @@ function parseArguments() {
       if (['ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE'].includes(level)) {
         options.logLevel = level;
       }
+    } else if (arg.startsWith('--auto-open-browser=')) {
+      const value = arg.split('=')[1].toLowerCase();
+      options.autoOpenBrowser = value === 'true';
     } 
     // 处理 --key value 格式（向后兼容）
     else if (arg === '--proxy-port' && i + 1 < args.length) {
@@ -55,6 +58,10 @@ function parseArguments() {
       if (['ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE'].includes(level)) {
         options.logLevel = level;
       }
+      i++; // 跳过下一个参数
+    } else if (arg === '--auto-open-browser' && i + 1 < args.length) {
+      const value = args[i + 1].toLowerCase();
+      options.autoOpenBrowser = value === 'true';
       i++; // 跳过下一个参数
     }
   }
@@ -92,6 +99,12 @@ if (cliOptions.serverPort) {
 // 输出日志级别信息
 if (cliOptions.logLevel) {
   logger.info(`日志级别: ${cliOptions.logLevel}`);
+}
+
+// 设置自动打开浏览器选项
+if (cliOptions.autoOpenBrowser !== undefined) {
+  process.env.AUTO_OPEN_BROWSER = cliOptions.autoOpenBrowser.toString();
+  logger.info(`自动打开浏览器: ${cliOptions.autoOpenBrowser ? '启用' : '禁用'}`);
 }
 
 logger.info('启动 Pixiv 后端服务器...');

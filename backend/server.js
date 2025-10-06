@@ -125,7 +125,53 @@ class PixivServer {
         logger.debug(`代理端口: ${process.env.PROXY_PORT || '未设置'}`);
       }
       logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      
+      // 自动打开浏览器
+      if (process.env.AUTO_OPEN_BROWSER === 'true') {
+        this.openBrowser();
+      }
     });
+  }
+
+  /**
+   * 打开浏览器
+   */
+  openBrowser() {
+    const url = `http://localhost:${this.port}`;
+    logger.info(`正在打开浏览器: ${url}`);
+    
+    const { spawn } = require('child_process');
+    const os = require('os');
+    
+    let command;
+    let args = [url];
+    
+    switch (os.platform()) {
+      case 'win32':
+        command = 'cmd';
+        args = ['/c', 'start', '""', url];
+        break;
+      case 'darwin':
+        command = 'open';
+        break;
+      case 'linux':
+        command = 'xdg-open';
+        break;
+      default:
+        logger.warn('不支持的操作系统，无法自动打开浏览器');
+        return;
+    }
+    
+    try {
+      const child = spawn(command, args, { 
+        detached: true, 
+        stdio: 'ignore' 
+      });
+      child.unref();
+      logger.info('浏览器已打开');
+    } catch (error) {
+      logger.warn('打开浏览器失败:', error.message);
+    }
   }
 
   /**
