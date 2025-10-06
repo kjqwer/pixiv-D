@@ -305,11 +305,24 @@ class ErrorHandler {
   }
 
   /**
-   * 检查是否为可重试的错误
+   * 判断错误是否可重试
    */
   static isRetryableError(error) {
-    const retryableCodes = ['EPERM', 'EACCES', 'EBUSY', 'EAGAIN', 'ENOSPC'];
-    return retryableCodes.includes(error.code);
+    const retryableCodes = ['EPERM', 'EACCES', 'EBUSY', 'EAGAIN', 'ENOSPC', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND'];
+    const retryableMessages = ['aborted', 'socket hang up', 'network timeout'];
+    
+    // 检查错误码
+    if (retryableCodes.includes(error.code)) {
+      return true;
+    }
+    
+    // 检查错误消息
+    if (error.message) {
+      const message = error.message.toLowerCase();
+      return retryableMessages.some(msg => message.includes(msg));
+    }
+    
+    return false;
   }
 
   /**
@@ -327,7 +340,20 @@ class ErrorHandler {
       case 'EPERM':
       case 'EACCES':
         return Math.min(delay, 5000); // 权限错误，中等延迟
+      case 'ECONNRESET':
+      case 'ETIMEDOUT':
+        return Math.min(delay, 3000); // 网络错误，较短延迟
+      case 'ENOTFOUND':
+        return Math.min(delay, 5000); // DNS错误，中等延迟
       default:
+        // 检查是否是网络相关的错误消息
+        if (error.message && (
+          error.message.toLowerCase().includes('aborted') ||
+          error.message.toLowerCase().includes('socket hang up') ||
+          error.message.toLowerCase().includes('network timeout')
+        )) {
+          return Math.min(delay, 3000); // 网络错误，较短延迟
+        }
         return delay;
     }
   }

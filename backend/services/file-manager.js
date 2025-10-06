@@ -503,19 +503,20 @@ class FileManager {
           throw error;
         }
         
-        // 处理其他文件系统错误
-        const errorResult = ErrorHandler.handleFileSystemError(error, filePath, 'download');
+        // 检查是否是可重试的网络错误
+        const isRetryable = ErrorHandler.isRetryableError(error);
         
         logger.error(`下载文件失败 (尝试 ${attempt}/${maxRetries}): ${filePath}`, {
           error: error.message,
           stack: error.stack,
           url,
-          retryable: errorResult.retryable,
-          attempt
+          retryable: isRetryable,
+          attempt,
+          errorCode: error.code
         });
         
         // 如果不是可重试的错误，直接抛出
-        if (!errorResult.retryable) {
+        if (!isRetryable) {
           throw error;
         }
         

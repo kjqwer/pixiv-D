@@ -265,7 +265,7 @@ const handleDownload = async () => {
     });
 
     if (response.success) {
-      console.log('下载响应:', response.data);
+      // console.log('下载响应:', response.data);
 
       // 检查是否跳过下载
       if (response.data.skipped) {

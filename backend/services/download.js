@@ -309,6 +309,8 @@ class DownloadService {
       
       // 获取更新后的任务
       const updatedTask = this.taskManager.getTask(taskId);
+      
+      // 立即通知状态更新
       this.progressManager.notifyProgressUpdate(taskId, updatedTask);
       
       logger.info('任务暂停完成', { taskId });
@@ -336,13 +338,6 @@ class DownloadService {
       return { success: false, error: '任务不存在' };
     }
 
-    // logger.info('尝试恢复任务', { 
-    //   taskId, 
-    //   currentStatus: task.status, 
-    //   type: task.type,
-    //   artwork_id: task.artwork_id 
-    // });
-
     // 只允许恢复暂停的任务
     if (task.status !== 'paused') {
       logger.warn('恢复任务失败：任务状态不是暂停状态', { 
@@ -357,14 +352,19 @@ class DownloadService {
       logger.info('开始恢复任务执行', { taskId });
       await this.downloadExecutor.resumeTask(taskId);
       
-      // 获取更新后的任务状态
+      // 确保状态已经更新后再返回
       const updatedTask = this.taskManager.getTask(taskId);
+      
+      // 立即通知状态更新
       this.progressManager.notifyProgressUpdate(taskId, updatedTask);
       
       logger.info('任务恢复成功', { 
         taskId, 
         newStatus: updatedTask.status 
       });
+      
+      // 返回最新的任务状态
+      return { success: true, data: updatedTask };
     } catch (error) {
       logger.error('恢复任务执行失败', { 
         taskId, 
@@ -374,8 +374,6 @@ class DownloadService {
       // 如果恢复失败，保持暂停状态
       return { success: false, error: `恢复任务失败: ${error.message}` };
     }
-
-    return { success: true, data: this.taskManager.getTask(taskId) };
   }
 
   /**

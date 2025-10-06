@@ -206,7 +206,7 @@ class DownloadService {
         
         // 处理不同类型的SSE消息
         if (data.type === 'connected') {
-          console.log('SSE连接已建立:', data.taskId);
+          // console.log('SSE连接已建立:', data.taskId);
         } else if (data.type === 'progress') {
           // 新的数据格式：data.task 包含任务信息
           if (data.task) {

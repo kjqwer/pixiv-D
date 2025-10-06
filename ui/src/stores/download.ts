@@ -12,6 +12,26 @@ export const useDownloadStore = defineStore('download', () => {
 
   // SSE连接管理
   const sseConnections = ref<Map<string, () => void>>(new Map());
+  
+  // 延迟更新管理
+  const delayedUpdates = ref<Map<string, number[]>>(new Map());
+
+  // 清理指定任务的所有延迟更新
+  const clearAllDelayedUpdates = (taskId: string) => {
+    const timeouts = delayedUpdates.value.get(taskId);
+    if (timeouts) {
+      timeouts.forEach(timeout => clearTimeout(timeout));
+      delayedUpdates.value.delete(taskId);
+    }
+  };
+
+  // 添加延迟更新
+  const addDelayedUpdate = (taskId: string, timeout: number) => {
+    if (!delayedUpdates.value.has(taskId)) {
+      delayedUpdates.value.set(taskId, []);
+    }
+    delayedUpdates.value.get(taskId)!.push(timeout);
+  };
 
   // 计算属性：显示活跃任务和暂停任务
   const activeTasks = computed(() => {
@@ -131,7 +151,7 @@ export const useDownloadStore = defineStore('download', () => {
       sseConnections.value.get(taskId)!();
     }
 
-    console.log('开始SSE监听任务进度:', taskId);
+    // console.log('开始SSE监听任务进度:', taskId);
 
     // 添加超时处理 - 增加到60秒以匹配后端
     const timeoutId = setTimeout(() => {
@@ -183,10 +203,24 @@ export const useDownloadStore = defineStore('download', () => {
           tasks.value.push(task);
         }
 
-        // 如果任务完成或暂停，清理连接
+        // 如果任务完成或暂停，清理连接并触发额外的状态同步
         if (['completed', 'failed', 'cancelled', 'partial', 'paused'].includes(task.status)) {
-          console.log('任务状态变更，关闭SSE连接:', taskId);
+          console.log('任务状态变更，关闭SSE连接:', taskId, task.status);
           stopTaskStreaming(taskId);
+          
+          // 如果任务完成，立即更新本地状态并停止所有延迟操作
+          if (['completed', 'failed', 'cancelled', 'partial'].includes(task.status)) {
+            console.log('任务完成，立即更新状态:', taskId, task.status);
+            
+            // 立即更新本地任务状态，防止被其他操作覆盖
+            const index = tasks.value.findIndex(t => t.id === taskId);
+            if (index !== -1) {
+              tasks.value[index] = { ...task };
+            }
+            
+            // 取消所有可能的延迟状态更新操作
+            clearAllDelayedUpdates(taskId);
+          }
         }
       },
       () => {
@@ -221,10 +255,21 @@ export const useDownloadStore = defineStore('download', () => {
       }
     });
 
-    // 为正在下载的任务建立连接
+    // 为正在下载的任务建立连接，增加状态检查
     activeTasks.value.forEach(task => {
       if (task.status === 'downloading' && !sseConnections.value.has(task.id)) {
+        console.log('为下载任务建立SSE连接:', task.id, task.status);
         startTaskStreaming(task.id);
+      }
+    });
+    
+    // 清理已暂停或完成任务的连接
+    sseConnections.value.forEach((closeConnection, taskId) => {
+      const task = getTask(taskId);
+      if (task && ['paused', 'completed', 'failed', 'cancelled', 'partial'].includes(task.status)) {
+        console.log('清理非活跃任务的SSE连接:', taskId, task.status);
+        closeConnection();
+        sseConnections.value.delete(taskId);
       }
     });
   };
@@ -366,12 +411,22 @@ export const useDownloadStore = defineStore('download', () => {
       }
       
       if (response.success) {
-        // 立即更新状态为下载中
-        updateTask(taskId, { status: 'downloading' });
+        // 清理可能存在的延迟更新
+        clearAllDelayedUpdates(taskId);
+        
+        // 使用后端返回的最新状态，确保状态同步
+        if (response.data) {
+          const index = tasks.value.findIndex(t => t.id === taskId);
+          if (index !== -1) {
+            tasks.value[index] = { ...response.data };
+          }
+        } else {
+          // 如果后端没有返回数据，则手动更新状态
+          updateTask(taskId, { status: 'downloading' });
+        }
+        
         // 立即建立SSE连接
         startTaskStreaming(taskId);
-        // 异步刷新任务列表以确保同步
-        setTimeout(() => fetchTasks(), 500);
       } else {
         // 如果恢复失败，恢复原状态
         await fetchTasks();
@@ -422,12 +477,22 @@ export const useDownloadStore = defineStore('download', () => {
       }
       
       if (response.success) {
-        // 立即更新状态为已暂停
-        updateTask(taskId, { status: 'paused' });
+        // 清理可能存在的延迟更新
+        clearAllDelayedUpdates(taskId);
+        
+        // 使用后端返回的最新状态，确保状态同步
+        if (response.data) {
+          const index = tasks.value.findIndex(t => t.id === taskId);
+          if (index !== -1) {
+            tasks.value[index] = { ...response.data };
+          }
+        } else {
+          // 如果后端没有返回数据，则手动更新状态
+          updateTask(taskId, { status: 'paused' });
+        }
+        
         // 停止SSE连接
         stopTaskStreaming(taskId);
-        // 异步刷新任务列表以确保同步
-        setTimeout(() => fetchTasks(), 500);
       } else {
         // 如果暂停失败，恢复原状态
         await fetchTasks();

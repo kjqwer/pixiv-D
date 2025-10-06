@@ -49,10 +49,10 @@ set LOG_LEVEL=INFO
 
 REM ========================================
 REM Auto Open Browser Configuration - Options: true, false
-REM true:  Automatically open browser when server starts
-REM false: Do not automatically open browser (default)
+REM true:  Automatically open browser when server starts (default)
+REM false: Do not automatically open browser 
 REM ========================================
-set AUTO_OPEN_BROWSER=false
+set AUTO_OPEN_BROWSER=true
 
 echo.
 echo ========================================
@@ -120,8 +120,8 @@ pause
 
 ### 自动打开浏览器设置
 修改（AUTO_OPEN_BROWSER=xxxx）的值来启用或禁用自动打开浏览器功能：
-- true: 启动服务器后自动打开浏览器
-- false: 不自动打开浏览器（默认）
+- true: 启动服务器后自动打开浏览器（默认）
+- false: 不自动打开浏览器
 
 ## 注意事项
 
