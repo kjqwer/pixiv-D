@@ -307,11 +307,55 @@ class FileManager {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
           },
           timeout: downloadConfig.timeout,
-          signal: abortController ? abortController.signal : undefined
+          signal: abortController ? abortController.signal : undefined,
+          // 添加连接超时和响应超时配置
+          httpsAgent: new (require('https')).Agent({
+            keepAlive: true,
+            timeout: 60000, // 连接超时60秒
+          }),
+          // 添加重试配置
+          validateStatus: (status) => status < 500, // 只对5xx错误重试
         });
 
         // 使用增强的写入流创建方法
         writer = await FileUtils.safeCreateWriteStream(filePath);
+        let downloadedBytes = 0;
+        const totalBytes = parseInt(response.headers['content-length']) || 0;
+
+        // 设置流超时
+        let streamTimeout = setTimeout(() => {
+          logger.warn(`流传输超时，中断下载: ${filePath}`);
+          if (writer && !writer.destroyed) {
+            writer.destroy();
+          }
+          if (abortController) {
+            abortController.abort();
+          }
+        }, downloadConfig.timeout + 60000);
+
+        response.data.on('data', (chunk) => {
+          downloadedBytes += chunk.length;
+          // 重置流超时
+          clearTimeout(streamTimeout);
+          streamTimeout = setTimeout(() => {
+            if (writer && !writer.destroyed) {
+              logger.warn(`流传输超时，中断下载: ${filePath}`);
+              writer.destroy();
+              if (abortController) {
+                abortController.abort();
+              }
+            }
+          }, downloadConfig.timeout + 60000);
+        });
+
+        response.data.on('error', (error) => {
+          clearTimeout(streamTimeout);
+          logger.error(`下载流错误: ${filePath}`, error);
+          if (writer && !writer.destroyed) {
+            writer.destroy();
+          }
+        });
+
         response.data.pipe(writer);
 
         return new Promise((resolve, reject) => {
@@ -319,6 +363,7 @@ class FileManager {
           let abortListener = null;
           
           const cleanup = () => {
+            clearTimeout(streamTimeout);
             if (writer && !writer.destroyed) {
               writer.destroy();
             }

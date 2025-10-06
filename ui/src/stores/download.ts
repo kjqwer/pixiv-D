@@ -133,15 +133,21 @@ export const useDownloadStore = defineStore('download', () => {
 
     console.log('开始SSE监听任务进度:', taskId);
 
-    // 添加超时处理
+    // 添加超时处理 - 增加到60秒以匹配后端
     const timeoutId = setTimeout(() => {
       console.warn('SSE连接超时，关闭连接:', taskId);
       stopTaskStreaming(taskId);
-    }, 30000); // 30秒超时
+    }, 60000); // 60秒超时
 
     const closeConnection = downloadService.streamTaskProgress(
       taskId,
       (task) => {
+        // 验证task对象是否有效
+        if (!task || !task.id) {
+          console.error('收到无效的任务数据:', task);
+          return;
+        }
+
         // console.log('收到SSE进度更新:', {
         //   taskId,
         //   status: task.status,

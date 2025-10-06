@@ -203,17 +203,44 @@ class DownloadService {
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.type === 'progress') {
-          onProgress(data.data);
+        
+        // 处理不同类型的SSE消息
+        if (data.type === 'connected') {
+          console.log('SSE连接已建立:', data.taskId);
+        } else if (data.type === 'progress') {
+          // 新的数据格式：data.task 包含任务信息
+          if (data.task) {
+            onProgress(data.task);
+          }
+        } else if (data.type === 'completed') {
+          // 任务完成
+          console.log('任务完成:', data.status);
+          if (onComplete) {
+            onComplete();
+          }
+          eventSource.close();
+        } else if (data.type === 'timeout') {
+          // 连接超时
+          console.warn('SSE连接超时');
+          if (onComplete) {
+            onComplete();
+          }
+          eventSource.close();
+        } else if (data.type === 'heartbeat') {
+          // 心跳消息，不需要处理
+          console.debug('收到SSE心跳');
         } else if (data.type === 'complete') {
-          onProgress(data.data);
+          // 兼容旧格式
+          if (data.data) {
+            onProgress(data.data);
+          }
           if (onComplete) {
             onComplete();
           }
           eventSource.close();
         }
       } catch (error) {
-        console.error('解析SSE数据失败:', error);
+        console.error('解析SSE数据失败:', error, 'Raw data:', event.data);
       }
     };
 

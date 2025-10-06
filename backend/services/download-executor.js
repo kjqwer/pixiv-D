@@ -294,102 +294,142 @@ class DownloadExecutor {
 
         const batch = items.slice(i, i + batchSize);
         const batchPromises = batch.map(async item => {
-          try {
-            // 检查是否应该暂停（在每个作品下载前检查）
-            if (this.shouldPause(task.id)) {
-              logger.info('批量下载任务已暂停，停止当前作品下载:', task.id);
-              // 设置任务状态为暂停
-              task.status = 'paused';
-              await this.taskManager.saveTasks();
-              this.progressManager.notifyProgressUpdate(task.id, task);
-              return { artwork_id: typeof item === 'object' ? item.id : item, success: false, paused: true };
-            }
-            
-            // 获取作品ID - 支持直接传入ID或作品对象
-            const artworkId = typeof item === 'object' ? item.id : item;
-            
-            // 使用专门的批量下载方法，避免创建重复任务
-            const downloadResult = await this.downloadService.downloadSingleArtworkForBatch(artworkId, {
-              size,
-              quality,
-              format,
-              skipExisting: true
-            });
+          // 为每个下载添加超时控制，防止单个下载卡住整个批次
+          return Promise.race([
+            // 实际下载Promise
+            (async () => {
+              try {
+                // 检查是否应该暂停（在每个作品下载前检查）
+                if (this.shouldPause(task.id)) {
+                  logger.info('批量下载任务已暂停，停止当前作品下载:', task.id);
+                  // 设置任务状态为暂停
+                  task.status = 'paused';
+                  await this.taskManager.saveTasks();
+                  this.progressManager.notifyProgressUpdate(task.id, task);
+                  return { artwork_id: typeof item === 'object' ? item.id : item, success: false, paused: true };
+                }
+                
+                // 获取作品ID - 支持直接传入ID或作品对象
+                const artworkId = typeof item === 'object' ? item.id : item;
+                
+                // 使用专门的批量下载方法，避免创建重复任务
+                const downloadResult = await this.downloadService.downloadSingleArtworkForBatch(artworkId, {
+                  size,
+                  quality,
+                  format,
+                  skipExisting: true
+                });
 
-            if (downloadResult.success) {
-              // 检查是否跳过下载
-              if (downloadResult.skipped) {
-                // 跳过下载，不计入失败，但也不计入完成
-                const result = { artwork_id: artworkId, success: true, skipped: true };
-                results.push(result);
-                return result;
-              } else {
-                // 真正下载成功，立即添加到注册表
-                task.completed_files++;
-                
-                // 立即添加到下载注册表
-                try {
-                  await this.downloadService.downloadRegistry.addArtwork(
-                    downloadResult.artist_name, 
-                    artworkId
-                  );
-                  logger.debug(`批量下载中的作品 ${artworkId} 已添加到下载注册表`, {
-                    artworkId,
-                    artistName: downloadResult.artist_name,
-                    taskId: task.id
-                  });
-                } catch (error) {
-                  logger.error(`批量下载中添加作品到注册表失败: ${artworkId}`, {
-                    artworkId,
-                    artistName: downloadResult.artist_name,
-                    taskId: task.id,
-                    error: error.message,
-                    stack: error.stack
-                  });
+                if (downloadResult.success) {
+                  // 检查是否跳过下载
+                  if (downloadResult.skipped) {
+                    // 跳过下载，不计入失败，但也不计入完成
+                    const result = { artwork_id: artworkId, success: true, skipped: true };
+                    results.push(result);
+                    return result;
+                  } else {
+                    // 真正下载成功，立即添加到注册表
+                    task.completed_files++;
+                    
+                    // 立即添加到下载注册表
+                    try {
+                      await this.downloadService.downloadRegistry.addArtwork(
+                        downloadResult.artist_name, 
+                        artworkId
+                      );
+                      logger.debug(`批量下载中的作品 ${artworkId} 已添加到下载注册表`, {
+                        artworkId,
+                        artistName: downloadResult.artist_name,
+                        taskId: task.id
+                      });
+                    } catch (error) {
+                      logger.error(`批量下载中添加作品到注册表失败: ${artworkId}`, {
+                        artworkId,
+                        artistName: downloadResult.artist_name,
+                        taskId: task.id,
+                        error: error.message,
+                        stack: error.stack
+                      });
+                    }
+                    
+                    // 添加到最近完成列表
+                    const completedItem = {
+                      artwork_id: artworkId,
+                      artwork_title: downloadResult.artwork_title || 
+                        (typeof item === 'object' ? item.title : null) || 
+                        `作品 ${artworkId}`,
+                      artist_name: downloadResult.artist_name || 
+                        (typeof item === 'object' ? item.user?.name : null) || 
+                        '未知作者'
+                    };
+                    
+                    recentCompleted.unshift(completedItem);
+                    // 只保留最近5个
+                    if (recentCompleted.length > 5) {
+                      recentCompleted.pop();
+                    }
+                    
+                    // 更新任务的recent_completed
+                    task.recent_completed = [...recentCompleted];
+                    
+                    const result = { artwork_id: artworkId, success: true };
+                    results.push(result);
+                    return result;
+                  }
+                } else {
+                  // 下载失败
+                  task.failed_files++;
+                  const result = { artwork_id: artworkId, success: false, error: downloadResult.error };
+                  results.push(result);
+                  return result;
                 }
-                
-                // 添加到最近完成列表
-                const completedItem = {
-                  artwork_id: artworkId,
-                  artwork_title: downloadResult.artwork_title || 
-                    (typeof item === 'object' ? item.title : null) || 
-                    `作品 ${artworkId}`,
-                  artist_name: downloadResult.artist_name || 
-                    (typeof item === 'object' ? item.user?.name : null) || 
-                    '未知作者'
-                };
-                
-                recentCompleted.unshift(completedItem);
-                // 只保留最近5个
-                if (recentCompleted.length > 5) {
-                  recentCompleted.pop();
-                }
-                
-                // 更新任务的recent_completed
-                task.recent_completed = [...recentCompleted];
-                
-                const result = { artwork_id: artworkId, success: true };
+              } catch (error) {
+                // 异常情况
+                const artworkId = typeof item === 'object' ? item.id : item;
+                task.failed_files++;
+                const result = { artwork_id: artworkId, success: false, error: error.message };
                 results.push(result);
                 return result;
               }
-            } else {
-              // 下载失败
-              task.failed_files++;
-              const result = { artwork_id: artworkId, success: false, error: downloadResult.error };
-              results.push(result);
-              return result;
-            }
-          } catch (error) {
-            // 异常情况
+            })(),
+            // 超时Promise - 防止单个下载卡住整个批次
+            new Promise((_, reject) => {
+              setTimeout(() => {
+                const artworkId = typeof item === 'object' ? item.id : item;
+                logger.warn(`作品下载超时，跳过: ${artworkId}`, { taskId: task.id, timeout: '120s' });
+                reject(new Error(`下载超时: ${artworkId}`));
+              }, 120000); // 2分钟超时
+            })
+          ]).catch(error => {
+            // 处理超时或其他错误
             const artworkId = typeof item === 'object' ? item.id : item;
             task.failed_files++;
             const result = { artwork_id: artworkId, success: false, error: error.message };
             results.push(result);
             return result;
-          }
+          });
         });
 
-        await Promise.all(batchPromises);
+        // 使用 Promise.allSettled 替代 Promise.all，确保不会因为单个Promise卡住而阻塞整个批次
+        const batchResults = await Promise.allSettled(batchPromises);
+        
+        // 处理结果，确保所有Promise都有结果
+        batchResults.forEach((result, index) => {
+          if (result.status === 'rejected') {
+            const artworkId = typeof batch[index] === 'object' ? batch[index].id : batch[index];
+            logger.error(`批次中的作品处理失败: ${artworkId}`, { 
+              error: result.reason?.message || result.reason,
+              taskId: task.id 
+            });
+            // 确保失败的作品也被计入
+            task.failed_files++;
+            results.push({ 
+              artwork_id: artworkId, 
+              success: false, 
+              error: result.reason?.message || '未知错误' 
+            });
+          }
+        });
 
         // 更新进度并通知
         task.progress = Math.round((task.completed_files / task.total_files) * 100);
