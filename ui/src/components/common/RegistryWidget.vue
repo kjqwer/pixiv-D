@@ -120,21 +120,21 @@
           <div class="action-group">
             <div class="action-group-title">基础操作</div>
             <div class="action-buttons basic-actions">
-              <button @click="refreshStats" class="btn btn-enhanced btn-secondary" :disabled="loading">
+              <button @click="refreshStats" class="btn btn-enhanced btn-secondary" :disabled="loading || isRebuildingRegistry">
                 <SvgIcon name="refresh" class="btn-icon" />
                 刷新统计
               </button>
 
-              <button @click="exportRegistry" class="btn btn-enhanced btn-primary" :disabled="loading">
+              <button @click="exportRegistry" class="btn btn-enhanced btn-primary" :disabled="loading || isRebuildingRegistry">
                 <SvgIcon name="download" class="btn-icon" />
                 导出注册表
               </button>
 
-              <label class="btn btn-enhanced btn-primary" :class="{ disabled: loading }">
+              <label class="btn btn-enhanced btn-primary" :class="{ disabled: loading || isRebuildingRegistry }">
                 <SvgIcon name="upload" class="btn-icon" />
                 导入注册表
                 <input type="file" @change="handleFileImport" accept=".json" style="display: none;"
-                  :disabled="loading" />
+                  :disabled="loading || isRebuildingRegistry" />
               </label>
             </div>
           </div>
@@ -143,15 +143,63 @@
           <div class="action-group">
             <div class="action-group-title">高级操作</div>
             <div class="action-buttons advanced-actions">
-              <button @click="rebuildRegistry" class="btn btn-enhanced btn-warning" :disabled="loading">
+              <button @click="rebuildRegistry" class="btn btn-enhanced btn-warning" :disabled="loading || isRebuildingRegistry">
                 <SvgIcon name="rebuild" class="btn-icon" />
-                同步文件系统
+                {{ isRebuildingRegistry ? '同步中...' : '同步文件系统' }}
               </button>
 
-              <button @click="cleanupRegistry" class="btn btn-enhanced btn-danger" :disabled="loading">
+              <button @click="cleanupRegistry" class="btn btn-enhanced btn-danger" :disabled="loading || isRebuildingRegistry">
                 <SvgIcon name="clean" class="btn-icon" />
                 清理注册表
               </button>
+            </div>
+          </div>
+
+          <!-- 注册表重建进度显示 -->
+          <div v-if="isRebuildingRegistry" class="rebuild-progress">
+            <div class="progress-header">
+              <h4>文件系统同步进度</h4>
+              <button @click="cancelRebuild" class="btn btn-small btn-danger" title="取消同步">
+                <SvgIcon name="close" class="btn-icon" />
+                取消
+              </button>
+            </div>
+            
+            <div class="progress-content">
+              <div class="progress-stats">
+                <div class="progress-stat">
+                  <span class="stat-label">已扫描艺术家:</span>
+                  <span class="stat-value">{{ rebuildProgress.scannedArtists || 0 }}</span>
+                </div>
+                <div class="progress-stat">
+                  <span class="stat-label">已扫描作品:</span>
+                  <span class="stat-value">{{ rebuildProgress.scannedArtworks || 0 }}</span>
+                </div>
+                <div class="progress-stat">
+                  <span class="stat-label">新增作品:</span>
+                  <span class="stat-value">{{ rebuildProgress.addedArtworks || 0 }}</span>
+                </div>
+                <div class="progress-stat">
+                  <span class="stat-label">跳过作品:</span>
+                  <span class="stat-value">{{ rebuildProgress.skippedArtworks || 0 }}</span>
+                </div>
+              </div>
+              
+              <div v-if="rebuildProgress.currentArtist" class="current-status">
+                <span class="status-label">当前处理:</span>
+                <span class="status-value">{{ rebuildProgress.currentArtist }}</span>
+              </div>
+              
+              <div class="progress-bar-container">
+                <div class="progress-bar">
+                  <div class="progress-fill" :style="{ width: progressPercentage + '%' }"></div>
+                </div>
+                <span class="progress-text">{{ progressPercentage.toFixed(1) }}%</span>
+              </div>
+              
+              <div class="time-info">
+                <span class="elapsed-time">已用时: {{ formatElapsedTime(rebuildStartTime) }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -161,9 +209,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed, onUnmounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRegistryStore } from '@/stores/registry';
+import downloadService from '@/services/download';
 import SvgIcon from './SvgIcon.vue';
 import LoadingSpinner from './LoadingSpinner.vue';
 import ErrorMessage from './ErrorMessage.vue';
@@ -177,6 +226,27 @@ const { stats, loading, error, config } = storeToRefs(registryStore);
 
 // 检测方法选择 - 不设置默认值，等待从后端配置初始化
 const detectionMethod = ref<'registry' | 'scan' | 'hybrid'>();
+
+// 重建进度相关状态
+const isRebuildingRegistry = ref(false);
+const rebuildTaskId = ref<string | null>(null);
+const rebuildProgress = ref({
+  scannedArtists: 0,
+  scannedArtworks: 0,
+  addedArtworks: 0,
+  skippedArtworks: 0,
+  currentArtist: ''
+});
+const rebuildStartTime = ref<number>(0);
+const progressPollingInterval = ref<number | null>(null);
+
+// 计算进度百分比
+const progressPercentage = computed(() => {
+  const total = rebuildProgress.value.scannedArtworks;
+  const processed = rebuildProgress.value.addedArtworks + rebuildProgress.value.skippedArtworks;
+  if (total === 0) return 0;
+  return Math.min((processed / total) * 100, 100);
+});
 
 // 切换面板显示
 const togglePanel = () => {
@@ -214,16 +284,138 @@ const handleFileImport = async (event: Event) => {
   target.value = '';
 };
 
-// 重建注册表
+// 重建注册表 - 使用新的异步API
 const rebuildRegistry = async () => {
   if (!confirm('确定要同步文件系统到注册表吗？这将扫描整个下载目录并添加新发现的作品，可能需要一些时间。')) {
     return;
   }
 
-  const result = await registryStore.rebuildRegistry();
-  if (result.success) {
-    showSuccess(`文件系统同步完成，新增 ${result.data?.addedArtworks || 0} 个作品，跳过 ${result.data?.skippedArtworks || 0} 个已存在作品`);
+  try {
+    // 启动异步重建任务
+    const result = await downloadService.rebuildRegistry();
+    if (result.success && result.data?.taskId) {
+      rebuildTaskId.value = result.data.taskId;
+      isRebuildingRegistry.value = true;
+      rebuildStartTime.value = Date.now();
+      
+      // 重置进度
+      rebuildProgress.value = {
+        scannedArtists: 0,
+        scannedArtworks: 0,
+        addedArtworks: 0,
+        skippedArtworks: 0,
+        currentArtist: ''
+      };
+      
+      // 开始轮询进度
+      startProgressPolling();
+      showSuccess('文件系统同步已开始，请等待完成...');
+    } else {
+      throw new Error(result.error || '启动同步任务失败');
+    }
+  } catch (error) {
+    console.error('启动重建任务失败:', error);
+    showError('启动文件系统同步失败: ' + (error as Error).message);
   }
+};
+
+// 开始轮询进度
+const startProgressPolling = () => {
+  if (progressPollingInterval.value) {
+    clearInterval(progressPollingInterval.value);
+  }
+  
+  progressPollingInterval.value = setInterval(async () => {
+    if (!rebuildTaskId.value) return;
+    
+    try {
+      const statusResult = await downloadService.getRegistryRebuildStatus(rebuildTaskId.value);
+      if (statusResult.success && statusResult.data) {
+        const status = statusResult.data;
+        
+        // 更新进度信息
+        if (status.progress) {
+          rebuildProgress.value = {
+            scannedArtists: status.progress.scannedArtists || 0,
+            scannedArtworks: status.progress.scannedArtworks || 0,
+            addedArtworks: status.progress.addedArtworks || 0,
+            skippedArtworks: status.progress.skippedArtworks || 0,
+            currentArtist: status.progress.currentArtist || ''
+          };
+        }
+        
+        // 检查任务状态
+        if (status.status === 'completed') {
+          stopProgressPolling();
+          isRebuildingRegistry.value = false;
+          rebuildTaskId.value = null;
+          
+          const addedCount = rebuildProgress.value.addedArtworks;
+          const skippedCount = rebuildProgress.value.skippedArtworks;
+          showSuccess(`文件系统同步完成！新增 ${addedCount} 个作品，跳过 ${skippedCount} 个已存在作品`);
+          
+          // 刷新统计信息
+          refreshStats();
+        } else if (status.status === 'failed') {
+          stopProgressPolling();
+          isRebuildingRegistry.value = false;
+          rebuildTaskId.value = null;
+          showError('文件系统同步失败: ' + (status.error || '未知错误'));
+        } else if (status.status === 'cancelled') {
+          stopProgressPolling();
+          isRebuildingRegistry.value = false;
+          rebuildTaskId.value = null;
+          showSuccess('文件系统同步已取消');
+        }
+      }
+    } catch (error) {
+      console.error('获取重建进度失败:', error);
+      // 不立即停止轮询，可能是临时网络问题
+    }
+  }, 2000); // 每2秒轮询一次
+};
+
+// 停止轮询进度
+const stopProgressPolling = () => {
+  if (progressPollingInterval.value) {
+    clearInterval(progressPollingInterval.value);
+    progressPollingInterval.value = null;
+  }
+};
+
+// 取消重建任务
+const cancelRebuild = async () => {
+  if (!rebuildTaskId.value) return;
+  
+  if (!confirm('确定要取消文件系统同步吗？')) {
+    return;
+  }
+  
+  try {
+    const result = await downloadService.cancelRegistryRebuild(rebuildTaskId.value);
+    if (result.success) {
+      stopProgressPolling();
+      isRebuildingRegistry.value = false;
+      rebuildTaskId.value = null;
+      showSuccess('文件系统同步已取消');
+    } else {
+      showError('取消同步失败: ' + (result.error || '未知错误'));
+    }
+  } catch (error) {
+    console.error('取消重建任务失败:', error);
+    showError('取消同步失败: ' + (error as Error).message);
+  }
+};
+
+// 格式化已用时间
+const formatElapsedTime = (startTime: number): string => {
+  if (!startTime) return '00:00';
+  
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  const minutes = Math.floor(elapsed / 60);
+  const seconds = elapsed % 60;
+  
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 };
 
 // 清理注册表
@@ -293,6 +485,11 @@ const showSuccess = (message: string) => {
   }, 3000);
 };
 
+// 显示错误消息
+const showError = (message: string) => {
+  registryStore.error = message;
+};
+
 // 格式化日期
 const formatDate = (dateString?: string): string => {
   if (!dateString) return '未知';
@@ -324,6 +521,11 @@ onMounted(async () => {
 
   // 初始化时加载统计数据
   refreshStats();
+});
+
+// 组件卸载时清理
+onUnmounted(() => {
+  stopProgressPolling();
 });
 
 // 监听配置变化，自动更新检测方法
@@ -1240,5 +1442,323 @@ watch(config, () => {
   font-family: var(--font-mono, 'Courier New', monospace);
   color: var(--color-text-tertiary, #9ca3af);
   font-weight: 400;
+}
+
+/* 重建进度样式 */
+.rebuild-progress {
+  background: var(--color-bg-secondary, #f8fafc);
+  border: 2px solid var(--color-warning-border, #fcd34d);
+  border-radius: var(--radius-lg, 0.5rem);
+  padding: var(--spacing-lg, 1rem);
+  margin-top: var(--spacing-lg, 1rem);
+  position: relative;
+  overflow: hidden;
+  animation: slideIn 0.3s ease-out;
+}
+
+.rebuild-progress::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-warning), var(--color-info), var(--color-success));
+  animation: progressGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes progressGlow {
+  0% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-lg, 1rem);
+  padding-bottom: var(--spacing-sm, 0.5rem);
+  border-bottom: 1px solid var(--color-border-light, #e2e8f0);
+}
+
+.progress-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #374151);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm, 0.5rem);
+}
+
+.progress-header h4::before {
+  content: '⚡';
+  font-size: 1.125rem;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.btn-small {
+  padding: var(--spacing-xs, 0.25rem) var(--spacing-sm, 0.5rem);
+  font-size: 0.75rem;
+  border-radius: var(--radius-sm, 0.25rem);
+}
+
+.progress-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md, 0.75rem);
+}
+
+.progress-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--spacing-sm, 0.5rem);
+  background: var(--color-bg-primary, white);
+  padding: var(--spacing-md, 0.75rem);
+  border-radius: var(--radius-md, 0.375rem);
+  border: 1px solid var(--color-border-light, #e2e8f0);
+}
+
+.progress-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--spacing-xs, 0.25rem);
+}
+
+.progress-stat .stat-label {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary, #6b7280);
+  font-weight: 500;
+  margin-bottom: var(--spacing-xs, 0.25rem);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.progress-stat .stat-value {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-primary, #3b82f6);
+  font-family: var(--font-mono, 'Courier New', monospace);
+  background: linear-gradient(135deg, var(--color-primary-light, #eff6ff), transparent);
+  padding: var(--spacing-xs, 0.25rem) var(--spacing-sm, 0.5rem);
+  border-radius: var(--radius-sm, 0.25rem);
+  border: 1px solid var(--color-primary-light, #dbeafe);
+  min-width: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.current-status {
+  background: var(--color-bg-primary, white);
+  padding: var(--spacing-md, 0.75rem);
+  border-radius: var(--radius-md, 0.375rem);
+  border: 1px solid var(--color-border-light, #e2e8f0);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm, 0.5rem);
+}
+
+.status-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-secondary, #6b7280);
+  flex-shrink: 0;
+}
+
+.status-value {
+  font-size: 0.875rem;
+  color: var(--color-text-primary, #374151);
+  font-family: var(--font-mono, 'Courier New', monospace);
+  background: var(--color-bg-tertiary, #f8fafc);
+  padding: var(--spacing-xs, 0.25rem) var(--spacing-sm, 0.5rem);
+  border-radius: var(--radius-sm, 0.25rem);
+  border: 1px solid var(--color-border-light, #e2e8f0);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progress-bar-container {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md, 0.75rem);
+  background: var(--color-bg-primary, white);
+  padding: var(--spacing-md, 0.75rem);
+  border-radius: var(--radius-md, 0.375rem);
+  border: 1px solid var(--color-border-light, #e2e8f0);
+}
+
+.progress-bar {
+  flex: 1;
+  height: 1rem;
+  background: var(--color-bg-tertiary, #f1f5f9);
+  border-radius: var(--radius-full, 9999px);
+  overflow: hidden;
+  position: relative;
+  border: 1px solid var(--color-border-light, #e2e8f0);
+}
+
+.progress-bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, 
+    rgba(255, 255, 255, 0.1) 0%, 
+    rgba(255, 255, 255, 0.3) 50%, 
+    rgba(255, 255, 255, 0.1) 100%);
+  animation: shimmer 2s infinite;
+  pointer-events: none;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, 
+    var(--color-success, #16a34a) 0%, 
+    var(--color-info, #06b6d4) 50%, 
+    var(--color-warning, #f59e0b) 100%);
+  border-radius: var(--radius-full, 9999px);
+  transition: width 0.5s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(255, 255, 255, 0.3) 50%, 
+    transparent 100%);
+  animation: progressShine 1.5s ease-in-out infinite;
+}
+
+@keyframes progressShine {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.progress-text {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #374151);
+  font-family: var(--font-mono, 'Courier New', monospace);
+  min-width: 3rem;
+  text-align: right;
+  background: var(--color-bg-tertiary, #f8fafc);
+  padding: var(--spacing-xs, 0.25rem) var(--spacing-sm, 0.5rem);
+  border-radius: var(--radius-sm, 0.25rem);
+  border: 1px solid var(--color-border-light, #e2e8f0);
+}
+
+.time-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-primary, white);
+  padding: var(--spacing-sm, 0.5rem) var(--spacing-md, 0.75rem);
+  border-radius: var(--radius-md, 0.375rem);
+  border: 1px solid var(--color-border-light, #e2e8f0);
+}
+
+.elapsed-time {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary, #6b7280);
+  font-family: var(--font-mono, 'Courier New', monospace);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs, 0.25rem);
+}
+
+.elapsed-time::before {
+  content: '⏱️';
+  font-size: 1rem;
+}
+
+/* 响应式设计 - 进度显示 */
+@media (max-width: 768px) {
+  .progress-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-xs, 0.25rem);
+  }
+  
+  .progress-stat {
+    font-size: 0.65rem;
+  }
+  
+  .progress-stat .stat-label {
+    font-size: 0.65rem;
+  }
+  
+  .progress-stat .stat-value {
+    font-size: 1rem;
+  }
+  
+  .current-status {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-xs, 0.25rem);
+  }
+  
+  .status-value {
+    width: 100%;
+  }
+  
+  .progress-bar-container {
+    flex-direction: column;
+    gap: var(--spacing-sm, 0.5rem);
+  }
+  
+  .progress-text {
+    align-self: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .rebuild-progress {
+    padding: var(--spacing-md, 0.75rem);
+  }
+  
+  .progress-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-sm, 0.5rem);
+  }
+  
+  .progress-stats {
+    grid-template-columns: 1fr;
+  }
+  
+  .btn-small {
+    align-self: flex-end;
+  }
 }
 </style>

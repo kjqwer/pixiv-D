@@ -640,6 +640,64 @@ class FileManager {
   }
 
   /**
+   * 获取所有艺术家目录
+   */
+  async getArtistDirectories() {
+    try {
+      const downloadPath = await this.getDownloadPath();
+      if (!await this.directoryExists(downloadPath)) {
+        return [];
+      }
+      
+      const items = await this.listDirectory(downloadPath);
+      const artistDirs = [];
+      
+      for (const item of items) {
+        const itemPath = path.join(downloadPath, item);
+        const stat = await fs.stat(itemPath);
+        if (stat.isDirectory()) {
+          artistDirs.push(item);
+        }
+      }
+      
+      return artistDirs;
+    } catch (error) {
+      logger.error('获取艺术家目录失败:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 获取指定艺术家目录下的所有作品目录
+   */
+  async getArtworkDirectories(artistName) {
+    try {
+      const downloadPath = await this.getDownloadPath();
+      const artistPath = path.join(downloadPath, artistName);
+      
+      if (!await this.directoryExists(artistPath)) {
+        return [];
+      }
+      
+      const items = await this.listDirectory(artistPath);
+      const artworkDirs = [];
+      
+      for (const item of items) {
+        const itemPath = path.join(artistPath, item);
+        const stat = await fs.stat(itemPath);
+        if (stat.isDirectory()) {
+          artworkDirs.push(item);
+        }
+      }
+      
+      return artworkDirs;
+    } catch (error) {
+      logger.error(`获取艺术家 ${artistName} 的作品目录失败:`, error);
+      return [];
+    }
+  }
+
+  /**
    * 检查目录是否存在
    */
   async directoryExists(dirPath) {

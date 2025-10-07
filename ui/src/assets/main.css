@@ -75,6 +75,19 @@ html, body {
   background: #f3f4f6;
 }
 
+/* 移动端按钮样式 */
+.btn-mobile {
+  padding: 0.875rem 1.25rem;
+  font-size: 1rem;
+  min-height: 44px; /* 符合移动端触摸标准 */
+}
+
+.btn-mobile-sm {
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  min-height: 36px;
+}
+
 /* 全局容器样式 */
 .container {
   max-width: 1200px;
@@ -82,10 +95,200 @@ html, body {
   padding: 0 2rem;
 }
 
+.container-fluid {
+  width: 100%;
+  padding: 0 1rem;
+}
+
+/* 移动端导航相关样式 */
+.mobile-nav-toggle {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  color: #6b7280;
+  transition: all 0.2s;
+}
+
+.mobile-nav-toggle:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.mobile-nav-toggle svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.mobile-nav-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1px solid #e5e7eb;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  z-index: 50;
+}
+
+.mobile-nav-menu.active {
+  display: block;
+}
+
+.mobile-nav-item {
+  display: block;
+  padding: 1rem 2rem;
+  color: #6b7280;
+  text-decoration: none;
+  border-bottom: 1px solid #f3f4f6;
+  transition: all 0.2s;
+}
+
+.mobile-nav-item:hover {
+  background: #f8fafc;
+  color: #3b82f6;
+}
+
+.mobile-nav-item.router-link-active {
+  color: #3b82f6;
+  background: #eff6ff;
+  border-left: 4px solid #3b82f6;
+}
+
+/* 移动端用户信息 */
+.mobile-user-section {
+  padding: 1.5rem 2rem;
+  background: #f8fafc;
+  border-top: 1px solid #e5e7eb;
+}
+
+.mobile-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.mobile-username {
+  font-weight: 600;
+  color: #374151;
+  font-size: 1.125rem;
+}
+
+.mobile-auth-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .container {
     padding: 0 1rem;
+  }
+  
+  /* 显示移动端导航切换按钮 */
+  .mobile-nav-toggle {
+    display: flex;
+  }
+  
+  /* 隐藏桌面端导航菜单 */
+  .desktop-nav-menu {
+    display: none;
+  }
+  
+  /* 移动端特定的间距调整 */
+  .mobile-spacing {
+    padding: 1rem;
+  }
+  
+  .mobile-spacing-sm {
+    padding: 0.5rem;
+  }
+  
+  .mobile-spacing-lg {
+    padding: 1.5rem;
+  }
+  
+  /* 移动端文本大小调整 */
+  .mobile-text-sm {
+    font-size: 0.875rem;
+  }
+  
+  .mobile-text-base {
+    font-size: 1rem;
+  }
+  
+  .mobile-text-lg {
+    font-size: 1.125rem;
+  }
+  
+  /* 移动端布局工具类 */
+  .mobile-stack {
+    flex-direction: column !important;
+  }
+  
+  .mobile-full {
+    width: 100% !important;
+  }
+  
+  .mobile-hide {
+    display: none !important;
+  }
+  
+  .mobile-show {
+    display: block !important;
+  }
+  
+  /* 移动端卡片样式 */
+  .mobile-card {
+    margin: 0.5rem;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* 移动端表单样式 */
+  .mobile-form-group {
+    margin-bottom: 1.25rem;
+  }
+  
+  .mobile-input {
+    width: 100%;
+    padding: 0.875rem;
+    font-size: 1rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    min-height: 44px;
+  }
+  
+  /* 移动端网格布局 */
+  .mobile-grid-1 {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .mobile-grid-2 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* 超小屏幕优化 */
+@media (max-width: 480px) {
+  .container {
+    padding: 0 0.75rem;
+  }
+  
+  .mobile-nav-item {
+    padding: 0.875rem 1rem;
+  }
+  
+  .mobile-user-section {
+    padding: 1rem;
+  }
+  
+  .btn-mobile {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
   }
 }
 

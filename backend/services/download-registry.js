@@ -329,118 +329,95 @@ class DownloadRegistry {
   }
 
   /**
-   * 从文件系统扫描并重建注册表
-   * @param {Object} fileManager - 文件管理器实例
-   * @returns {Object} 扫描结果统计
+   * 从文件系统重建注册表
+   * @param {FileManager} fileManager 
+   * @param {string} taskId - 任务ID，用于更新进度
+   * @returns {Promise<{scannedArtists: number, scannedArtworks: number, addedArtworks: number, skippedArtworks: number}>}
    */
-  async rebuildFromFileSystem(fileManager) {
-    try {
-      logger.info('开始从文件系统扫描并添加新作品到注册表...');
-      
-      if (!this.loaded) {
-        await this.loadRegistry();
-      }
-      
-      let scannedArtists = 0;
-      let scannedArtworks = 0;
-      let addedArtworks = 0;
-      let skippedArtworks = 0;
+  async rebuildFromFileSystem(fileManager, taskId = null) {
+    logger.info('开始从文件系统重建下载注册表...');
+    
+    const stats = {
+      scannedArtists: 0,
+      scannedArtworks: 0,
+      addedArtworks: 0,
+      skippedArtworks: 0
+    };
 
-      const downloadPath = await fileManager.getDownloadPath();
-      logger.debug(`扫描下载路径: ${downloadPath}`);
-      
-      const artists = await fileManager.listDirectory(downloadPath);
-      logger.debug(`找到 ${artists.length} 个作者目录`);
+    // 获取所有艺术家目录
+    const artistDirs = await fileManager.getArtistDirectories();
+    logger.info(`发现 ${artistDirs.length} 个艺术家目录`);
 
-      for (const artist of artists) {
-        try {
-          const artistPath = path.join(downloadPath, artist);
-          const artistStat = await fileManager.getFileInfo(artistPath);
-
-          if (artistStat.exists && artistStat.isDirectory) {
-            scannedArtists++;
-            logger.debug(`扫描作者: ${artist}`);
-            
-            const artworks = await fileManager.listDirectory(artistPath);
-
-            for (const artwork of artworks) {
-              try {
-                const artworkPath = path.join(artistPath, artwork);
-                const artworkStat = await fileManager.getFileInfo(artworkPath);
-
-                if (artworkStat.exists && artworkStat.isDirectory) {
-                  scannedArtworks++;
-                  
-                  // 检查是否是作品目录（包含数字ID）
-                  const artworkMatch = artwork.match(/^(\d+)_(.+)$/);
-                  if (artworkMatch) {
-                    const artworkId = parseInt(artworkMatch[1]);
-
-                    // 检查作品是否已经在注册表中
-                    const isAlreadyRegistered = await this.isArtworkDownloaded(artworkId);
-                    if (isAlreadyRegistered) {
-                      skippedArtworks++;
-                      continue; // 跳过已注册的作品
-                    }
-
-                    // 检查作品信息文件和图片文件
-                    const infoPath = path.join(artworkPath, 'artwork_info.json');
-                    let artworkInfo;
-                    try {
-                      const infoContent = await fs.readFile(infoPath, 'utf8');
-                      artworkInfo = JSON.parse(infoContent);
-                    } catch (error) {
-                      logger.debug(`读取作品信息文件失败: ${infoPath}`, error);
-                      continue; // 跳过没有信息文件的目录
-                    }
-
-                    // 检查是否有图片文件
-                    const files = await fileManager.listDirectory(artworkPath);
-                    const imageFiles = files.filter(file => /\.(jpg|jpeg|png|gif|webp)$/i.test(file));
-
-                    if (imageFiles.length > 0) {
-                      // 检查图片数量是否与artwork_info.json中记录的一致
-                      const expectedImageCount = artworkInfo.page_count || 1;
-                      if (imageFiles.length >= expectedImageCount) {
-                        // 添加到注册表（只添加新的）
-                        await this.addArtwork(artist, artworkId);
-                        addedArtworks++;
-                        logger.debug(`添加作品到注册表: ${artist} - ${artworkId}`);
-                      } else {
-                        logger.debug(`作品图片数量不足: ${artist} - ${artworkId}, 期望: ${expectedImageCount}, 实际: ${imageFiles.length}`);
-                      }
-                    } else {
-                      logger.debug(`作品目录无图片文件: ${artworkPath}`);
-                    }
-                  }
-                }
-              } catch (error) {
-                logger.debug(`处理作品目录 ${artwork} 时出错:`, error);
-                continue; // 跳过有问题的作品目录
-              }
+    // 更新进度的辅助函数
+    const updateProgress = (currentArtist = null) => {
+      if (taskId && global.registryRebuildTasks) {
+        const task = global.registryRebuildTasks.get(taskId);
+        if (task && task.status === 'running') {
+          global.registryRebuildTasks.set(taskId, {
+            ...task,
+            progress: {
+              ...stats,
+              currentArtist
             }
-          }
-        } catch (error) {
-          logger.debug(`处理作者目录 ${artist} 时出错:`, error);
-          continue; // 跳过有问题的作者目录
+          });
+        }
+        // 检查是否被取消
+        if (task && task.status === 'cancelled') {
+          throw new Error('任务已被取消');
         }
       }
+    };
 
-      const result = {
-        scannedArtists,
-        scannedArtworks,
-        addedArtworks,
-        skippedArtworks,
-        totalRegisteredArtists: Object.keys(this.registry.artists).length,
-        totalRegisteredArtworks: this.getTotalArtworkCount()
-      };
-
-      logger.info('注册表扫描完成', result);
-      return result;
-    } catch (error) {
-      logger.error('注册表扫描失败:', error);
-      throw error;
+    for (const artistDir of artistDirs) {
+      try {
+        stats.scannedArtists++;
+        updateProgress(artistDir);
+        
+        logger.info(`扫描艺术家目录: ${artistDir}`);
+        
+        // 获取艺术家目录下的所有作品目录
+        const artworkDirs = await fileManager.getArtworkDirectories(artistDir);
+        
+        for (const artworkDir of artworkDirs) {
+          try {
+            stats.scannedArtworks++;
+            updateProgress(artistDir);
+            
+            // 检查作品是否已在注册表中
+            const isRegistered = await this.isArtworkRegistered(artistDir, artworkDir);
+            
+            if (!isRegistered) {
+              // 获取作品信息并添加到注册表
+              const artworkInfo = await fileManager.getArtworkInfo(artistDir, artworkDir);
+              if (artworkInfo) {
+                await this.addArtwork(artistDir, artworkDir, artworkInfo);
+                stats.addedArtworks++;
+                logger.debug(`添加作品到注册表: ${artistDir}/${artworkDir}`);
+              }
+            } else {
+              stats.skippedArtworks++;
+            }
+            
+            // 每处理10个作品更新一次进度
+            if (stats.scannedArtworks % 10 === 0) {
+              updateProgress(artistDir);
+            }
+            
+          } catch (error) {
+            logger.warn(`处理作品目录失败 ${artistDir}/${artworkDir}:`, error.message);
+          }
+        }
+        
+      } catch (error) {
+        logger.warn(`处理艺术家目录失败 ${artistDir}:`, error.message);
+      }
     }
+
+    // 最终更新进度
+    updateProgress(null);
+    
+    logger.info('从文件系统重建下载注册表完成', stats);
+    return stats;
   }
 
   /**

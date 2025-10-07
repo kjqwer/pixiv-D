@@ -973,6 +973,28 @@ router.get('/stats', async (req, res) => {
 });
 
 /**
+ * 获取下载注册表统计信息
+ * GET /api/download/registry/stats
+ */
+router.get('/registry/stats', async (req, res) => {
+  try {
+    const downloadService = req.backend.getDownloadService();
+    const stats = await downloadService.downloadRegistry.getStats();
+    
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    logger.error('获取下载注册表统计信息失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
  * 导出下载注册表
  * GET /api/download/registry/export
  */
@@ -1032,14 +1054,63 @@ router.post('/registry/rebuild', async (req, res) => {
   try {
     const downloadService = req.backend.getDownloadService();
     const fileManager = downloadService.fileManager;
-    const result = await downloadService.downloadRegistry.rebuildFromFileSystem(fileManager);
     
+    // 生成任务ID
+    const taskId = `registry-rebuild-${Date.now()}`;
+    
+    // 立即返回任务ID，不等待完成
     res.json({
       success: true,
-      data: result
+      data: {
+        taskId,
+        status: 'started',
+        message: '注册表重建任务已启动'
+      }
     });
+    
+    // 异步执行重建任务
+    setImmediate(async () => {
+      try {
+        // 设置任务状态为进行中
+        global.registryRebuildTasks = global.registryRebuildTasks || new Map();
+        global.registryRebuildTasks.set(taskId, {
+          status: 'running',
+          startTime: Date.now(),
+          progress: {
+            scannedArtists: 0,
+            scannedArtworks: 0,
+            addedArtworks: 0,
+            skippedArtworks: 0,
+            currentArtist: null
+          }
+        });
+        
+        const result = await downloadService.downloadRegistry.rebuildFromFileSystem(fileManager, taskId);
+        
+        // 更新任务状态为完成
+        global.registryRebuildTasks.set(taskId, {
+          status: 'completed',
+          startTime: global.registryRebuildTasks.get(taskId).startTime,
+          endTime: Date.now(),
+          result: result
+        });
+        
+        logger.info(`注册表重建任务完成: ${taskId}`, result);
+      } catch (error) {
+        logger.error(`注册表重建任务失败: ${taskId}`, error);
+        
+        // 更新任务状态为失败
+        global.registryRebuildTasks.set(taskId, {
+          status: 'failed',
+          startTime: global.registryRebuildTasks.get(taskId).startTime,
+          endTime: Date.now(),
+          error: error.message
+        });
+      }
+    });
+    
   } catch (error) {
-    logger.error('重建下载注册表失败:', error);
+    logger.error('启动注册表重建任务失败:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -1048,20 +1119,29 @@ router.post('/registry/rebuild', async (req, res) => {
 });
 
 /**
- * 获取下载注册表统计信息
- * GET /api/download/registry/stats
+ * 获取注册表重建任务状态
+ * GET /api/download/registry/rebuild/status/:taskId
  */
-router.get('/registry/stats', async (req, res) => {
+router.get('/registry/rebuild/status/:taskId', async (req, res) => {
   try {
-    const downloadService = req.backend.getDownloadService();
-    const stats = await downloadService.downloadRegistry.getStats();
+    const { taskId } = req.params;
+    
+    global.registryRebuildTasks = global.registryRebuildTasks || new Map();
+    const task = global.registryRebuildTasks.get(taskId);
+    
+    if (!task) {
+      return res.status(404).json({
+        success: false,
+        error: '任务不存在'
+      });
+    }
     
     res.json({
       success: true,
-      data: stats
+      data: task
     });
   } catch (error) {
-    logger.error('获取下载注册表统计信息失败:', error);
+    logger.error('获取注册表重建任务状态失败:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -1070,21 +1150,40 @@ router.get('/registry/stats', async (req, res) => {
 });
 
 /**
- * 清理下载注册表
- * POST /api/download/registry/cleanup
+ * 取消注册表重建任务
+ * DELETE /api/download/registry/rebuild/:taskId
  */
-router.post('/registry/cleanup', async (req, res) => {
+router.delete('/registry/rebuild/:taskId', async (req, res) => {
   try {
-    const downloadService = req.backend.getDownloadService();
-    const fileManager = downloadService.fileManager;
-    const result = await downloadService.downloadRegistry.cleanupRegistry(fileManager);
+    const { taskId } = req.params;
+    
+    global.registryRebuildTasks = global.registryRebuildTasks || new Map();
+    const task = global.registryRebuildTasks.get(taskId);
+    
+    if (!task) {
+      return res.status(404).json({
+        success: false,
+        error: '任务不存在'
+      });
+    }
+    
+    if (task.status === 'running') {
+      // 标记任务为已取消
+      global.registryRebuildTasks.set(taskId, {
+        ...task,
+        status: 'cancelled',
+        endTime: Date.now()
+      });
+    }
     
     res.json({
       success: true,
-      data: result
+      data: {
+        message: '任务已取消'
+      }
     });
   } catch (error) {
-    logger.error('清理下载注册表失败:', error);
+    logger.error('取消注册表重建任务失败:', error);
     res.status(500).json({
       success: false,
       error: error.message

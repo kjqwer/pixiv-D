@@ -276,10 +276,24 @@ class DownloadService {
   }
 
   /**
-   * 重建下载注册表
+   * 重建下载注册表（异步任务）
    */
   async rebuildRegistry() {
     return apiService.post('/api/download/registry/rebuild');
+  }
+
+  /**
+   * 获取注册表重建任务状态
+   */
+  async getRegistryRebuildStatus(taskId: string) {
+    return apiService.get(`/api/download/registry/rebuild/status/${taskId}`);
+  }
+
+  /**
+   * 取消注册表重建任务
+   */
+  async cancelRegistryRebuild(taskId: string) {
+    return apiService.delete(`/api/download/registry/rebuild/${taskId}`);
   }
 
   /**
