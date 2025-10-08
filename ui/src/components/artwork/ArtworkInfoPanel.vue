@@ -671,47 +671,246 @@ input:checked+.slider:before {
 }
 
 @media (max-width: 768px) {
+    .artwork-info {
+        padding: var(--spacing-lg);
+        margin: 0;
+        border-radius: var(--radius-lg);
+    }
+
+    .artwork-title {
+        font-size: 1.25rem;
+        max-width: none;
+        white-space: normal;
+        overflow: visible;
+        text-overflow: unset;
+    }
+
+    /* 移动端按钮重新布局 */
     .artwork-actions {
-        flex-direction: column;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--spacing-md);
+        margin-bottom: var(--spacing-lg);
+    }
+
+    .artwork-actions .btn {
+        min-width: unset;
+        padding: var(--spacing-md);
+        font-size: 0.875rem;
+        font-weight: 600;
+        border-radius: var(--radius-lg);
+        height: 44px; /* 符合移动端触摸标准 */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* 下载按钮占据两列 */
+    .artwork-actions .btn:first-child {
+        grid-column: 1 / -1;
+    }
+
+    /* 如果有删除按钮，下载按钮占一列，删除按钮占一列 */
+    .artwork-actions .btn:first-child:not(:last-child) {
+        grid-column: 1 / 2;
     }
 
     .artwork-stats {
-        flex-direction: column;
-        gap: var(--spacing-lg);
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--spacing-md);
+        text-align: center;
+        background: var(--color-bg-secondary);
+        padding: var(--spacing-lg);
+        border-radius: var(--radius-lg);
+        margin-bottom: var(--spacing-xl);
     }
 
-    .artwork-navigation {
+    .stat {
         flex-direction: column;
-        gap: var(--spacing-md);
+        gap: var(--spacing-xs);
+        font-size: 0.75rem;
+    }
+
+    .stat svg {
+        width: 1.25rem;
+        height: 1.25rem;
+        margin: 0 auto;
+    }
+
+    /* 移动端导航优化 */
+    .artwork-navigation {
+        position: sticky;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: var(--color-bg-primary);
+        border-top: 1px solid var(--color-border);
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+        padding: var(--spacing-md);
+        margin: var(--spacing-xl) calc(-1 * var(--spacing-lg)) 0;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: var(--spacing-sm);
+        box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+        z-index: 2000;
     }
 
     .nav-back {
-        order: -1;
-        align-self: flex-start;
-        min-width: 80px;
+        order: 0;
+        min-width: 60px;
+        padding: var(--spacing-sm);
+        border-radius: var(--radius-md);
+        background: var(--color-bg-secondary);
+        border-color: var(--color-border);
+    }
+
+    .nav-back span {
+        display: none;
     }
 
     .nav-prev,
     .nav-next {
-        min-width: auto;
+        min-width: unset;
+        padding: var(--spacing-md) var(--spacing-lg);
+        font-weight: 600;
+        border-radius: var(--radius-lg);
+        height: 44px;
+    }
+
+    .nav-prev {
+        order: 1;
+        justify-content: center;
+    }
+
+    .nav-next {
+        order: 2;
+        justify-content: center;
+    }
+
+    /* 快速导航提示 */
+    .artwork-navigation::before {
+        content: "← 上一个 | 下一个 →";
+        position: absolute;
+        top: -24px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+        background: var(--color-bg-secondary);
+        padding: var(--spacing-xs) var(--spacing-sm);
+        border-radius: var(--radius-sm);
+        white-space: nowrap;
+        opacity: 0.8;
+    }
+
+    .artist-info {
+        padding: var(--spacing-lg);
+        margin-bottom: var(--spacing-lg);
+    }
+
+    .artist-avatar {
+        width: 2.5rem;
+        height: 2.5rem;
+    }
+
+    .artist-name {
+        font-size: 1rem;
+    }
+
+    .artist-account {
+        font-size: 0.8rem;
+    }
+
+    .artwork-tags {
+        margin-bottom: var(--spacing-lg);
+    }
+
+    .tags-list {
+        gap: var(--spacing-xs);
     }
 
     .artwork-meta {
         flex-direction: column;
-        gap: var(--spacing-lg);
+        gap: var(--spacing-md);
+        padding-bottom: 80px; /* 为底部导航留出更多空间 */
     }
 
     .toggle-container {
-        align-self: flex-end;
+        align-self: stretch;
+        justify-content: space-between;
+        padding: var(--spacing-md);
+        height: auto;
     }
 
     .caption-content {
-        max-height: 80px;
-        font-size: 0.75rem;
+        max-height: 100px;
+        font-size: 0.8rem;
     }
 
     .caption-header h3 {
+        font-size: 0.9rem;
+    }
+
+    .artwork-description,
+    .artwork-caption {
+        margin-bottom: var(--spacing-lg);
+    }
+
+    .keyboard-hint {
+        display: none;
+    }
+}
+
+/* 更小屏幕的额外优化 */
+@media (max-width: 480px) {
+    .artwork-info {
+        padding: var(--spacing-md);
+    }
+
+    .artwork-title {
+        font-size: 1.125rem;
+        line-height: 1.4;
+    }
+
+    .artwork-actions .btn {
+        font-size: 0.8rem;
+        height: 40px;
+        padding: var(--spacing-sm);
+    }
+
+    .artwork-stats {
+        padding: var(--spacing-md);
+    }
+
+    .stat {
+        font-size: 0.7rem;
+    }
+
+    .stat svg {
+        width: 1rem;
+        height: 1rem;
+    }
+
+    .artist-info {
+        padding: var(--spacing-md);
+    }
+
+    .artist-avatar {
+        width: 2rem;
+        height: 2rem;
+    }
+
+    .nav-prev,
+    .nav-next {
+        padding: var(--spacing-sm) var(--spacing-md);
         font-size: 0.875rem;
+        height: 40px;
+    }
+
+    .nav-back {
+        min-width: 50px;
+        padding: var(--spacing-xs);
     }
 }
 </style>

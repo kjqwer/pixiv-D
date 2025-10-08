@@ -1,5 +1,5 @@
 <template>
-  <div class="artwork-page">
+  <div class="artwork-page" @touchstart="handleTouchStart" @touchmove="handleTouchMove" @touchend="handleTouchEnd">
     <div class="container">
       <!-- 收藏错误提示 -->
       <div v-if="bookmarkError" class="error-section">
@@ -15,8 +15,15 @@
         <LoadingSpinner text="加载中..." />
       </div>
 
+      <!-- 滑动提示 -->
+      <div v-if="artwork && isMobile" class="swipe-hint" :class="{ 'hint-visible': showSwipeHint }">
+        <div class="hint-content">
+          <span class="hint-text">← 滑动切换作品 →</span>
+        </div>
+      </div>
+
       <!-- 作品内容 -->
-      <div v-if="artwork" class="artwork-content" :class="{ 'content-loading': loading }">
+      <div v-if="artwork" class="artwork-content" :class="{ 'content-loading': loading, 'swiping': isSwipeActive }">
         <!-- 左侧图片组件 -->
         <ArtworkGallery :artwork="artwork" :current-page="currentImagePage" :loading="loading"
           @page-change="currentImagePage = $event" />
@@ -97,6 +104,83 @@ const showRecommendations = ref(true);
 
 // Caption 显示开关状态
 const showCaption = ref(false);
+
+// 触摸滑动相关状态
+const touchStartX = ref(0);
+const touchStartY = ref(0);
+const touchEndX = ref(0);
+const touchEndY = ref(0);
+const isSwipeActive = ref(false);
+const isMobile = ref(false);
+const showSwipeHint = ref(false);
+
+// 检测是否为移动设备
+const checkMobileDevice = () => {
+  isMobile.value = window.innerWidth <= 768 || 'ontouchstart' in window;
+};
+
+// 触摸开始事件
+const handleTouchStart = (event: TouchEvent) => {
+  if (!showNavigation.value || loading.value) return;
+  
+  const touch = event.touches[0];
+  touchStartX.value = touch.clientX;
+  touchStartY.value = touch.clientY;
+  isSwipeActive.value = false;
+};
+
+// 触摸移动事件
+const handleTouchMove = (event: TouchEvent) => {
+  if (!showNavigation.value || loading.value) return;
+  
+  const touch = event.touches[0];
+  const deltaX = Math.abs(touch.clientX - touchStartX.value);
+  const deltaY = Math.abs(touch.clientY - touchStartY.value);
+  
+  // 如果水平滑动距离大于垂直滑动距离，且超过阈值，则激活滑动状态
+  if (deltaX > deltaY && deltaX > 30) {
+    isSwipeActive.value = true;
+    event.preventDefault(); // 阻止页面滚动
+  }
+};
+
+// 触摸结束事件
+const handleTouchEnd = (event: TouchEvent) => {
+  if (!showNavigation.value || loading.value) return;
+  
+  const touch = event.changedTouches[0];
+  touchEndX.value = touch.clientX;
+  touchEndY.value = touch.clientY;
+  
+  const deltaX = touchEndX.value - touchStartX.value;
+  const deltaY = Math.abs(touchEndY.value - touchStartY.value);
+  
+  // 检查是否为有效的水平滑动
+  const minSwipeDistance = 80; // 最小滑动距离
+  const maxVerticalDistance = 100; // 最大垂直偏移
+  
+  if (Math.abs(deltaX) > minSwipeDistance && deltaY < maxVerticalDistance) {
+    if (deltaX > 0 && canNavigateToPrevious.value) {
+      // 向右滑动 - 上一个作品
+      navigateToPrevious();
+    } else if (deltaX < 0 && canNavigateToNext.value) {
+      // 向左滑动 - 下一个作品
+      navigateToNext();
+    }
+  }
+  
+  isSwipeActive.value = false;
+};
+
+// 显示滑动提示
+const showSwipeHintTemporarily = () => {
+  if (!isMobile.value || !showNavigation.value) return;
+  
+  showSwipeHint.value = true;
+  setTimeout(() => {
+    showSwipeHint.value = false;
+  }, 3000);
+};
 
 // 初始化推荐开关状态（从localStorage读取）
 const initializeRecommendationsState = () => {
@@ -820,6 +904,12 @@ onMounted(() => {
   // 确保页面滚动到顶部
   window.scrollTo(0, 0);
 
+  // 检测移动设备
+  checkMobileDevice();
+  
+  // 监听窗口大小变化
+  window.addEventListener('resize', checkMobileDevice);
+
   fetchArtworkDetail();
   if (showNavigation.value) {
     // 从路由查询参数获取页码
@@ -837,6 +927,11 @@ onMounted(() => {
 
   // 初始化 Caption 开关状态
   initializeCaptionState();
+  
+  // 延迟显示滑动提示（仅在移动端且有导航时）
+  setTimeout(() => {
+    showSwipeHintTemporarily();
+  }, 1000);
 });
 
 // 组件卸载时移除事件监听
@@ -844,6 +939,7 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown);
   document.removeEventListener('keydown', handleKeyDown);
   document.removeEventListener('keyup', handleKeyUp);
+  window.removeEventListener('resize', checkMobileDevice);
 });
 </script>
 
@@ -897,8 +993,60 @@ onUnmounted(() => {
 }
 
 @media (max-width: 768px) {
+  .artwork-page {
+    padding: 1rem 0 0 0; /* 移除底部内边距 */
+  }
+
   .container {
     padding: 0 1rem;
+    margin-bottom: 0; /* 移除底部外边距 */
   }
+
+  .artwork-content {
+    gap: 1rem;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    padding-bottom: 0; /* 确保没有额外的底部内边距 */
+  }
+
+  .artwork-content.swiping {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+}
+
+/* 滑动提示样式 */
+.swipe-hint {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 1rem 2rem;
+  border-radius: 2rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+  pointer-events: none;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.swipe-hint.hint-visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.hint-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hint-text {
+  white-space: nowrap;
 }
 </style>
