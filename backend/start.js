@@ -4,110 +4,133 @@
  * Pixiv 后端服务器启动脚本
  */
 
+const fs = require('fs');
+const path = require('path');
+
+// 加载配置文件
+function loadConfig() {
+  // 检测是否在pkg打包环境中运行
+  const isPackaged = process.pkg !== undefined;
+  
+  // 在打包环境中，配置文件在当前工作目录；在开发环境中，配置文件在上级目录
+  const configPath = isPackaged 
+    ? path.join(process.cwd(), 'config.json')  // 打包环境：当前工作目录
+    : path.join(__dirname, '..', 'config.json');  // 开发环境：上级目录
+  let config = {
+    server: {
+      port: 3000,
+      autoOpenBrowser: true
+    },
+    proxy: {
+      port: null,
+      enabled: false
+    },
+    logging: {
+      level: "INFO"
+    },
+    system: {
+      threadPoolSize: 16
+    }
+  };
+
+  try {
+    console.log(`检测环境: ${isPackaged ? '打包环境' : '开发环境'}`);
+    console.log(`配置文件路径: ${configPath}`);
+    
+    if (fs.existsSync(configPath)) {
+      const configData = fs.readFileSync(configPath, 'utf8');
+      const userConfig = JSON.parse(configData);
+      
+      // 合并配置，用户配置覆盖默认配置
+      config = {
+        ...config,
+        server: { ...config.server, ...userConfig.server },
+        proxy: { ...config.proxy, ...userConfig.proxy },
+        logging: { ...config.logging, ...userConfig.logging },
+        system: { ...config.system, ...userConfig.system }
+      };
+      console.log('已加载配置文件');
+    } else {
+      // 如果配置文件不存在，创建默认配置文件
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+      console.log('已创建默认配置文件:', configPath);
+    }
+  } catch (error) {
+    console.error('读取配置文件失败，使用默认配置:', error.message);
+  }
+
+  return config;
+}
+// 加载配置
+const config = loadConfig();
+
 // 重要：必须在任何其他模块导入之前设置线程池大小
 // 解决多个下载任务时的SSH连接阻塞问题
 if (!process.env.UV_THREADPOOL_SIZE) {
-  process.env.UV_THREADPOOL_SIZE = '16'; // 增加到16个线程
+  process.env.UV_THREADPOOL_SIZE = config.system.threadPoolSize.toString();
 }
-
-const PixivServer = require('./server');
-
-// 解析命令行参数
-function parseArguments() {
-  const args = process.argv.slice(2);
-  const options = {};
-
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-
-    // 处理 --key=value 格式
-    if (arg.startsWith('--proxy-port=')) {
-      const port = parseInt(arg.split('=')[1]);
-      if (!isNaN(port)) {
-        options.proxyPort = port;
-      }
-    } else if (arg.startsWith('--server-port=')) {
-      const port = parseInt(arg.split('=')[1]);
-      if (!isNaN(port)) {
-        options.serverPort = port;
-      }
-    } else if (arg.startsWith('--log-level=')) {
-      const level = arg.split('=')[1].toUpperCase();
-      if (['ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE'].includes(level)) {
-        options.logLevel = level;
-      }
-    } else if (arg.startsWith('--auto-open-browser=')) {
-      const value = arg.split('=')[1].toLowerCase();
-      options.autoOpenBrowser = value === 'true';
-    } 
-    // 处理 --key value 格式（向后兼容）
-    else if (arg === '--proxy-port' && i + 1 < args.length) {
-      const port = parseInt(args[i + 1]);
-      if (!isNaN(port)) {
-        options.proxyPort = port;
-      }
-      i++; // 跳过下一个参数
-    } else if (arg === '--server-port' && i + 1 < args.length) {
-      const port = parseInt(args[i + 1]);
-      if (!isNaN(port)) {
-        options.serverPort = port;
-      }
-      i++; // 跳过下一个参数
-    } else if (arg === '--log-level' && i + 1 < args.length) {
-      const level = args[i + 1].toUpperCase();
-      if (['ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE'].includes(level)) {
-        options.logLevel = level;
-      }
-      i++; // 跳过下一个参数
-    } else if (arg === '--auto-open-browser' && i + 1 < args.length) {
-      const value = args[i + 1].toLowerCase();
-      options.autoOpenBrowser = value === 'true';
-      i++; // 跳过下一个参数
-    }
-  }
-
-  return options;
-}
-
-// 获取命令行参数
-const cliOptions = parseArguments();
 
 // 设置环境变量
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
 
 // 设置日志级别环境变量
-if (cliOptions.logLevel) {
-  process.env.LOG_LEVEL = cliOptions.logLevel.toLowerCase();
+if (config.logging.level) {
+  process.env.LOG_LEVEL = config.logging.level.toLowerCase();
 }
 
-// 在设置环境变量后导入logger
+// 在设置环境变量后导入logger和服务器
 const { defaultLogger } = require('./utils/logger');
 const logger = defaultLogger.child('Start');
+const PixivServer = require('./server');
 
-// 如果提供了代理端口，设置环境变量
-if (cliOptions.proxyPort) {
-  process.env.PROXY_PORT = cliOptions.proxyPort.toString();
-  logger.info(`代理端口已设置为: ${cliOptions.proxyPort}`);
+// 如果配置了代理，设置环境变量
+if (config.proxy.enabled === true || (config.proxy.enabled === "auto" && config.proxy.port)) {
+  // 显式配置代理端口
+  if (config.proxy.port) {
+    process.env.PROXY_PORT = config.proxy.port.toString();
+    logger.info(`代理端口已设置为: ${config.proxy.port}`);
+  }
+} else if (config.proxy.enabled === "auto") {
+  // 自动检测系统代理
+  const systemProxy = process.env.HTTP_PROXY || process.env.HTTPS_PROXY || process.env.http_proxy || process.env.https_proxy;
+  if (systemProxy) {
+    logger.info(`检测到系统代理: ${systemProxy}`);
+    // 从系统代理URL中提取端口
+    const match = systemProxy.match(/http:\/\/127\.0\.0\.1:(\d+)/);
+    if (match) {
+      process.env.PROXY_PORT = match[1];
+      logger.info(`自动设置代理端口为: ${match[1]}`);
+    }
+  } else {
+    logger.info('未检测到系统代理，将尝试使用系统代理环境变量');
+  }
 }
 
-// 如果提供了服务器端口，设置环境变量
-if (cliOptions.serverPort) {
-  process.env.PORT = cliOptions.serverPort.toString();
-  logger.info(`服务器端口已设置为: ${cliOptions.serverPort}`);
+// 设置服务器端口
+if (config.server.port) {
+  process.env.PORT = config.server.port.toString();
+  logger.info(`服务器端口已设置为: ${config.server.port}`);
 }
 
 // 输出日志级别信息
-if (cliOptions.logLevel) {
-  logger.info(`日志级别: ${cliOptions.logLevel}`);
-}
+logger.info(`日志级别: ${config.logging.level}`);
 
 // 设置自动打开浏览器选项
-if (cliOptions.autoOpenBrowser !== undefined) {
-  process.env.AUTO_OPEN_BROWSER = cliOptions.autoOpenBrowser.toString();
-  logger.info(`自动打开浏览器: ${cliOptions.autoOpenBrowser ? '启用' : '禁用'}`);
+if (config.server.autoOpenBrowser !== undefined) {
+  process.env.AUTO_OPEN_BROWSER = config.server.autoOpenBrowser.toString();
+  logger.info(`自动打开浏览器: ${config.server.autoOpenBrowser ? '启用' : '禁用'}`);
 }
 
 logger.info('启动 Pixiv 后端服务器...');
+// logger.info('配置信息:', {
+//   serverPort: config.server.port,
+//   proxyMode: config.proxy.enabled,
+//   proxyPort: config.proxy.enabled === true && config.proxy.port ? config.proxy.port : 
+//             (config.proxy.enabled === "auto" ? '自动检测' : '未启用'),
+//   logLevel: config.logging.level,
+//   autoOpenBrowser: config.server.autoOpenBrowser,
+//   threadPoolSize: config.system.threadPoolSize
+// });
 
 // 创建服务器实例
 const server = new PixivServer();
