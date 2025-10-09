@@ -22,18 +22,21 @@ router.post('/restart', async (req, res) => {
     // 延迟执行重启，给响应时间发送
     setTimeout(async () => {
       try {
-        // 获取服务器实例（通过全局变量或其他方式）
+        // 获取服务器实例
         const server = req.app.locals.serverInstance;
         if (server && typeof server.restart === 'function') {
+          logger.info('开始执行服务器重启...');
           await server.restart();
         } else {
           logger.error('无法获取服务器实例或重启方法');
           // 如果无法优雅重启，则退出进程让进程管理器重启
+          logger.info('尝试直接退出进程进行重启');
           process.exit(1);
         }
       } catch (error) {
         logger.error('重启失败:', error);
         // 强制退出进程
+        logger.info('重启失败，强制退出进程');
         process.exit(1);
       }
     }, 1000); // 延迟1秒执行重启

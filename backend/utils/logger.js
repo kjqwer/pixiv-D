@@ -147,6 +147,22 @@ class Logger {
   /**
    * 格式化日志消息
    */
+  /**
+   * 安全的JSON序列化，避免循环引用
+   */
+  safeStringify(obj, space = 2) {
+    const seen = new WeakSet();
+    return JSON.stringify(obj, (key, val) => {
+      if (val != null && typeof val === 'object') {
+        if (seen.has(val)) {
+          return '[Circular Reference]';
+        }
+        seen.add(val);
+      }
+      return val;
+    }, space);
+  }
+
   formatMessage(level, message, data = null) {
     const timeStr = this.getTimeString();
     const levelName = LogLevelTexts[level];
@@ -167,12 +183,24 @@ class Logger {
         if (errorProps.length > 0) {
           const additionalProps = {};
           errorProps.forEach(prop => {
-            additionalProps[prop] = data[prop];
+            try {
+              additionalProps[prop] = data[prop];
+            } catch (e) {
+              additionalProps[prop] = '[Unable to serialize]';
+            }
           });
-          formattedMessage += `\n  Additional: ${JSON.stringify(additionalProps, null, 2)}`;
+          try {
+            formattedMessage += `\n  Additional: ${this.safeStringify(additionalProps)}`;
+          } catch (e) {
+            formattedMessage += `\n  Additional: [Serialization failed]`;
+          }
         }
       } else if (typeof data === 'object') {
-        formattedMessage += ` ${JSON.stringify(data, null, 2)}`;
+        try {
+          formattedMessage += ` ${this.safeStringify(data)}`;
+        } catch (e) {
+          formattedMessage += ` [Object serialization failed]`;
+        }
       } else {
         formattedMessage += ` ${data}`;
       }
