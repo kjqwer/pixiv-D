@@ -16,10 +16,10 @@ Pixiv 下载浏览管理器是一个基于 Web 的应用程序，提供以下功
 
 ## 视频演示
 
-观看登录教学演示（视频使用的是便携包，忽略其中的功能演示，版本比较旧）：
+观看登录教学演示：
 
 <p align="center">
-  <video src="https://github.com/user-attachments/assets/be7d9894-5df2-4885-a32f-023f4c042d2a" width="800" controls>
+  <video src="https://github.com/user-attachments/assets/0b7ee0fd-6af2-4d5f-8db1-c204b5b38eb3" width="800" controls>
     Your browser does not support the video tag.
   </video>
 </p>
