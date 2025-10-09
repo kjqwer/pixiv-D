@@ -31,42 +31,44 @@
           </div>
 
           <div class="artist-actions">
-            <button @click="handleFollow" class="btn btn-primary">
+            <button @click="handleFollow" class="btn btn-primary artist-follow-btn">
               {{ artist.is_followed ? '取消关注' : '关注' }}
             </button>
             <div class="download-section">
-              <div class="download-input-group">
-                <label for="downloadType">下载方式:</label>
-                <select v-model="downloadType" id="downloadType" class="download-select"
-                  @change="handleDownloadTypeChange">
-                  <option value="custom">自定义数量</option>
-                  <option value="pages">按页数选择</option>
-                  <option value="all">全部下载</option>
-                </select>
+              <div class="download-controls">
+                <div class="download-input-group">
+                  <label for="downloadType" class="download-label">下载方式:</label>
+                  <select v-model="downloadType" id="downloadType" class="download-select"
+                    @change="handleDownloadTypeChange">
+                    <option value="custom">自定义数量</option>
+                    <option value="pages">按页数选择</option>
+                    <option value="all">全部下载</option>
+                  </select>
+                </div>
+
+                <!-- 自定义数量输入 -->
+                <div v-if="downloadType === 'custom'" class="download-input-group">
+                  <label for="customLimit" class="download-label">数量:</label>
+                  <input v-model="customLimit" type="number" id="customLimit" class="download-input" :min="1" :max="9999"
+                    placeholder="输入数量" />
+                </div>
+
+                <!-- 按页数选择 -->
+                <div v-if="downloadType === 'pages'" class="download-input-group">
+                  <label for="pageLimit" class="download-label">页数:</label>
+                  <select v-model="pageLimit" id="pageLimit" class="download-select">
+                    <option value="1">1页 (30个)</option>
+                    <option value="2">2页 (60个)</option>
+                    <option value="3">3页 (90个)</option>
+                    <option value="5">5页 (150个)</option>
+                    <option value="10">10页 (300个)</option>
+                    <option value="20">20页 (600个)</option>
+                    <option value="50">50页 (1500个)</option>
+                  </select>
+                </div>
               </div>
 
-              <!-- 自定义数量输入 -->
-              <div v-if="downloadType === 'custom'" class="download-input-group">
-                <label for="customLimit">数量:</label>
-                <input v-model="customLimit" type="number" id="customLimit" class="download-input" :min="1" :max="9999"
-                  placeholder="输入数量" />
-              </div>
-
-              <!-- 按页数选择 -->
-              <div v-if="downloadType === 'pages'" class="download-input-group">
-                <label for="pageLimit">页数:</label>
-                <select v-model="pageLimit" id="pageLimit" class="download-select">
-                  <option value="1">1页 (30个)</option>
-                  <option value="2">2页 (60个)</option>
-                  <option value="3">3页 (90个)</option>
-                  <option value="5">5页 (150个)</option>
-                  <option value="10">10页 (300个)</option>
-                  <option value="20">20页 (600个)</option>
-                  <option value="50">50页 (1500个)</option>
-                </select>
-              </div>
-
-              <button @click="handleDownloadAll" class="btn btn-secondary" :disabled="downloading || !isDownloadValid">
+              <button @click="handleDownloadAll" class="btn btn-secondary download-btn" :disabled="downloading || !isDownloadValid">
                 {{ downloading ? '下载中...' : '下载作品' }}
               </button>
             </div>
@@ -707,14 +709,8 @@ onMounted(async () => {
 <style scoped>
 .artist-page {
   min-height: 100vh;
-  background: #f8fafc;
-  padding: 2rem 0;
-}
-
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 2rem;
+  background: var(--color-bg-secondary);
+  padding: var(--spacing-2xl) 0;
 }
 
 .loading-section,
@@ -727,13 +723,13 @@ onMounted(async () => {
 
 .success-message {
   position: fixed;
-  top: 2rem;
-  right: 2rem;
-  background: #10b981;
+  top: var(--spacing-2xl);
+  right: var(--spacing-2xl);
+  background: var(--color-success);
   color: white;
-  padding: 1rem 1.5rem;
-  border-radius: 0.5rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  padding: var(--spacing-lg) var(--spacing-xl);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
   z-index: 1000;
   animation: slideIn 0.3s ease-out;
 }
@@ -741,7 +737,7 @@ onMounted(async () => {
 .success-content {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
 }
 
 .success-icon {
@@ -755,29 +751,32 @@ onMounted(async () => {
     transform: translateX(100%);
     opacity: 0;
   }
-
   to {
     transform: translateX(0);
     opacity: 1;
   }
 }
 
+/* 作者信息卡片 */
 .artist-header {
-  background: white;
-  border-radius: 1rem;
-  padding: 2rem;
-  margin-bottom: 2rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-2xl);
+  padding: var(--spacing-2xl);
+  margin-bottom: var(--spacing-2xl);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-border);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 2rem;
+  gap: var(--spacing-2xl);
 }
 
 .artist-profile {
   display: flex;
-  gap: 1.5rem;
+  gap: var(--spacing-xl);
   align-items: flex-start;
+  flex: 1;
+  min-width: 0; /* 允许内容收缩 */
 }
 
 .artist-avatar {
@@ -785,176 +784,152 @@ onMounted(async () => {
   height: 5rem;
   border-radius: 50%;
   object-fit: cover;
+  flex-shrink: 0;
 }
 
 .artist-info {
   flex: 1;
+  min-width: 0; /* 允许文本截断 */
 }
 
 .artist-name {
   font-size: 2rem;
   font-weight: 700;
-  color: #1f2937;
-  margin: 0 0 0.5rem 0;
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-sm) 0;
+  word-break: break-word;
 }
 
 .artist-account {
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-size: 1.125rem;
-  margin: 0 0 1rem 0;
+  margin: 0 0 var(--spacing-lg) 0;
+  word-break: break-word;
 }
 
 .artist-comment {
-  color: #374151;
+  color: var(--color-text-primary);
   line-height: 1.6;
   margin: 0;
+  word-break: break-word;
 }
 
+/* 作者操作区域 */
 .artist-actions {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--spacing-lg);
+  flex-shrink: 0;
+  min-width: 200px;
 }
 
+.artist-follow-btn {
+  white-space: nowrap;
+}
+
+/* 下载区域 */
 .download-section {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--spacing-md);
+}
+
+.download-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
 }
 
 .download-input-group {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
 }
 
-.download-input-group label {
+.download-label {
   font-size: 0.875rem;
-  color: #374151;
+  color: var(--color-text-primary);
   font-weight: 500;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.download-select {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  background: white;
-  font-size: 0.875rem;
-  color: #374151;
-  min-width: 100px;
-}
-
+.download-select,
 .download-input {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  background: white;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-primary);
   font-size: 0.875rem;
-  color: #374151;
+  color: var(--color-text-primary);
   min-width: 100px;
-  transition: border-color 0.2s;
+  transition: border-color var(--transition-normal);
 }
 
 .download-input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
 }
 
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
-  font-weight: 600;
-  text-decoration: none;
-  transition: all 0.2s;
-  border: none;
-  cursor: pointer;
-  font-size: 1rem;
-  min-width: 120px;
+.download-btn {
+  white-space: nowrap;
 }
 
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  background: #3b82f6;
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: #2563eb;
-}
-
-.btn-secondary {
-  background: #f3f4f6;
-  color: #374151;
-  border: 1px solid #d1d5db;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: #e5e7eb;
-}
-
-
-
+/* 作品区域 */
 .artworks-section {
-  background: white;
-  border-radius: 1rem;
-  padding: 2rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  position: relative;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-2xl);
+  padding: var(--spacing-2xl);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-border);
 }
 
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: var(--spacing-2xl);
 }
 
 .section-header h2 {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--color-text-primary);
   margin: 0;
 }
 
 .header-controls {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: var(--spacing-lg);
 }
 
 .artwork-filters {
   display: flex;
-  gap: 1rem;
+  gap: var(--spacing-lg);
 }
 
 .filter-select {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  background: white;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-primary);
   font-size: 0.875rem;
-  color: #374151;
+  color: var(--color-text-primary);
 }
 
-/* 顶部分页导航样式 */
+/* 顶部分页导航 */
 .simple-pagination {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  gap: var(--spacing-sm);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-sm) var(--spacing-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .simple-page-btn {
@@ -963,18 +938,18 @@ onMounted(async () => {
   justify-content: center;
   width: 2rem;
   height: 2rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  background: white;
-  color: #374151;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
   padding: 0;
 }
 
 .simple-page-btn:hover:not(:disabled) {
-  background: #f3f4f6;
-  border-color: #9ca3af;
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-hover);
   transform: translateY(-1px);
 }
 
@@ -991,7 +966,7 @@ onMounted(async () => {
 
 .simple-page-info {
   font-size: 0.875rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-weight: 500;
   min-width: 3rem;
   text-align: center;
@@ -1000,14 +975,14 @@ onMounted(async () => {
 .artworks-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 2rem;
-  margin-bottom: 2rem;
+  gap: var(--spacing-2xl);
+  margin-bottom: var(--spacing-2xl);
 }
 
 .empty-section {
   text-align: center;
   padding: 4rem 0;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 /* 分页样式 */
@@ -1015,27 +990,27 @@ onMounted(async () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
 }
 
 .page-btn {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  background: white;
-  color: #374151;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) var(--spacing-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
 }
 
 .page-btn:hover:not(:disabled) {
-  background: #f3f4f6;
-  border-color: #9ca3af;
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-hover);
 }
 
 .page-btn:disabled {
@@ -1050,7 +1025,7 @@ onMounted(async () => {
 
 .page-numbers {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
 }
 
 .page-number {
@@ -1059,84 +1034,84 @@ onMounted(async () => {
   justify-content: center;
   width: 2.5rem;
   height: 2.5rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  background: white;
-  color: #374151;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
 }
 
 .page-number:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-hover);
 }
 
 .page-number.active {
-  background: #3b82f6;
+  background: var(--color-primary);
   color: white;
-  border-color: #3b82f6;
+  border-color: var(--color-primary);
 }
 
 .page-info {
   display: flex;
   justify-content: center;
-  gap: 2rem;
-  color: #6b7280;
+  gap: var(--spacing-2xl);
+  color: var(--color-text-secondary);
   font-size: 0.875rem;
 }
 
 .jump-to-page {
   display: flex;
   justify-content: center;
-  margin-top: 1rem;
-  margin-bottom: 1rem;
-  padding: 1rem;
-  background: #f9fafb;
-  border-radius: 0.5rem;
-  border: 1px solid #e5e7eb;
+  margin-top: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-lg);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
 }
 
 .jump-input-group {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--spacing-md);
 }
 
 .jump-input-group label {
   font-size: 0.875rem;
-  color: #374151;
+  color: var(--color-text-primary);
   font-weight: 500;
   white-space: nowrap;
 }
 
 .jump-input {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  background: white;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-primary);
   font-size: 0.875rem;
-  color: #374151;
+  color: var(--color-text-primary);
   min-width: 80px;
   text-align: center;
-  transition: border-color 0.2s;
+  transition: border-color var(--transition-normal);
 }
 
 .jump-input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
 }
 
 .jump-btn {
-  padding: 0.5rem 1rem;
-  border-radius: 0.375rem;
-  background: #3b82f6;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
   color: white;
   font-weight: 600;
   text-decoration: none;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
   border: none;
   cursor: pointer;
   font-size: 0.875rem;
@@ -1144,7 +1119,7 @@ onMounted(async () => {
 }
 
 .jump-btn:hover:not(:disabled) {
-  background: #2563eb;
+  background: var(--color-primary-dark);
   transform: translateY(-1px);
 }
 
@@ -1154,64 +1129,92 @@ onMounted(async () => {
   transform: none;
 }
 
+/* 移动端优化 */
 @media (max-width: 768px) {
-  .container {
-    padding: 0 1rem;
+  .artist-page {
+    padding: var(--spacing-lg) 0;
   }
 
   .artist-header {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  /* 移动端简洁分页导航样式调整 */
-  .simple-pagination {
-    justify-content: center;
-    margin-bottom: 1rem;
+    gap: var(--spacing-xl);
+    padding: var(--spacing-xl);
   }
 
   .artist-profile {
     flex-direction: column;
     text-align: center;
+    align-items: center;
+    gap: var(--spacing-lg);
+  }
+
+  .artist-info {
+    text-align: center;
+  }
+
+  .artist-name {
+    font-size: 1.5rem;
+  }
+
+  .artist-account {
+    font-size: 1rem;
   }
 
   .artist-actions {
-    flex-direction: row;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    min-width: auto;
   }
 
   .download-section {
-    flex-direction: row;
-    align-items: center;
-    gap: 1rem;
+    gap: var(--spacing-lg);
+  }
+
+  .download-controls {
+    gap: var(--spacing-lg);
   }
 
   .download-input-group {
-    flex-shrink: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-sm);
   }
 
-  .btn {
-    flex: 1;
+  .download-label {
+    text-align: left;
+  }
+
+  .download-select,
+  .download-input {
+    width: 100%;
+    min-width: auto;
   }
 
   .section-header {
     flex-direction: column;
-    gap: 1rem;
+    gap: var(--spacing-lg);
     align-items: stretch;
   }
 
   .header-controls {
     flex-direction: column;
-    gap: 1rem;
+    gap: var(--spacing-lg);
     align-items: stretch;
+  }
+
+  .simple-pagination {
+    justify-content: center;
   }
 
   .artworks-grid {
     grid-template-columns: 1fr;
+    gap: var(--spacing-xl);
   }
 
   .pagination {
     flex-direction: column;
-    gap: 1rem;
+    gap: var(--spacing-lg);
   }
 
   .page-numbers {
@@ -1220,26 +1223,50 @@ onMounted(async () => {
 
   .page-info {
     flex-direction: column;
-    gap: 0.5rem;
+    gap: var(--spacing-sm);
     text-align: center;
   }
 
   .jump-to-page {
     flex-direction: column;
-    gap: 0.5rem;
+    gap: var(--spacing-sm);
   }
 
   .jump-input-group {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    gap: var(--spacing-sm);
   }
 
-  .jump-input {
-    width: 100%;
-  }
-
+  .jump-input,
   .jump-btn {
     width: 100%;
+  }
+
+  .success-message {
+    top: var(--spacing-lg);
+    right: var(--spacing-lg);
+    left: var(--spacing-lg);
+    padding: var(--spacing-lg);
+  }
+}
+
+/* 超小屏幕优化 */
+@media (max-width: 480px) {
+  .artist-header {
+    padding: var(--spacing-lg);
+  }
+
+  .artworks-section {
+    padding: var(--spacing-lg);
+  }
+
+  .artist-name {
+    font-size: 1.25rem;
+  }
+
+  .artist-account {
+    font-size: 0.875rem;
   }
 }
 </style>

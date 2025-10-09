@@ -785,98 +785,107 @@ onUnmounted(() => {
 <style scoped>
 .search-page {
   min-height: 100vh;
-  background: #f8fafc;
+  background: var(--color-bg-secondary);
 }
 
 .search-header {
-  background: white;
-  border-bottom: 1px solid #e5e7eb;
-  padding: 2rem 0;
-}
-
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 2rem;
+  background: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--spacing-2xl) 0;
+  box-shadow: var(--shadow-sm);
 }
 
 .page-title {
   font-size: 2rem;
   font-weight: 700;
-  color: #1f2937;
-  margin-bottom: 2rem;
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-2xl);
 }
 
 .search-form {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--spacing-lg);
 }
 
 .search-type-tabs {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+  flex-wrap: wrap;
 }
 
 .tab-btn {
-  padding: 0.5rem 1rem;
-  border: 1px solid #d1d5db;
-  background: white;
-  color: #6b7280;
-  border-radius: 0.375rem;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
   font-size: 0.875rem;
+  white-space: nowrap;
+  min-height: 44px; /* 移动端触摸友好 */
 }
 
 .tab-btn:hover {
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
 }
 
 .tab-btn.active {
-  background: #3b82f6;
+  background: var(--color-primary);
   color: white;
-  border-color: #3b82f6;
+  border-color: var(--color-primary);
 }
 
 .search-input-group {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
 }
 
 .search-input {
   flex: 1;
-  padding: 0.75rem 1rem;
-  border: 2px solid #e5e7eb;
-  border-radius: 0.5rem;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
   font-size: 1rem;
-  transition: border-color 0.2s;
+  transition: border-color var(--transition-normal);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  min-height: 44px; /* 移动端触摸友好 */
 }
 
 .search-input:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
 }
 
 .search-btn {
-  padding: 0.75rem 1rem;
-  background: #3b82f6;
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: var(--color-primary);
   color: white;
   border: none;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all var(--transition-normal);
+  min-width: 44px; /* 移动端触摸友好 */
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .search-btn:hover:not(:disabled) {
-  background: #2563eb;
+  background: var(--color-primary-dark);
+  transform: translateY(-1px);
 }
 
 .search-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
 }
 
 .search-btn svg {
@@ -888,36 +897,37 @@ onUnmounted(() => {
 .tags-search-section {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--spacing-lg);
 }
 
 .tags-input-group {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
 }
 
 .tags-display {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--spacing-lg);
 }
 
 .tags-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
 }
 
 .tag-item {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.5rem 0.75rem;
-  background: #e0f2fe;
-  color: #0369a1;
-  border-radius: 1rem;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-info-light);
+  color: var(--color-info);
+  border-radius: var(--radius-2xl);
   font-size: 0.875rem;
   font-weight: 500;
+  border: 1px solid var(--color-info);
 }
 
 .tag-remove {
@@ -928,14 +938,14 @@ onUnmounted(() => {
   height: 1rem;
   background: none;
   border: none;
-  color: #0369a1;
+  color: var(--color-info);
   cursor: pointer;
   border-radius: 50%;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
 }
 
 .tag-remove:hover {
-  background: #0369a1;
+  background: var(--color-info);
   color: white;
 }
 
@@ -946,159 +956,186 @@ onUnmounted(() => {
 
 .search-filters {
   display: flex;
-  gap: 1rem;
+  gap: var(--spacing-lg);
   flex-wrap: wrap;
 }
 
 .filter-select {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  background: white;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-primary);
   font-size: 0.875rem;
-  color: #374151;
+  color: var(--color-text-primary);
+  transition: border-color var(--transition-normal);
+  min-height: 36px; /* 移动端友好 */
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
 }
 
 .search-content {
-  padding: 2rem 0;
+  padding: var(--spacing-2xl) 0;
 }
 
 .artist-search-section {
-  background: white;
-  border-radius: 0.5rem;
-  padding: 2rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-2xl);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-border);
 }
 
 .error-section,
 .loading-section {
-  margin-bottom: 2rem;
+  margin-bottom: var(--spacing-2xl);
 }
 
 .results-section {
-  margin-bottom: 2rem;
+  margin-bottom: var(--spacing-2xl);
 }
 
 .results-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: var(--spacing-2xl);
 }
 
 .results-header h2 {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--color-text-primary);
   margin: 0;
 }
 
 .artworks-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 2rem;
-  margin-bottom: 2rem;
+  gap: var(--spacing-2xl);
+  margin-bottom: var(--spacing-2xl);
 }
 
 /* 分页样式 */
 .pagination-section {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--spacing-lg);
   align-items: center;
-  margin-top: 2rem;
+  margin-top: var(--spacing-2xl);
 }
 
 .pagination {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .page-btn {
-  padding: 0.5rem 1rem;
-  border: 1px solid #d1d5db;
-  background: white;
-  color: #374151;
-  border-radius: 0.375rem;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
   font-size: 0.875rem;
   min-width: 2.5rem;
+  min-height: 36px; /* 移动端友好 */
 }
 
 .page-btn:hover:not(:disabled) {
-  background: #f3f4f6;
-  border-color: #9ca3af;
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-hover);
+  transform: translateY(-1px);
 }
 
 .page-btn.active {
-  background: #3b82f6;
+  background: var(--color-primary);
   color: white;
-  border-color: #3b82f6;
+  border-color: var(--color-primary);
 }
 
 .page-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
 
 .jump-to-page {
   display: flex;
   justify-content: center;
-  margin-top: 1rem;
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-lg);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
 }
 
 .jump-input-group {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  padding: 0.5rem 1rem;
-  width: fit-content;
+  gap: var(--spacing-md);
+}
+
+.jump-input-group label {
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .jump-input {
-  border: none;
-  background: transparent;
-  padding: 0.5rem 0.25rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+  padding: var(--spacing-sm) var(--spacing-md);
   font-size: 0.875rem;
-  width: 50px;
+  border-radius: var(--radius-md);
+  width: 80px;
   text-align: center;
+  color: var(--color-text-primary);
+  transition: border-color var(--transition-normal);
 }
 
 .jump-input:focus {
   outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
 }
 
 .jump-btn {
-  background: #4f46e5;
+  background: var(--color-primary);
   color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-md);
   border: none;
   cursor: pointer;
   font-size: 0.875rem;
-  transition: background-color 0.2s ease;
+  transition: all var(--transition-normal);
+  min-height: 36px;
 }
 
 .jump-btn:hover:not(:disabled) {
-  background: #4338ca;
+  background: var(--color-primary-dark);
+  transform: translateY(-1px);
 }
 
 .jump-btn:disabled {
-  background: #9ca3af;
+  background: var(--color-text-tertiary);
   cursor: not-allowed;
-  color: #6b7280;
+  color: var(--color-text-secondary);
+  transform: none;
 }
 
 .page-info {
   display: flex;
   justify-content: center;
-  gap: 2rem;
-  color: #6b7280;
+  gap: var(--spacing-2xl);
+  color: var(--color-text-secondary);
   font-size: 0.875rem;
 }
 
@@ -1117,27 +1154,60 @@ onUnmounted(() => {
 .empty-icon {
   width: 4rem;
   height: 4rem;
-  color: #9ca3af;
-  margin-bottom: 1rem;
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--spacing-lg);
 }
 
 .empty-content h3,
 .welcome-content h2 {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #374151;
-  margin-bottom: 0.5rem;
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-sm);
 }
 
 .empty-content p,
 .welcome-content p {
-  color: #6b7280;
+  color: var(--color-text-secondary);
   line-height: 1.6;
 }
 
+/* 移动端优化 */
 @media (max-width: 768px) {
+  .search-header {
+    padding: var(--spacing-xl) 0;
+  }
+
+  .page-title {
+    font-size: 1.5rem;
+    margin-bottom: var(--spacing-xl);
+  }
+
+  .search-type-tabs {
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-xl);
+  }
+
+  .tab-btn {
+    flex: 1;
+    text-align: center;
+    padding: var(--spacing-md) var(--spacing-sm);
+    font-size: 0.75rem;
+  }
+
+  .search-input-group {
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+
+  .search-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
   .search-filters {
     flex-direction: column;
+    gap: var(--spacing-md);
   }
 
   .filter-select {
@@ -1146,16 +1216,18 @@ onUnmounted(() => {
 
   .results-header {
     flex-direction: column;
-    gap: 1rem;
+    gap: var(--spacing-lg);
     align-items: flex-start;
   }
 
   .artworks-grid {
     grid-template-columns: 1fr;
+    gap: var(--spacing-xl);
   }
 
   .tags-input-group {
     flex-direction: column;
+    gap: var(--spacing-md);
   }
 
   .tags-list {
@@ -1164,36 +1236,71 @@ onUnmounted(() => {
 
   .tag-item {
     font-size: 0.75rem;
-    padding: 0.375rem 0.625rem;
+    padding: var(--spacing-xs) var(--spacing-sm);
   }
 
   .pagination {
     flex-wrap: wrap;
     justify-content: center;
+    gap: var(--spacing-xs);
+  }
+
+  .page-btn {
+    min-width: 2rem;
+    padding: var(--spacing-xs) var(--spacing-sm);
   }
 
   .page-info {
     flex-direction: column;
-    gap: 0.5rem;
+    gap: var(--spacing-sm);
     text-align: center;
   }
 
   .jump-to-page {
-    flex-direction: column;
-    gap: 0.5rem;
+    padding: var(--spacing-md);
   }
 
   .jump-input-group {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    gap: var(--spacing-sm);
   }
 
-  .jump-input {
-    width: 100%;
-  }
-
+  .jump-input,
   .jump-btn {
     width: 100%;
+  }
+
+  .artist-search-section {
+    padding: var(--spacing-xl);
+  }
+}
+
+/* 超小屏幕优化 */
+@media (max-width: 480px) {
+  .search-header {
+    padding: var(--spacing-lg) 0;
+  }
+
+  .page-title {
+    font-size: 1.25rem;
+  }
+
+  .tab-btn {
+    font-size: 0.625rem;
+    padding: var(--spacing-sm) var(--spacing-xs);
+  }
+
+  .search-input {
+    font-size: 0.875rem;
+  }
+
+  .artworks-grid {
+    gap: var(--spacing-lg);
+  }
+
+  .artist-search-section {
+    padding: var(--spacing-lg);
   }
 }
 </style>
