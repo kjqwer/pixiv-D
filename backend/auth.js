@@ -40,7 +40,7 @@ class PixivAuth {
    */
   createAxiosInstance() {
     const config = {
-      timeout: 30000, // 30秒超时
+      timeout: 60000,
       headers: this.getDefaultHeaders()
     };
 
@@ -474,4 +474,4 @@ class PixivAuth {
   }
 }
 
-module.exports = PixivAuth; 
+module.exports = PixivAuth;

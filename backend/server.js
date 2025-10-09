@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 
 // 导入logger
 const { defaultLogger } = require('./utils/logger');
@@ -27,6 +28,118 @@ class PixivServer {
   constructor() {
     this.server = null;
     this.backend = null;
+  }
+
+  /**
+   * 加载配置文件
+   */
+  loadConfig() {
+    // 检测是否在pkg打包环境中运行
+    const isPackaged = process.pkg !== undefined;
+    
+    // 在打包环境中，配置文件在当前工作目录；在开发环境中，配置文件在上级目录
+    const configPath = isPackaged 
+      ? path.join(process.cwd(), 'config.json')  // 打包环境：当前工作目录
+      : path.join(__dirname, '..', 'config.json');  // 开发环境：上级目录
+    let config = {
+      server: {
+        port: 3000,
+        autoOpenBrowser: true
+      },
+      proxy: {
+        port: null,
+        enabled: false
+      },
+      logging: {
+        level: "INFO"
+      },
+      system: {
+        threadPoolSize: 16
+      }
+    };
+
+    try {
+      logger.info(`检测环境: ${isPackaged ? '打包环境' : '开发环境'}`);
+      logger.info(`配置文件路径: ${configPath}`);
+      
+      if (fs.existsSync(configPath)) {
+        const configData = fs.readFileSync(configPath, 'utf8');
+        const userConfig = JSON.parse(configData);
+        
+        // 合并配置，用户配置覆盖默认配置
+        config = {
+          ...config,
+          server: { ...config.server, ...userConfig.server },
+          proxy: { ...config.proxy, ...userConfig.proxy },
+          logging: { ...config.logging, ...userConfig.logging },
+          system: { ...config.system, ...userConfig.system }
+        };
+        logger.info('已加载配置文件');
+      } else {
+        // 如果配置文件不存在，创建默认配置文件
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+        logger.info('已创建默认配置文件:', configPath);
+      }
+    } catch (error) {
+      logger.error('读取配置文件失败，使用默认配置:', error.message);
+    }
+
+    return config;
+  }
+
+  /**
+   * 应用配置到环境变量
+   */
+  applyConfig(config) {
+    // 设置线程池大小
+    if (!process.env.UV_THREADPOOL_SIZE) {
+      process.env.UV_THREADPOOL_SIZE = config.system.threadPoolSize.toString();
+    }
+
+    // 设置环境变量
+    process.env.NODE_ENV = process.env.NODE_ENV || 'development';
+
+    // 设置日志级别环境变量
+    if (config.logging.level) {
+      process.env.LOG_LEVEL = config.logging.level.toLowerCase();
+    }
+
+    // 如果配置了代理，设置环境变量
+    if (config.proxy.enabled === true || (config.proxy.enabled === "auto" && config.proxy.port)) {
+      // 显式配置代理端口
+      if (config.proxy.port) {
+        process.env.PROXY_PORT = config.proxy.port.toString();
+        logger.info(`代理端口已设置为: ${config.proxy.port}`);
+      }
+    } else if (config.proxy.enabled === "auto") {
+      // 自动检测系统代理
+      const systemProxy = process.env.HTTP_PROXY || process.env.HTTPS_PROXY || process.env.http_proxy || process.env.https_proxy;
+      if (systemProxy) {
+        logger.info(`检测到系统代理: ${systemProxy}`);
+        // 从系统代理URL中提取端口
+        const match = systemProxy.match(/http:\/\/127\.0\.0\.1:(\d+)/);
+        if (match) {
+          process.env.PROXY_PORT = match[1];
+          logger.info(`自动设置代理端口为: ${match[1]}`);
+        }
+      } else {
+        logger.info('未检测到系统代理，将尝试使用系统代理环境变量');
+      }
+    }
+
+    // 设置服务器端口
+    if (config.server.port) {
+      process.env.PORT = config.server.port.toString();
+      logger.info(`服务器端口已设置为: ${config.server.port}`);
+    }
+
+    // 设置自动打开浏览器选项
+    if (config.server.autoOpenBrowser !== undefined) {
+      process.env.AUTO_OPEN_BROWSER = config.server.autoOpenBrowser.toString();
+      logger.info(`自动打开浏览器: ${config.server.autoOpenBrowser ? '启用' : '禁用'}`);
+    }
+
+    logger.info(`日志级别: ${config.logging.level}`);
   }
 
   /**
@@ -168,9 +281,6 @@ class PixivServer {
     logger.info('正在重启服务器...');
     
     try {
-      // 清理代理环境变量
-      proxyConfig.clearEnvironmentVariables();
-      
       // 关闭当前服务器
       if (this.server) {
         await new Promise((resolve) => {
@@ -185,6 +295,12 @@ class PixivServer {
       if (this.backend) {
         await this.backend.cleanup?.();
       }
+      
+      // 重新加载配置文件
+      const config = this.loadConfig();
+      
+      // 重新应用配置到环境变量
+      this.applyConfig(config);
       
       // 重新初始化并启动
       await this.init();
@@ -204,8 +320,6 @@ class PixivServer {
    */
   async shutdown() {
     logger.info('正在关闭服务器...');
-    // 清理代理环境变量
-    proxyConfig.clearEnvironmentVariables();
     logger.info('服务器已关闭');
     process.exit(0);
   }

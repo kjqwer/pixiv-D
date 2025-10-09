@@ -84,8 +84,13 @@ class PixivBackend {
    * 启动token同步定时任务
    */
   startTokenSyncTask() {
+    // 清理可能存在的旧定时器
+    if (this.tokenSyncTimer) {
+      clearInterval(this.tokenSyncTimer);
+    }
+    
     // 每5分钟同步一次token状态到配置文件
-    setInterval(() => {
+    this.tokenSyncTimer = setInterval(() => {
       if (this.auth && this.isLoggedIn) {
         this.syncTokensToConfig();
       }
@@ -336,6 +341,38 @@ class PixivBackend {
   getDownloadService() {
     return this.downloadService;
   }
+
+  /**
+   * 清理资源
+   */
+  async cleanup() {
+    logger.info('正在清理 Pixiv 后端资源...');
+    
+    try {
+      // 停止token同步定时任务
+      if (this.tokenSyncTimer) {
+        clearInterval(this.tokenSyncTimer);
+        this.tokenSyncTimer = null;
+        logger.info('Token同步定时任务已停止');
+      }
+      
+      // 清理认证实例的定时器
+      if (this.auth) {
+        this.auth.stopProactiveRefresh();
+        logger.info('认证定时器已清理');
+      }
+      
+      // 清理下载服务
+      if (this.downloadService) {
+        await this.downloadService.cleanup?.();
+        logger.info('下载服务已清理');
+      }
+      
+      logger.info('Pixiv 后端资源清理完成');
+    } catch (error) {
+      logger.error('清理 Pixiv 后端资源时出错:', error.message);
+    }
+  }
 }
 
-module.exports = PixivBackend; 
+module.exports = PixivBackend;
