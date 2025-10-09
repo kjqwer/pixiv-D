@@ -27,6 +27,7 @@ class PixivServer {
   constructor() {
     this.app = express();
     this.backend = null;
+    this.server = null; // 添加server实例引用
     this.port = 3000; // 默认端口，会在init时重新设置
     this.logLevel = process.env.LOG_LEVEL || 'info'; // 获取日志级别
     this.isVerboseMode = ['debug', 'trace'].includes(this.logLevel.toLowerCase()); // 检查是否为详细模式
@@ -91,6 +92,9 @@ class PixivServer {
 
     // 后端实例注入中间件
     this.app.use(backendInjector(this.backend));
+    
+    // 将服务器实例保存到app.locals中，供路由使用
+    this.app.locals.serverInstance = this;
   }
 
   /**
@@ -111,7 +115,7 @@ class PixivServer {
    * 启动服务器
    */
   start() {
-    this.app.listen(this.port, () => {
+    this.server = this.app.listen(this.port, () => {
       logger.info('Pixiv 后端服务器已启动');
       logger.info(`服务地址: http://localhost:${this.port}`);
       logger.info(`健康检查: http://localhost:${this.port}/health`);
@@ -171,6 +175,48 @@ class PixivServer {
       logger.info('浏览器已打开');
     } catch (error) {
       logger.warn('打开浏览器失败:', error.message);
+    }
+  }
+
+  /**
+   * 重启服务器
+   */
+  async restart() {
+    logger.info('正在重启服务器...');
+    
+    try {
+      // 清理代理环境变量
+      proxyConfig.clearEnvironmentVariables();
+      
+      // 关闭当前服务器
+      if (this.server) {
+        await new Promise((resolve) => {
+          this.server.close(() => {
+            logger.info('HTTP服务器已关闭');
+            resolve();
+          });
+        });
+      }
+      
+      // 清理后端实例
+      if (this.backend) {
+        await this.backend.cleanup?.();
+      }
+      
+      logger.info('正在重新初始化服务器...');
+      
+      // 重新初始化
+      await this.init();
+      
+      // 重新启动
+      this.start();
+      
+      logger.info('服务器重启完成');
+      return { success: true, message: '服务器重启成功' };
+      
+    } catch (error) {
+      logger.error('服务器重启失败:', error);
+      throw error;
     }
   }
 

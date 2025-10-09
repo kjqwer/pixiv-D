@@ -137,7 +137,7 @@
               <!-- 主要操作按钮组 -->
               <div class="action-group primary-actions">
                 <h6 class="action-group-title">配置管理</h6>
-                <div class="action-buttons grid grid-cols-2">
+                <div class="btn-group grid grid-cols-2">
                   <button @click="saveConfig" class="btn btn-primary btn-enhanced" :disabled="saving">
                     <SvgIcon name="save" class="btn-icon" />
                     {{ saving ? '保存中...' : '保存配置' }}
@@ -152,7 +152,7 @@
               <!-- 缓存管理按钮组 -->
               <div class="action-group secondary-actions">
                 <h6 class="action-group-title">缓存管理</h6>
-                <div class="action-buttons grid grid-cols-2">
+                <div class="btn-group grid grid-cols-2">
                   <button @click="clearExpiredCache" class="btn btn-secondary btn-enhanced hover-primary"
                     :disabled="clearing">
                     <SvgIcon name="clean" class="btn-icon" />
@@ -167,8 +167,12 @@
 
               <!-- 危险操作按钮组 -->
               <div class="action-group danger-actions">
-                <h6 class="action-group-title">重置操作</h6>
-                <div class="action-buttons">
+                <h6 class="action-group-title">系统操作</h6>
+                <div class="btn-group grid grid-cols-2">
+                  <button @click="restartServer" class="btn btn-warning btn-enhanced" :disabled="restarting">
+                    <SvgIcon name="refresh" class="btn-icon" />
+                    {{ restarting ? '重启中...' : '重启服务器' }}
+                  </button>
                   <button @click="resetConfig" class="btn btn-danger btn-enhanced" :disabled="resetting">
                     <SvgIcon name="reset" class="btn-icon" />
                     {{ resetting ? '重置中...' : '重置为默认配置' }}
@@ -187,6 +191,7 @@
 import { ref, computed, onMounted } from 'vue';
 import cacheService, { type CacheConfig, type CacheStats } from '@/services/cache';
 import authService from '@/services/auth';
+import apiService from '@/services/api';
 import LoadingSpinner from './LoadingSpinner.vue';
 import ErrorMessage from './ErrorMessage.vue';
 
@@ -196,6 +201,7 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 const clearing = ref(false);
 const resetting = ref(false);
+const restarting = ref(false);
 const saving = ref(false);
 const refreshing = ref(false);
 const successMessage = ref<string | null>(null);
@@ -494,6 +500,36 @@ const refreshToken = async () => {
     console.error('Token刷新失败:', err);
   } finally {
     refreshing.value = false;
+  }
+};
+
+const restartServer = async () => {
+  if (!confirm('确定要重启服务器吗？这将中断当前的所有连接和下载任务。')) {
+    return;
+  }
+
+  try {
+    restarting.value = true;
+    error.value = null;
+    
+    // 调用重启接口
+    const response = await apiService.post('/api/system/restart');
+    
+    if (response.success) {
+      showSuccess('服务器重启请求已发送，页面将在几秒后自动刷新...');
+      
+      // 延迟刷新页面，给服务器时间重启
+      setTimeout(() => {
+        window.location.reload();
+      }, 3000);
+    } else {
+      error.value = response.error || '重启服务器失败';
+    }
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '重启服务器失败';
+    console.error('重启服务器失败:', err);
+  } finally {
+    restarting.value = false;
   }
 };
 

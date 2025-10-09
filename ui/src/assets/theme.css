@@ -477,8 +477,107 @@
   border: 1px solid var(--color-danger);
 }
 
-/* 响应式工具类 */
+/* 按钮组布局样式 */
+.btn-group {
+  display: flex;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+.btn-group-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.btn-group-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.btn-group-space-between {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+/* 操作组容器样式 */
+.action-group {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  border: 1px solid var(--color-border);
+  transition: all var(--transition-normal);
+  margin-bottom: var(--spacing-lg);
+}
+
+.action-group:hover {
+  box-shadow: var(--shadow-sm);
+  border-color: var(--color-border-hover);
+}
+
+.action-group-title {
+  margin: 0 0 var(--spacing-md) 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.action-group-title::before {
+  content: '';
+  width: 3px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--color-primary);
+}
+
+.primary-actions .action-group-title::before {
+  background: var(--color-primary);
+}
+
+.secondary-actions .action-group-title::before {
+  background: var(--color-info);
+}
+
+.danger-actions .action-group-title::before {
+  background: var(--color-danger);
+}
+
+/* 按钮图标样式 */
+.btn-icon {
+  width: 1rem;
+  height: 1rem;
+  margin-right: var(--spacing-sm);
+  flex-shrink: 0;
+}
+
+.btn-icon-only {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+}
+
+/* 响应式按钮组 */
 @media (max-width: 768px) {
+  .btn-group-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .btn-group-space-between {
+    flex-direction: column;
+  }
+  
+  .action-group {
+    padding: var(--spacing-md);
+  }
+
   .mobile-stack {
     flex-direction: column !important;
   }

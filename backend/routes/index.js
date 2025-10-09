@@ -13,6 +13,7 @@ const repositoryRoutes = require('./repository');
 const rankingRoutes = require('./ranking');
 const watchlistRoutes = require('./watchlist');
 const updateRoutes = require('./update');
+const systemRoutes = require('./system');
 
 // 导入认证中间件
 const { authMiddleware } = require('../middleware/auth');
@@ -47,6 +48,7 @@ function setupRoutes(app, backend) {
   app.use('/api/proxy', proxyRoutes); // 图片代理，不需要认证
   app.use('/api/watchlist', authMiddleware, watchlistRoutes); // 待看名单，需要认证
   app.use('/api/update', updateRoutes); // 更新检查，不需要认证
+  app.use('/api/system', systemRoutes); // 系统管理，不需要认证
 
   // 404 处理
   app.use((req, res) => {
