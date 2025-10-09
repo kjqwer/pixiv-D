@@ -10,6 +10,7 @@ const DownloadRegistry = require('./download-registry');
 const CacheConfigManager = require('../config/cache-config');
 const fs = require('fs-extra'); // Added for fs-extra
 const { defaultLogger } = require('../utils/logger');
+const artworkUtils = require('../utils/artwork-utils');
 
 // 创建logger实例
 const logger = defaultLogger.child('DownloadService');
@@ -784,11 +785,9 @@ class DownloadService {
           const artworks = await this.fileManager.listDirectory(artistPath);
 
           for (const artwork of artworks) {
-            // 检查是否是作品目录（包含数字ID）
-            const artworkMatch = artwork.match(/^(\d+)_(.+)$/);
-            if (artworkMatch) {
-              const artworkId = artworkMatch[1];
-
+            // 使用工具函数检查是否是作品目录并提取ID
+            const artworkId = await artworkUtils.extractArtworkIdFromDir(artwork);
+            if (artworkId) {
               // 检查作品目录是否包含图片文件
               const artworkPath = path.join(artistPath, artwork);
               const artworkStat = await this.fileManager.getFileInfo(artworkPath);
@@ -797,7 +796,7 @@ class DownloadService {
                 const files = await this.fileManager.listDirectory(artworkPath);
                 const imageFiles = files.filter(file => /\.(jpg|jpeg|png|gif|webp)$/i.test(file));
                 if (imageFiles.length > 0) {
-                  downloadedIds.add(parseInt(artworkId));
+                  downloadedIds.add(artworkId);
                 }
               }
             }

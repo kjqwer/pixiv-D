@@ -1,6 +1,8 @@
 const path = require('path');
 const fs = require('fs-extra');
 const { defaultLogger } = require('../utils/logger');
+const ConfigManager = require('../config/config-manager');
+const artworkUtils = require('../utils/artwork-utils');
 
 // 创建logger实例
 const logger = defaultLogger.child('DownloadRegistry');
@@ -12,14 +14,14 @@ const logger = defaultLogger.child('DownloadRegistry');
 class DownloadRegistry {
   constructor(dataPath) {
     this.dataPath = dataPath;
-    this.registryPath = path.join(dataPath, 'download_registry.json');
+    this.registryPath = path.join(dataPath, 'download-registry.json');
     this.registry = {
       version: '1.0.5',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      artists: {} // 格式: { artistName: { artworks: [artworkId1, artworkId2, ...] } }
+      artists: {},
+      lastUpdated: null
     };
     this.loaded = false;
+    this.configManager = new ConfigManager();
   }
 
   /**
@@ -183,6 +185,44 @@ class DownloadRegistry {
     }
     
     return false;
+  }
+
+  /**
+   * 从作品目录名中提取作品ID
+   * @param {string} artworkDir - 作品目录名
+   * @returns {number|null} 作品ID，如果无法提取则返回null
+   */
+  async extractArtworkIdFromDir(artworkDir) {
+    return await artworkUtils.extractArtworkIdFromDir(artworkDir);
+  }
+
+  /**
+   * 检查作品是否已在注册表中注册
+   * @param {string} artistName - 作者名称
+   * @param {string} artworkDir - 作品目录名
+   * @returns {boolean} 是否已注册
+   */
+  async isArtworkRegistered(artistName, artworkDir) {
+    if (!this.loaded) {
+      await this.loadRegistry();
+    }
+
+    // 使用动态方法从作品目录名中提取作品ID
+    const artworkId = await this.extractArtworkIdFromDir(artworkDir);
+    if (!artworkId) {
+      logger.warn(`无法从作品目录名中提取作品ID: ${artworkDir}`);
+      return false;
+    }
+
+    const normalizedArtistName = this.normalizeArtistName(artistName);
+
+    // 检查艺术家是否存在
+    if (!this.registry.artists[normalizedArtistName]) {
+      return false;
+    }
+
+    // 检查作品是否在艺术家的作品列表中
+    return this.registry.artists[normalizedArtistName].artworks.includes(artworkId);
   }
 
   /**
@@ -387,10 +427,10 @@ class DownloadRegistry {
             const isRegistered = await this.isArtworkRegistered(artistDir, artworkDir);
             
             if (!isRegistered) {
-              // 获取作品信息并添加到注册表
-              const artworkInfo = await fileManager.getArtworkInfo(artistDir, artworkDir);
-              if (artworkInfo) {
-                await this.addArtwork(artistDir, artworkDir, artworkInfo);
+              // 从作品目录名中提取作品ID并添加到注册表
+              const artworkId = await this.extractArtworkIdFromDir(artworkDir);
+              if (artworkId) {
+                await this.addArtwork(artistDir, artworkId);
                 stats.addedArtworks++;
                 logger.debug(`添加作品到注册表: ${artistDir}/${artworkDir}`);
               }
@@ -451,8 +491,8 @@ class DownloadRegistry {
               const artworkEntries = await fileManager.listDirectory(artistPath);
               
               for (const entry of artworkEntries) {
-                const match = entry.match(/^(\d+)_(.+)$/);
-                if (match && parseInt(match[1]) === artworkId) {
+                const extractedArtworkId = await artworkUtils.extractArtworkIdFromDir(entry);
+                if (extractedArtworkId && extractedArtworkId === artworkId) {
                   const artworkPath = path.join(artistPath, entry);
                   const infoPath = path.join(artworkPath, 'artwork_info.json');
                   

@@ -5,6 +5,7 @@ const { exec } = require('child_process')
 const ConfigManager = require('../config/config-manager')
 const execAsync = promisify(exec)
 const { defaultLogger } = require('../utils/logger');
+const artworkUtils = require('../utils/artwork-utils');
 
 // 创建logger实例
 const logger = defaultLogger.child('RepositoryService');
@@ -465,9 +466,9 @@ class RepositoryService {
         for (const artworkEntry of artworkEntries) {
           if (!artworkEntry.isDirectory()) continue
           
-          // 检查是否是目标作品目录（包含数字ID）
-          const artworkMatch = artworkEntry.name.match(/^(\d+)_(.+)$/)
-          if (artworkMatch && artworkMatch[1] === artworkId.toString()) {
+          // 使用工具函数检查是否是目标作品目录
+          const extractedArtworkId = await artworkUtils.extractArtworkIdFromDir(artworkEntry.name);
+          if (extractedArtworkId && extractedArtworkId === parseInt(artworkId)) {
             const artworkPath = path.join(artistPath, artworkEntry.name)
             
             // 检查作品信息文件 - 这是最可靠的判断标准
@@ -769,9 +770,10 @@ class RepositoryService {
       const artistDir = artwork.artistPath
       try {
         const artistEntries = await fs.readdir(artistDir, { withFileTypes: true })
-        const hasArtworks = artistEntries.some(entry => 
-          entry.isDirectory() && entry.name.match(/^\d+_/)
-        )
+        const hasArtworks = artistEntries.some(async (entry) => {
+          if (!entry.isDirectory()) return false;
+          return await artworkUtils.isArtworkDirectory(entry.name);
+        });
         
         if (!hasArtworks) {
           await fs.rmdir(artistDir)
@@ -816,11 +818,11 @@ class RepositoryService {
         for (const artworkEntry of artworkEntries) {
           if (!artworkEntry.isDirectory()) continue
           
-          // 检查是否是目标作品目录（包含数字ID）
-          const artworkMatch = artworkEntry.name.match(/^(\d+)_(.+)$/)
-          if (artworkMatch && artworkMatch[1] === artworkId.toString()) {
+          // 使用工具函数检查是否是目标作品目录
+          const extractedArtworkId = await artworkUtils.extractArtworkIdFromDir(artworkEntry.name);
+          if (extractedArtworkId && extractedArtworkId === parseInt(artworkId)) {
             const artworkPath = path.join(artistPath, artworkEntry.name)
-            const title = artworkMatch[2]
+            const title = await artworkUtils.extractTitleFromDir(artworkEntry.name) || 'Unknown Title';
             
             // 找到目标作品，返回基本信息（不需要扫描文件详情）
             return {
