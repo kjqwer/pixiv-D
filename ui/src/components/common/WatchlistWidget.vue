@@ -56,11 +56,13 @@
       :batch-urls="batchUrls"
       :auto-generate-title="autoGenerateTitle"
       :parsed-urls="parsedUrls"
+      :import-mode="importMode"
       @update:mode="addMode = $event"
       @update:title="addTitle = $event"
       @update:url="addUrl = $event"
       @update:batchUrls="batchUrls = $event"
       @update:autoGenerateTitle="autoGenerateTitle = $event"
+      @update:importMode="importMode = $event"
       @quickAdd="fillQuickAdd"
       @save="saveAdd"
       @cancel="cancelAdd"
@@ -92,6 +94,7 @@ const addUrl = ref('');
 const addMode = ref<'single' | 'batch'>('single');
 const batchUrls = ref('');
 const autoGenerateTitle = ref(true);
+const importMode = ref<'merge' | 'overwrite'>('merge');
 
 // 搜索和排序
 const searchQuery = ref('');
@@ -401,7 +404,29 @@ const saveAdd = async () => {
     }
   } else {
     // 批量添加模式
-    const urlsToAdd = parsedUrls.value.filter(item => !item.isDuplicate);
+    let urlsToAdd = parsedUrls.value;
+    
+    if (importMode.value === 'merge') {
+      // 重合模式：只添加不重复的URL
+      urlsToAdd = urlsToAdd.filter(item => !item.isDuplicate);
+    } else if (importMode.value === 'overwrite') {
+      // 覆盖模式：删除所有现有项目，然后添加所有新项目
+      if (urlsToAdd.length === 0) return;
+      
+      // 确认覆盖操作
+      if (!confirm('覆盖模式将删除所有现有的待看项目并导入新的项目。确定要继续吗？')) {
+        return;
+      }
+      
+      // 删除所有现有项目
+      const allItems = items.value;
+      for (const item of allItems) {
+        await watchlistStore.deleteItem(item.id);
+      }
+      
+      console.log(`已删除 ${allItems.length} 个现有项目`);
+    }
+    
     if (urlsToAdd.length === 0) return;
 
     // 依次添加每个URL
@@ -422,7 +447,11 @@ const saveAdd = async () => {
 
     if (successCount > 0) {
       cancelAdd();
-      console.log(`成功添加 ${successCount} 个项目`);
+      if (importMode.value === 'overwrite') {
+        console.log(`覆盖导入完成：成功添加 ${successCount} 个项目`);
+      } else {
+        console.log(`重合导入完成：成功添加 ${successCount} 个项目`);
+      }
     }
   }
 };

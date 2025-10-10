@@ -52,6 +52,35 @@
 
         <!-- 批量添加模式 -->
         <template v-else>
+          <!-- 导入模式选择 -->
+          <div class="form-group">
+            <label>导入模式</label>
+            <div class="import-mode-selector">
+              <button @click="$emit('update:importMode', 'merge')" 
+                :class="['import-mode-btn', { active: importMode === 'merge' }]"
+                type="button">
+                <div class="mode-icon">🔄</div>
+                <div class="mode-info">
+                  <div class="mode-title">重合模式</div>
+                  <div class="mode-desc">跳过已存在的项目，只添加新项目</div>
+                </div>
+              </button>
+              <button @click="$emit('update:importMode', 'overwrite')" 
+                :class="['import-mode-btn', { active: importMode === 'overwrite' }]"
+                type="button">
+                <div class="mode-icon">⚠️</div>
+                <div class="mode-info">
+                  <div class="mode-title">覆盖模式</div>
+                  <div class="mode-desc">清空现有数据，重新导入所有项目</div>
+                </div>
+              </button>
+            </div>
+            <small class="form-help">
+              <strong>重合模式：</strong>保留现有数据，只添加新的项目（推荐）<br>
+              <strong>覆盖模式：</strong>删除所有现有数据，重新导入（谨慎使用）
+            </small>
+          </div>
+
           <div class="form-group">
             <label>批量URL列表</label>
             <textarea :value="batchUrls"
@@ -83,7 +112,8 @@ http://localhost:3001/artist/103047332
             <div class="preview-list">
               <div v-for="(item, index) in parsedUrls" :key="index" class="preview-item">
                 <div class="preview-url">{{ item.path }}</div>
-                <div v-if="item.isDuplicate" class="preview-status duplicate">已存在</div>
+                <div v-if="importMode === 'overwrite'" class="preview-status overwrite">将导入</div>
+                <div v-else-if="item.isDuplicate" class="preview-status duplicate">已存在</div>
                 <div v-else class="preview-status new">新增</div>
               </div>
             </div>
@@ -116,6 +146,7 @@ interface Props {
   batchUrls: string;
   autoGenerateTitle: boolean;
   parsedUrls: ParsedUrl[];
+  importMode: 'merge' | 'overwrite';
 }
 
 defineProps<Props>();
@@ -128,6 +159,7 @@ const emit = defineEmits<{
   'update:url': [value: string];
   'update:batchUrls': [value: string];
   'update:autoGenerateTitle': [value: boolean];
+  'update:importMode': [value: 'merge' | 'overwrite'];
   quickAdd: [path: string, title: string];
 }>();
 
@@ -376,6 +408,64 @@ const handleSave = () => {
 .preview-status.duplicate {
   background: var(--color-warning);
   color: white;
+}
+
+.preview-status.overwrite {
+  background: var(--color-primary);
+  color: white;
+}
+
+/* 导入模式选择器样式 */
+.import-mode-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.import-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 2px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.import-mode-btn:hover {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-primary-light);
+}
+
+.import-mode-btn.active {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.mode-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.mode-info {
+  flex: 1;
+}
+
+.mode-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.mode-desc {
+  font-size: 12px;
+  opacity: 0.8;
+  line-height: 1.3;
 }
 
 .modal-actions {

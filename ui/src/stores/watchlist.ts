@@ -211,7 +211,7 @@ export const useWatchlistStore = defineStore('watchlist', () => {
   };
 
   // 导入待看名单数据
-  const importWatchlist = async (file: File) => {
+  const importWatchlist = async (file: File, importMode: 'merge' | 'overwrite' = 'merge') => {
     try {
       const text = await file.text();
       const importData = JSON.parse(text);
@@ -225,11 +225,25 @@ export const useWatchlistStore = defineStore('watchlist', () => {
       let successCount = 0;
       let skipCount = 0;
       let errorCount = 0;
+      let deletedCount = 0;
+      
+      // 如果是覆盖模式，先删除所有现有项目
+      if (importMode === 'overwrite') {
+        const allItems = items.value;
+        for (const item of allItems) {
+          try {
+            await deleteItem(item.id);
+            deletedCount++;
+          } catch (err) {
+            console.error('删除项目失败:', item, err);
+          }
+        }
+      }
       
       for (const item of importData.items) {
         try {
-          // 检查是否已存在（使用路径比较）
-          if (hasUrl(item.url)) {
+          // 在重合模式下检查是否已存在
+          if (importMode === 'merge' && hasUrl(item.url)) {
             skipCount++;
             continue;
           }
@@ -251,17 +265,24 @@ export const useWatchlistStore = defineStore('watchlist', () => {
         }
       }
       
+      let message = '';
+      if (importMode === 'overwrite') {
+        message = `覆盖导入完成：删除 ${deletedCount} 项，成功添加 ${successCount} 项，失败 ${errorCount} 项`;
+      } else {
+        message = `重合导入完成：成功 ${successCount} 项，跳过 ${skipCount} 项，失败 ${errorCount} 项`;
+      }
+      
       return {
         success: true,
-        message: `导入完成：成功 ${successCount} 项，跳过 ${skipCount} 项，失败 ${errorCount} 项`,
-        stats: { successCount, skipCount, errorCount }
+        message,
+        stats: { successCount, skipCount, errorCount, deletedCount }
       };
     } catch (err) {
       console.error('导入失败:', err);
       return {
         success: false,
         message: err instanceof Error ? err.message : '导入失败',
-        stats: { successCount: 0, skipCount: 0, errorCount: 0 }
+        stats: { successCount: 0, skipCount: 0, errorCount: 0, deletedCount: 0 }
       };
     }
   };

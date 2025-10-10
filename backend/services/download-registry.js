@@ -35,7 +35,7 @@ class DownloadRegistry {
       // 加载现有注册表
       await this.loadRegistry();
       
-      logger.info(`下载记录注册表初始化完成，总共包含${Object.keys(this.registry.artists).length}个作者，${this.getTotalArtworkCount()}个工作品`);
+      logger.info(`下载记录注册表初始化完成，总共包含${Object.keys(this.registry.artists).length}个作者，${this.getTotalArtworkCount()}个作品`);
     } catch (error) {
       logger.error('下载记录注册表初始化失败:', error);
       throw error;

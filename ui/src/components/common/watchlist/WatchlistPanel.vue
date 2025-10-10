@@ -7,9 +7,27 @@
         <button @click="exportWatchlist" class="export-btn" title="导出待看名单">
           <SvgIcon name="download" class="export-icon" />
         </button>
-        <button @click="triggerImport" class="import-btn" title="导入待看名单">
-          <SvgIcon name="upload" class="import-icon" />
-        </button>
+        <div class="import-section">
+          <button @click="triggerImport" class="import-btn" title="导入待看名单">
+            <SvgIcon name="upload" class="import-icon" />
+          </button>
+          <div class="import-mode-selector">
+            <button 
+              @click="importMode = 'merge'" 
+              :class="['mode-btn', { active: importMode === 'merge' }]"
+              title="重合模式：跳过已存在的项目"
+            >
+              重合
+            </button>
+            <button 
+              @click="importMode = 'overwrite'" 
+              :class="['mode-btn', { active: importMode === 'overwrite' }]"
+              title="覆盖模式：删除所有现有项目后导入"
+            >
+              覆盖
+            </button>
+          </div>
+        </div>
         <input
           ref="fileInput"
           type="file"
@@ -77,6 +95,9 @@ defineEmits<{
 // 获取watchlist store实例
 const watchlistStore = useWatchlistStore();
 
+// 导入模式状态
+const importMode = ref<'merge' | 'overwrite'>('merge');
+
 // 文件输入引用
 const fileInput = ref<HTMLInputElement>();
 
@@ -97,8 +118,17 @@ const handleFileImport = async (event: Event) => {
   
   if (!file) return;
   
+  // 如果是覆盖模式，先确认
+  if (importMode.value === 'overwrite') {
+    const confirmed = confirm('覆盖模式将删除所有现有的待看项目，确定要继续吗？');
+    if (!confirmed) {
+      target.value = '';
+      return;
+    }
+  }
+  
   try {
-    const result = await watchlistStore.importWatchlist(file);
+    const result = await watchlistStore.importWatchlist(file, importMode.value);
     
     if (result.success) {
       alert(result.message);
@@ -217,6 +247,49 @@ const handleFileImport = async (event: Event) => {
 .import-icon {
   width: 14px;
   height: 14px;
+}
+
+/* 导入区域样式 */
+.import-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.import-mode-selector {
+  display: flex;
+  background: var(--color-bg-tertiary);
+  border-radius: 4px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.mode-btn {
+  padding: 4px 8px;
+  font-size: 11px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.mode-btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.mode-btn.active {
+  background: var(--color-primary);
+  color: white;
+  font-weight: 500;
+}
+
+.mode-btn.active:hover {
+  background: var(--color-primary-dark);
 }
 
 /* 响应式设计 */
