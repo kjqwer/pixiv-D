@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import downloadService from '@/services/download';
+import databaseService from '@/services/database';
 import { getApiBaseUrl } from '@/services/api';
 
 export interface RegistryStats {
@@ -12,6 +13,7 @@ export interface RegistryStats {
 export interface RegistryConfig {
   useRegistryCheck: boolean;
   fallbackToScan: boolean;
+  storageMode?: 'json' | 'database';
 }
 
 export const useRegistryStore = defineStore('registry', () => {
@@ -19,18 +21,25 @@ export const useRegistryStore = defineStore('registry', () => {
   const stats = ref<RegistryStats | null>(null);
   const config = ref<RegistryConfig>({
     useRegistryCheck: true,
-    fallbackToScan: false
+    fallbackToScan: false,
+    storageMode: 'json'
   });
   const loading = ref(false);
   const error = ref<string | null>(null);
 
   // 获取注册表统计信息
-  const fetchStats = async () => {
+  const fetchStats = async (useDatabase = false) => {
     try {
       loading.value = true;
       error.value = null;
       
-      const response = await downloadService.getRegistryStats();
+      let response;
+      if (useDatabase) {
+        response = await databaseService.getRegistryStats();
+      } else {
+        response = await downloadService.getRegistryStats();
+      }
+      
       if (response.success) {
         // 映射API响应数据到组件期望的格式
         stats.value = {
@@ -50,27 +59,23 @@ export const useRegistryStore = defineStore('registry', () => {
   };
 
   // 导出注册表
-  const exportRegistry = async () => {
+  const exportRegistry = async (useDatabase = false) => {
     try {
       loading.value = true;
       error.value = null;
       
-      const response = await downloadService.exportRegistry();
+      let response;
+      if (useDatabase) {
+        response = await databaseService.exportRegistry();
+      } else {
+        response = await downloadService.exportRegistry();
+      }
       
-      // 创建下载链接
-      const blob = new Blob([JSON.stringify(response, null, 2)], {
-        type: 'application/json'
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `download-registry-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-      return { success: true };
+      if (response.success) {
+        return { success: true, data: response.data };
+      } else {
+        throw new Error(response.error || '导出注册表失败');
+      }
     } catch (err: any) {
       error.value = err.message || '导出注册表失败';
       console.error('导出注册表失败:', err);
@@ -81,18 +86,21 @@ export const useRegistryStore = defineStore('registry', () => {
   };
 
   // 导入注册表
-  const importRegistry = async (file: File) => {
+  const importRegistry = async (data: any, useDatabase = false) => {
     try {
       loading.value = true;
       error.value = null;
       
-      const text = await file.text();
-      const registryData = JSON.parse(text);
+      let response;
+      if (useDatabase) {
+        response = await databaseService.importRegistry(data);
+      } else {
+        response = await downloadService.importRegistry(data);
+      }
       
-      const response = await downloadService.importRegistry(registryData);
       if (response.success) {
         // 刷新统计信息
-        await fetchStats();
+        await fetchStats(useDatabase);
         return { success: true, data: response.data };
       } else {
         throw new Error(response.error || '导入注册表失败');
@@ -107,15 +115,21 @@ export const useRegistryStore = defineStore('registry', () => {
   };
 
   // 重建注册表
-  const rebuildRegistry = async () => {
+  const rebuildRegistry = async (useDatabase = false) => {
     try {
       loading.value = true;
       error.value = null;
       
-      const response = await downloadService.rebuildRegistry();
+      let response;
+      if (useDatabase) {
+        response = await databaseService.rebuildRegistry();
+      } else {
+        response = await downloadService.rebuildRegistry();
+      }
+      
       if (response.success) {
         // 刷新统计信息
-        await fetchStats();
+        await fetchStats(useDatabase);
         return { success: true, data: response.data };
       } else {
         throw new Error(response.error || '重建注册表失败');
@@ -130,15 +144,21 @@ export const useRegistryStore = defineStore('registry', () => {
   };
 
   // 清理注册表
-  const cleanupRegistry = async () => {
+  const cleanupRegistry = async (useDatabase = false) => {
     try {
       loading.value = true;
       error.value = null;
       
-      const response = await downloadService.cleanupRegistry();
+      let response;
+      if (useDatabase) {
+        response = await databaseService.cleanupRegistry();
+      } else {
+        response = await downloadService.cleanupRegistry();
+      }
+      
       if (response.success) {
         // 刷新统计信息
-        await fetchStats();
+        await fetchStats(useDatabase);
         return { success: true, data: response.data };
       } else {
         throw new Error(response.error || '清理注册表失败');
@@ -159,7 +179,7 @@ export const useRegistryStore = defineStore('registry', () => {
       const result = await response.json();
       
       if (result.success && result.data) {
-        config.value = result.data;
+        config.value = { ...config.value, ...result.data };
         return result.data;
       } else {
         throw new Error(result.error || '获取配置失败');

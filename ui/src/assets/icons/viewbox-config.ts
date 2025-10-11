@@ -19,6 +19,7 @@ export const LARGE_VIEWBOX_ICONS: Record<string, string> = {
   'trending-up': '0 0 1024 1024',
   'trending-down': '0 0 1024 1024',
   'database': '0 0 1024 1024',
+  'test-connect': '0 0 1024 1024',
 }
 
 /**

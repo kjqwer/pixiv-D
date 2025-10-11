@@ -20,11 +20,12 @@ const logger = defaultLogger.child('DownloadService');
  * 下载服务 - 主服务类，协调各个管理器
  */
 class DownloadService {
-  constructor(auth) {
+  constructor(auth, databaseManager = null) {
     this.auth = auth;
     this.artworkService = new ArtworkService(auth);
     this.artistService = new ArtistService(auth);
     this.cacheConfigManager = new CacheConfigManager();
+    this.databaseManager = databaseManager;
 
     // 检测是否在pkg打包环境中运行
     const isPkg = process.pkg !== undefined;
@@ -42,7 +43,7 @@ class DownloadService {
     this.taskManager = new TaskManager(this.dataPath);
     this.progressManager = new ProgressManager();
     this.historyManager = new HistoryManager(this.dataPath);
-    this.downloadRegistry = new DownloadRegistry(this.dataPath);
+    this.downloadRegistry = new DownloadRegistry(this.dataPath, this.databaseManager);
     // 先创建下载执行器，稍后在init方法中设置downloadService引用
     this.downloadExecutor = new DownloadExecutor(this.fileManager, this.taskManager, this.progressManager, this.historyManager, this);
 

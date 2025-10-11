@@ -29,6 +29,7 @@ class PixivBackend {
     this.auth = null;
     this.isLoggedIn = false;
     this.downloadService = null;
+    this.databaseManager = null;
   }
 
   /**
@@ -40,6 +41,9 @@ class PixivBackend {
     // 初始化配置
     this.initConfig();
     this.config = this.readConfig();
+    
+    // 自动加载数据库配置
+    await this.initDatabaseConfig();
     
     // 创建认证实例，传入代理配置
     this.auth = new PixivAuth(this.config.proxy);
@@ -63,7 +67,7 @@ class PixivBackend {
     }
     
     // 创建下载服务实例
-    this.downloadService = new DownloadService(this.auth);
+    this.downloadService = new DownloadService(this.auth, this.databaseManager);
     await this.downloadService.init();
     
     // 检查登录状态
@@ -332,6 +336,49 @@ class PixivBackend {
       this.config.refresh_token = this.auth.refreshToken;
       this.config.user = this.auth.user;
       this.saveConfig();
+    }
+  }
+
+  /**
+   * 初始化数据库配置
+   */
+  async initDatabaseConfig() {
+    try {
+      const fs = require('fs-extra');
+      const path = require('path');
+      
+      // 检测是否在pkg打包环境中运行
+      const isPkg = process.pkg !== undefined;
+      
+      const configPath = isPkg 
+        ? path.join(process.cwd(), 'data', 'database.json')  // 打包环境：当前工作目录的data文件夹
+        : path.join(__dirname, '..', 'data', 'database.json');  // 开发环境：项目根目录的data文件夹
+      
+      if (await fs.pathExists(configPath)) {
+        const config = await fs.readJson(configPath);
+        logger.info('检测到数据库配置文件，正在初始化数据库连接...');
+        
+        // 动态导入数据库管理器
+        const DatabaseManager = require('./database/database-manager');
+        const RegistryDatabase = require('./database/registry-database');
+        
+        // 创建并初始化数据库管理器
+        this.databaseManager = new DatabaseManager();
+        await this.databaseManager.init(config);
+        
+        // 初始化注册表数据库
+        const registryDatabase = new RegistryDatabase(this.databaseManager);
+        
+        // 将实例设置到数据库路由模块中
+        const databaseRoute = require('./routes/database');
+        databaseRoute.setDatabaseInstances(this.databaseManager, registryDatabase);
+        
+        logger.info('数据库连接已自动初始化');
+      } else {
+        logger.info('未检测到数据库配置文件，跳过数据库初始化');
+      }
+    } catch (error) {
+      logger.error('初始化数据库配置时出错:', error.message);
     }
   }
 

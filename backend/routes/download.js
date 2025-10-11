@@ -1203,7 +1203,8 @@ router.get('/registry/config', async (req, res) => {
     // 提取下载相关的配置
     const downloadConfig = {
       useRegistryCheck: config.download?.useRegistryCheck !== false, // 默认启用
-      fallbackToScan: config.download?.fallbackToScan === true // 默认不启用
+      fallbackToScan: config.download?.fallbackToScan === true, // 默认不启用
+      storageMode: config.download?.storageMode || 'json' // 默认JSON存储
     };
     
     res.json({
@@ -1225,8 +1226,9 @@ router.get('/registry/config', async (req, res) => {
  */
 router.put('/registry/config', async (req, res) => {
   try {
-    const { useRegistryCheck, fallbackToScan } = req.body;
+    const { useRegistryCheck, fallbackToScan, storageMode } = req.body;
     
+    // 验证必需的布尔值参数
     if (typeof useRegistryCheck !== 'boolean' || typeof fallbackToScan !== 'boolean') {
       return res.status(400).json({
         success: false,
@@ -1234,25 +1236,65 @@ router.put('/registry/config', async (req, res) => {
       });
     }
     
+    // 验证存储模式参数（可选）
+    if (storageMode && !['json', 'database'].includes(storageMode)) {
+      return res.status(400).json({
+        success: false,
+        error: '存储模式必须是 json 或 database'
+      });
+    }
+    
     const downloadService = req.backend.getDownloadService();
     
-    // 更新配置
-    const updatedConfig = await downloadService.cacheConfigManager.updateConfig({
+    // 构建更新配置对象
+    const updateData = {
       download: {
         useRegistryCheck,
         fallbackToScan
       }
-    });
+    };
+    
+    // 如果提供了存储模式，添加到更新数据中
+    if (storageMode) {
+      updateData.download.storageMode = storageMode;
+    }
+    
+    // 更新配置
+    const updatedConfig = await downloadService.cacheConfigManager.updateConfig(updateData);
     
     res.json({
       success: true,
       data: {
         useRegistryCheck: updatedConfig.download?.useRegistryCheck !== false,
-        fallbackToScan: updatedConfig.download?.fallbackToScan === true
+        fallbackToScan: updatedConfig.download?.fallbackToScan === true,
+        storageMode: updatedConfig.download?.storageMode || 'json'
       }
     });
   } catch (error) {
     logger.error('更新下载检测配置失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * 清理下载注册表
+ * POST /api/download/registry/cleanup
+ */
+router.post('/registry/cleanup', async (req, res) => {
+  try {
+    const downloadService = req.backend.getDownloadService();
+    const result = await downloadService.downloadRegistry.cleanupRegistry(downloadService.fileManager);
+    
+    res.json({
+      success: true,
+      data: result
+    });
+    
+  } catch (error) {
+    logger.error('清理下载注册表失败:', error);
     res.status(500).json({
       success: false,
       error: error.message

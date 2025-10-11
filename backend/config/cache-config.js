@@ -39,7 +39,7 @@ class CacheConfigManager {
         retryDelay: 1000,
       },
       allowedExtensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'],
-      // 新增并发下载配置
+      // 下载检测配置
       download: {
         concurrentDownloads: 3, // 同时下载任务数
         maxConcurrentFiles: 5, // 单个任务内最大并发文件数
@@ -52,6 +52,8 @@ class CacheConfigManager {
         useRegistryCheck: true, // 是否使用注册表检测（默认启用）
         fallbackToScan: false, // 检测失败时是否回退到扫盘检测
         maxFileSize: 50 * 1024 * 1024, // 最大文件大小 50MB
+        // 存储模式配置
+        storageMode: 'json', // 存储模式：'json' 或 'database'
       },
       // 新增Windows特定配置
       windows: {

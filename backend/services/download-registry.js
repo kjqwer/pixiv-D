@@ -2,26 +2,35 @@ const path = require('path');
 const fs = require('fs-extra');
 const { defaultLogger } = require('../utils/logger');
 const ConfigManager = require('../config/config-manager');
+const CacheConfigManager = require('../config/cache-config');
+const RegistryDatabase = require('../database/registry-database');
 const artworkUtils = require('../utils/artwork-utils');
 
 // 创建logger实例
 const logger = defaultLogger.child('DownloadRegistry');
 
 /**
- * 下载记录管理器 - 维护已下载作品的JSON记录
+ * 下载记录管理器 - 维护已下载作品的记录
+ * 支持JSON文件和数据库两种存储模式，根据配置自动选择
  * 用于快速检测作品是否已下载，支持导入导出和多设备同步
  */
 class DownloadRegistry {
-  constructor(dataPath) {
+  constructor(dataPath, databaseManager = null) {
     this.dataPath = dataPath;
     this.registryPath = path.join(dataPath, 'download-registry.json');
     this.registry = {
       version: '1.0.5',
       artists: {},
-      lastUpdated: null
+      lastUpdated: null,
     };
     this.loaded = false;
     this.configManager = new ConfigManager();
+    this.cacheConfigManager = new CacheConfigManager();
+
+    // 数据库相关
+    this.databaseManager = databaseManager;
+    this.registryDatabase = null;
+    this.storageMode = 'json'; // 默认使用JSON存储
   }
 
   /**
@@ -31,15 +40,59 @@ class DownloadRegistry {
     try {
       // 确保数据目录存在
       await fs.ensureDir(this.dataPath);
-      
-      // 加载现有注册表
-      await this.loadRegistry();
-      
-      logger.info(`下载记录注册表初始化完成，总共包含${Object.keys(this.registry.artists).length}个作者，${this.getTotalArtworkCount()}个作品`);
+
+      // 获取存储模式配置
+      await this.loadStorageMode();
+
+      // 根据存储模式初始化相应的存储系统
+      if (this.storageMode === 'database' && this.databaseManager) {
+        await this.initDatabaseStorage();
+      } else {
+        await this.initJsonStorage();
+      }
+
+      const stats = await this.getStats();
+      logger.info(`下载记录注册表初始化完成（${this.storageMode}模式），总共包含${stats.artistCount}个作者，${stats.artworkCount}个作品`);
     } catch (error) {
       logger.error('下载记录注册表初始化失败:', error);
       throw error;
     }
+  }
+
+  /**
+   * 加载存储模式配置
+   */
+  async loadStorageMode() {
+    try {
+      const cacheConfig = await this.cacheConfigManager.loadConfig();
+      this.storageMode = cacheConfig.download?.storageMode || 'json';
+      logger.debug(`存储模式配置: ${this.storageMode}`);
+    } catch (error) {
+      logger.warn('加载存储模式配置失败，使用默认JSON模式:', error.message);
+      this.storageMode = 'json';
+    }
+  }
+
+  /**
+   * 初始化数据库存储
+   */
+  async initDatabaseStorage() {
+    if (!this.databaseManager) {
+      throw new Error('数据库管理器未提供，无法使用数据库存储模式');
+    }
+
+    this.registryDatabase = new RegistryDatabase(this.databaseManager);
+    await this.registryDatabase.init();
+    this.loaded = true;
+    logger.info('数据库存储模式初始化完成');
+  }
+
+  /**
+   * 初始化JSON存储
+   */
+  async initJsonStorage() {
+    await this.loadRegistry();
+    logger.info('JSON存储模式初始化完成');
   }
 
   /**
@@ -49,14 +102,14 @@ class DownloadRegistry {
     try {
       if (await fs.pathExists(this.registryPath)) {
         const data = await fs.readJson(this.registryPath);
-        
+
         // 验证数据格式
         if (data && typeof data === 'object' && data.artists) {
           this.registry = {
             version: data.version || '1.0.0',
             created_at: data.created_at || new Date().toISOString(),
             updated_at: data.updated_at || new Date().toISOString(),
-            artists: data.artists || {}
+            artists: data.artists || {},
           };
         } else {
           logger.warn('注册表文件格式不正确，使用默认格式');
@@ -64,7 +117,7 @@ class DownloadRegistry {
       } else {
         logger.info('注册表文件不存在，将创建新的注册表');
       }
-      
+
       this.loaded = true;
     } catch (error) {
       logger.error('加载注册表文件失败:', error);
@@ -94,25 +147,32 @@ class DownloadRegistry {
    */
   async addArtwork(artistName, artworkId) {
     if (!this.loaded) {
-      await this.loadRegistry();
+      await this.init();
     }
 
     const normalizedArtistName = this.normalizeArtistName(artistName);
     const normalizedArtworkId = parseInt(artworkId);
 
-    if (!this.registry.artists[normalizedArtistName]) {
-      this.registry.artists[normalizedArtistName] = {
-        artworks: []
-      };
-    }
+    if (this.storageMode === 'database' && this.registryDatabase) {
+      // 使用数据库存储
+      await this.registryDatabase.addArtwork(normalizedArtistName, normalizedArtworkId);
+      logger.debug('添加作品记录到数据库', { artistName: normalizedArtistName, artworkId: normalizedArtworkId });
+    } else {
+      // 使用JSON存储
+      if (!this.registry.artists[normalizedArtistName]) {
+        this.registry.artists[normalizedArtistName] = {
+          artworks: [],
+        };
+      }
 
-    // 检查是否已存在
-    if (!this.registry.artists[normalizedArtistName].artworks.includes(normalizedArtworkId)) {
-      this.registry.artists[normalizedArtistName].artworks.push(normalizedArtworkId);
-      this.registry.artists[normalizedArtistName].artworks.sort((a, b) => b - a); // 按ID倒序排列
-      
-      await this.saveRegistry();
-      logger.debug('添加作品记录', { artistName: normalizedArtistName, artworkId: normalizedArtworkId });
+      // 检查是否已存在
+      if (!this.registry.artists[normalizedArtistName].artworks.includes(normalizedArtworkId)) {
+        this.registry.artists[normalizedArtistName].artworks.push(normalizedArtworkId);
+        this.registry.artists[normalizedArtistName].artworks.sort((a, b) => b - a); // 按ID倒序排列
+
+        await this.saveRegistry();
+        logger.debug('添加作品记录到JSON', { artistName: normalizedArtistName, artworkId: normalizedArtworkId });
+      }
     }
   }
 
@@ -123,45 +183,52 @@ class DownloadRegistry {
    */
   async removeArtwork(artistName, artworkId) {
     if (!this.loaded) {
-      await this.loadRegistry();
+      await this.init();
     }
 
     const normalizedArtistName = this.normalizeArtistName(artistName);
     const normalizedArtworkId = parseInt(artworkId);
 
-    logger.debug('开始移除作品记录', { 
-      originalArtistName: artistName, 
-      normalizedArtistName: normalizedArtistName, 
-      artworkId: normalizedArtworkId 
+    logger.debug('开始移除作品记录', {
+      originalArtistName: artistName,
+      normalizedArtistName: normalizedArtistName,
+      artworkId: normalizedArtworkId,
     });
 
-    if (this.registry.artists[normalizedArtistName]) {
-      const artworks = this.registry.artists[normalizedArtistName].artworks;
-      const index = artworks.indexOf(normalizedArtworkId);
-      
-      logger.debug('查找作品在注册表中的位置', { 
-        artistName: normalizedArtistName, 
-        artworkId: normalizedArtworkId, 
-        index: index,
-        artworks: artworks 
-      });
-      
-      if (index !== -1) {
-        artworks.splice(index, 1);
-        
-        // 如果作者下没有作品了，删除作者记录
-        if (artworks.length === 0) {
-          delete this.registry.artists[normalizedArtistName];
-          logger.info('作者下无作品，删除作者记录', { artistName: normalizedArtistName });
-        }
-        
-        await this.saveRegistry();
-        logger.debug('成功移除作品记录', { artistName: normalizedArtistName, artworkId: normalizedArtworkId });
-      } else {
-        logger.warn('作品在注册表中未找到', { artistName: normalizedArtistName, artworkId: normalizedArtworkId });
-      }
+    if (this.storageMode === 'database' && this.registryDatabase) {
+      // 使用数据库存储
+      await this.registryDatabase.removeArtwork(normalizedArtistName, normalizedArtworkId);
+      logger.debug('从数据库移除作品记录', { artistName: normalizedArtistName, artworkId: normalizedArtworkId });
     } else {
-      logger.warn('作者在注册表中未找到', { artistName: normalizedArtistName });
+      // 使用JSON存储
+      if (this.registry.artists[normalizedArtistName]) {
+        const artworks = this.registry.artists[normalizedArtistName].artworks;
+        const index = artworks.indexOf(normalizedArtworkId);
+
+        logger.debug('查找作品在注册表中的位置', {
+          artistName: normalizedArtistName,
+          artworkId: normalizedArtworkId,
+          index: index,
+          artworks: artworks,
+        });
+
+        if (index !== -1) {
+          artworks.splice(index, 1);
+
+          // 如果作者下没有作品了，删除作者记录
+          if (artworks.length === 0) {
+            delete this.registry.artists[normalizedArtistName];
+            logger.info('作者下无作品，删除作者记录', { artistName: normalizedArtistName });
+          }
+
+          await this.saveRegistry();
+          logger.debug('成功移除作品记录', { artistName: normalizedArtistName, artworkId: normalizedArtworkId });
+        } else {
+          logger.warn('作品在注册表中未找到', { artistName: normalizedArtistName, artworkId: normalizedArtworkId });
+        }
+      } else {
+        logger.warn('作者在注册表中未找到', { artistName: normalizedArtistName });
+      }
     }
   }
 
@@ -172,19 +239,25 @@ class DownloadRegistry {
    */
   async isArtworkDownloaded(artworkId) {
     if (!this.loaded) {
-      await this.loadRegistry();
+      await this.init();
     }
 
     const normalizedArtworkId = parseInt(artworkId);
-    
-    // 遍历所有作者查找作品
-    for (const artistName in this.registry.artists) {
-      if (this.registry.artists[artistName].artworks.includes(normalizedArtworkId)) {
-        return true;
+
+    if (this.storageMode === 'database' && this.registryDatabase) {
+      // 使用数据库存储
+      return await this.registryDatabase.isArtworkDownloaded(normalizedArtworkId);
+    } else {
+      // 使用JSON存储
+      // 遍历所有作者查找作品
+      for (const artistName in this.registry.artists) {
+        if (this.registry.artists[artistName].artworks.includes(normalizedArtworkId)) {
+          return true;
+        }
       }
+
+      return false;
     }
-    
-    return false;
   }
 
   /**
@@ -235,13 +308,13 @@ class DownloadRegistry {
     }
 
     const artworkIds = new Set();
-    
+
     for (const artistName in this.registry.artists) {
       for (const artworkId of this.registry.artists[artistName].artworks) {
         artworkIds.add(artworkId);
       }
     }
-    
+
     return Array.from(artworkIds).sort((a, b) => b - a);
   }
 
@@ -252,16 +325,22 @@ class DownloadRegistry {
    */
   async getArtistArtworks(artistName) {
     if (!this.loaded) {
-      await this.loadRegistry();
+      await this.init();
     }
 
     const normalizedArtistName = this.normalizeArtistName(artistName);
-    
-    if (this.registry.artists[normalizedArtistName]) {
-      return [...this.registry.artists[normalizedArtistName].artworks];
+
+    if (this.storageMode === 'database' && this.registryDatabase) {
+      // 使用数据库存储
+      return await this.registryDatabase.getArtistArtworks(normalizedArtistName);
+    } else {
+      // 使用JSON存储
+      if (this.registry.artists[normalizedArtistName]) {
+        return [...this.registry.artists[normalizedArtistName].artworks];
+      }
+
+      return [];
     }
-    
-    return [];
   }
 
   /**
@@ -270,10 +349,16 @@ class DownloadRegistry {
    */
   async getDownloadedArtists() {
     if (!this.loaded) {
-      await this.loadRegistry();
+      await this.init();
     }
 
-    return Object.keys(this.registry.artists);
+    if (this.storageMode === 'database' && this.registryDatabase) {
+      // 使用数据库存储
+      return await this.registryDatabase.getDownloadedArtists();
+    } else {
+      // 使用JSON存储
+      return Object.keys(this.registry.artists);
+    }
   }
 
   /**
@@ -281,19 +366,25 @@ class DownloadRegistry {
    */
   async getStats() {
     if (!this.loaded) {
-      await this.loadRegistry();
+      await this.init();
     }
 
-    const artists = Object.keys(this.registry.artists);
-    const totalArtworks = this.getTotalArtworkCount();
-    
-    return {
-      artistCount: artists.length,
-      artworkCount: totalArtworks,
-      version: this.registry.version,
-      created_at: this.registry.created_at,
-      updated_at: this.registry.updated_at
-    };
+    if (this.storageMode === 'database' && this.registryDatabase) {
+      // 使用数据库存储
+      return await this.registryDatabase.getStats();
+    } else {
+      // 使用JSON存储
+      const artists = Object.keys(this.registry.artists);
+      const totalArtworks = this.getTotalArtworkCount();
+
+      return {
+        artistCount: artists.length,
+        artworkCount: totalArtworks,
+        version: this.registry.version,
+        created_at: this.registry.created_at,
+        updated_at: this.registry.updated_at,
+      };
+    }
   }
 
   /**
@@ -307,7 +398,7 @@ class DownloadRegistry {
 
     return {
       ...this.registry,
-      exported_at: new Date().toISOString()
+      exported_at: new Date().toISOString(),
     };
   }
 
@@ -332,14 +423,14 @@ class DownloadRegistry {
     for (const artistName in importData.artists) {
       const normalizedArtistName = this.normalizeArtistName(artistName);
       const importArtworks = importData.artists[artistName].artworks || [];
-      
+
       if (!this.registry.artists[normalizedArtistName]) {
         this.registry.artists[normalizedArtistName] = { artworks: [] };
         addedArtists++;
       }
 
       const existingArtworks = new Set(this.registry.artists[normalizedArtistName].artworks);
-      
+
       for (const artworkId of importArtworks) {
         const normalizedArtworkId = parseInt(artworkId);
         if (!existingArtworks.has(normalizedArtworkId)) {
@@ -349,7 +440,7 @@ class DownloadRegistry {
           skippedArtworks++;
         }
       }
-      
+
       // 排序
       this.registry.artists[normalizedArtistName].artworks.sort((a, b) => b - a);
     }
@@ -361,27 +452,29 @@ class DownloadRegistry {
       addedArtworks,
       skippedArtworks,
       totalArtists: Object.keys(this.registry.artists).length,
-      totalArtworks: this.getTotalArtworkCount()
+      totalArtworks: this.getTotalArtworkCount(),
     };
 
-    logger.info(`注册表导入完成，导入了 ${result.addedArtists} 个作者，${result.addedArtworks} 个作品，跳过了 ${result.skippedArtworks} 个重复作品。当前总计：${result.totalArtists} 个作者，${result.totalArtworks} 个作品`);
+    logger.info(
+      `注册表导入完成，导入了 ${result.addedArtists} 个作者，${result.addedArtworks} 个作品，跳过了 ${result.skippedArtworks} 个重复作品。当前总计：${result.totalArtists} 个作者，${result.totalArtworks} 个作品`
+    );
     return result;
   }
 
   /**
    * 从文件系统重建注册表
-   * @param {FileManager} fileManager 
+   * @param {FileManager} fileManager
    * @param {string} taskId - 任务ID，用于更新进度
    * @returns {Promise<{scannedArtists: number, scannedArtworks: number, addedArtworks: number, skippedArtworks: number}>}
    */
   async rebuildFromFileSystem(fileManager, taskId = null) {
     logger.info('开始从文件系统重建下载注册表...');
-    
+
     const stats = {
       scannedArtists: 0,
       scannedArtworks: 0,
       addedArtworks: 0,
-      skippedArtworks: 0
+      skippedArtworks: 0,
     };
 
     // 获取所有艺术家目录
@@ -397,8 +490,8 @@ class DownloadRegistry {
             ...task,
             progress: {
               ...stats,
-              currentArtist
-            }
+              currentArtist,
+            },
           });
         }
         // 检查是否被取消
@@ -412,20 +505,20 @@ class DownloadRegistry {
       try {
         stats.scannedArtists++;
         updateProgress(artistDir);
-        
+
         logger.info(`扫描艺术家目录: ${artistDir}`);
-        
+
         // 获取艺术家目录下的所有作品目录
         const artworkDirs = await fileManager.getArtworkDirectories(artistDir);
-        
+
         for (const artworkDir of artworkDirs) {
           try {
             stats.scannedArtworks++;
             updateProgress(artistDir);
-            
+
             // 检查作品是否已在注册表中
             const isRegistered = await this.isArtworkRegistered(artistDir, artworkDir);
-            
+
             if (!isRegistered) {
               // 从作品目录名中提取作品ID并添加到注册表
               const artworkId = await this.extractArtworkIdFromDir(artworkDir);
@@ -437,17 +530,15 @@ class DownloadRegistry {
             } else {
               stats.skippedArtworks++;
             }
-            
+
             // 每处理10个作品更新一次进度
             if (stats.scannedArtworks % 10 === 0) {
               updateProgress(artistDir);
             }
-            
           } catch (error) {
             logger.warn(`处理作品目录失败 ${artistDir}/${artworkDir}:`, error.message);
           }
         }
-        
       } catch (error) {
         logger.warn(`处理艺术家目录失败 ${artistDir}:`, error.message);
       }
@@ -455,7 +546,7 @@ class DownloadRegistry {
 
     // 最终更新进度
     updateProgress(null);
-    
+
     logger.info('从文件系统重建下载注册表完成', stats);
     return stats;
   }
@@ -472,7 +563,7 @@ class DownloadRegistry {
       }
 
       logger.info('开始清理注册表...');
-      
+
       let removedArtists = 0;
       let removedArtworks = 0;
       const downloadPath = await fileManager.getDownloadPath();
@@ -484,18 +575,18 @@ class DownloadRegistry {
         for (const artworkId of artworks) {
           // 检查作品目录是否存在
           let found = false;
-          
+
           try {
             const artistPath = path.join(downloadPath, artistName);
             if (await fileManager.directoryExists(artistPath)) {
               const artworkEntries = await fileManager.listDirectory(artistPath);
-              
+
               for (const entry of artworkEntries) {
                 const extractedArtworkId = await artworkUtils.extractArtworkIdFromDir(entry);
                 if (extractedArtworkId && extractedArtworkId === artworkId) {
                   const artworkPath = path.join(artistPath, entry);
                   const infoPath = path.join(artworkPath, 'artwork_info.json');
-                  
+
                   // 检查信息文件是否存在
                   if (await fs.pathExists(infoPath)) {
                     found = true;
@@ -531,7 +622,7 @@ class DownloadRegistry {
         removedArtists,
         removedArtworks,
         remainingArtists: Object.keys(this.registry.artists).length,
-        remainingArtworks: this.getTotalArtworkCount()
+        remainingArtworks: this.getTotalArtworkCount(),
       };
 
       logger.info('注册表清理完成', result);

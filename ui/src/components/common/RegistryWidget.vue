@@ -60,6 +60,92 @@
         <div class="registry-config">
           <h4>配置选项</h4>
           <div class="config-form">
+            <!-- 存储模式配置 -->
+            <div class="config-section">
+              <div class="config-section-title">
+                <SvgIcon name="database" class="section-icon" />
+                存储模式配置
+              </div>
+              <div class="storage-mode-section">
+                <div class="storage-options">
+                  <div class="storage-option" :class="{ active: selectedStorageMode === 'json' }">
+                    <label>
+                      <input type="radio" v-model="selectedStorageMode" value="json" :disabled="migrationLoading" />
+                      <div class="option-content">
+                        <div class="option-header">
+                          <SvgIcon name="file" class="option-icon" />
+                          <span class="option-title">JSON文件存储</span>
+                          <span class="option-badge basic">默认</span>
+                        </div>
+                        <small class="option-description">使用本地JSON文件存储注册表数据，简单可靠</small>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div class="storage-option" :class="{ active: selectedStorageMode === 'database', disabled: !databaseConnected }">
+                    <label>
+                      <input type="radio" v-model="selectedStorageMode" value="database" :disabled="migrationLoading || !databaseConnected" />
+                      <div class="option-content">
+                        <div class="option-header">
+                          <SvgIcon name="database" class="option-icon" />
+                          <span class="option-title">MySQL数据库存储</span>
+                          <span class="option-badge advanced" :class="{ connected: databaseConnected }">
+                            {{ databaseConnected ? '已连接' : '未连接' }}
+                          </span>
+                        </div>
+                        <small class="option-description">使用MySQL数据库存储注册表数据，支持高并发和大数据量</small>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="storage-config-actions">
+                  <div class="config-status">
+                    <span v-if="hasStorageModeChanges" class="config-indicator unsaved">
+                      <SvgIcon name="warning" class="indicator-icon" />
+                      配置已修改，需要保存
+                    </span>
+                    <span v-else class="config-indicator saved">
+                      <SvgIcon name="check" class="indicator-icon" />
+                      当前模式: {{ storageMode === 'json' ? 'JSON文件存储' : 'MySQL数据库存储' }}
+                    </span>
+                  </div>
+                  
+                  <div class="action-buttons">
+                    <button 
+                      @click="applyStorageModeConfig" 
+                      class="btn btn-enhanced btn-primary" 
+                      :disabled="migrationLoading || !hasStorageModeChanges || (selectedStorageMode === 'database' && !databaseConnected)"
+                    >
+                      <SvgIcon name="save" class="btn-icon" />
+                      {{ migrationLoading ? '应用中...' : '应用配置' }}
+                    </button>
+                    
+                    <button 
+                      @click="resetStorageModeConfig" 
+                      class="btn btn-enhanced btn-secondary" 
+                      :disabled="migrationLoading || !hasStorageModeChanges"
+                    >
+                      <SvgIcon name="refresh" class="btn-icon" />
+                      重置
+                    </button>
+                  </div>
+                </div>
+
+                <div class="database-actions">
+                  <button @click="openDatabaseConfig" class="btn btn-enhanced btn-secondary" :disabled="migrationLoading">
+                    <SvgIcon name="settings" class="btn-icon" />
+                    数据库配置
+                  </button>
+                  
+                  <div v-if="migrationLoading" class="migration-status">
+                    <LoadingSpinner text="数据迁移中..." />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 检测模式配置 -->
             <div class="config-section">
               <div class="config-section-title">
                 <SvgIcon name="settings" class="section-icon" />
@@ -75,7 +161,7 @@
                         <span class="option-title">注册表检测</span>
                         <span class="option-badge recommended">推荐</span>
                       </div>
-                      <small class="option-description">优先使用JSON注册表检测作品是否已下载，速度最快</small>
+                      <small class="option-description">优先使用注册表检测作品是否已下载，速度最快</small>
                     </div>
                   </label>
                 </div>
@@ -205,6 +291,13 @@
         </div>
       </div>
     </div>
+
+    <!-- 数据库配置模态框 -->
+    <DatabaseConfigModal 
+      :visible="showDatabaseConfig"
+      @close="closeDatabaseConfig"
+      @saved="handleDatabaseConfigSaved"
+    />
   </div>
 </template>
 
@@ -213,13 +306,27 @@ import { ref, onMounted, watch, computed, onUnmounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRegistryStore } from '@/stores/registry';
 import downloadService from '@/services/download';
+import databaseService from '@/services/database';
 import SvgIcon from './SvgIcon.vue';
 import LoadingSpinner from './LoadingSpinner.vue';
 import ErrorMessage from './ErrorMessage.vue';
+import DatabaseConfigModal from './DatabaseConfigModal.vue';
 
 const registryStore = useRegistryStore();
 const isOpen = ref(false);
 const successMessage = ref<string | null>(null);
+
+// 数据库配置相关状态
+const showDatabaseConfig = ref(false);
+const databaseConnected = ref(false);
+const storageMode = ref<'json' | 'database'>('json');
+const selectedStorageMode = ref<'json' | 'database'>('json'); // 用户选择的存储模式
+const migrationLoading = ref(false);
+
+// 计算属性：检查存储模式是否有变更
+const hasStorageModeChanges = computed(() => {
+  return selectedStorageMode.value !== storageMode.value;
+});
 
 // 从store中获取响应式数据
 const { stats, loading, error, config } = storeToRefs(registryStore);
@@ -460,6 +567,25 @@ const updateDetectionMethod = async () => {
   }
 };
 
+// 保存存储模式配置
+const saveStorageModeConfig = async (mode: 'json' | 'database') => {
+  try {
+    const result = await registryStore.updateConfig({
+      useRegistryCheck: config.value.useRegistryCheck,
+      fallbackToScan: config.value.fallbackToScan,
+      storageMode: mode
+    });
+
+    if (result.success) {
+      console.log('存储模式配置已保存:', mode);
+    } else {
+      console.warn('保存存储模式配置失败:', result.error);
+    }
+  } catch (error) {
+    console.error('保存存储模式配置时出错:', error);
+  }
+};
+
 // 更新配置（保留原方法以防其他地方调用）
 const updateConfig = async () => {
   const result = await registryStore.updateConfig({
@@ -490,6 +616,98 @@ const showError = (message: string) => {
   registryStore.error = message;
 };
 
+// 数据库配置相关方法
+const openDatabaseConfig = () => {
+  showDatabaseConfig.value = true;
+};
+
+const closeDatabaseConfig = () => {
+  showDatabaseConfig.value = false;
+};
+
+const handleDatabaseConfigSaved = async () => {
+  showDatabaseConfig.value = false;
+  await checkDatabaseConnection();
+  showSuccess('数据库配置已保存');
+};
+
+const checkDatabaseConnection = async () => {
+  try {
+    const result = await databaseService.getConnectionStatus();
+    databaseConnected.value = result.success && (result.data?.connected || false);
+  } catch (error) {
+    console.error('检查数据库连接失败:', error);
+    databaseConnected.value = false;
+  }
+};
+
+// 应用存储模式配置
+const applyStorageModeConfig = async () => {
+  if (selectedStorageMode.value === 'database' && !databaseConnected.value) {
+    showError('请先配置并连接数据库');
+    return;
+  }
+
+  if (selectedStorageMode.value === storageMode.value) {
+    return;
+  }
+
+  const confirmMessage = selectedStorageMode.value === 'database' 
+    ? '确定要切换到数据库存储模式吗？这将使用MySQL数据库存储注册表数据。'
+    : '确定要切换到JSON文件存储模式吗？这将使用本地JSON文件存储注册表数据。';
+
+  if (!confirm(confirmMessage)) {
+    return;
+  }
+
+  try {
+    migrationLoading.value = true;
+    
+    if (selectedStorageMode.value === 'database') {
+      // 从JSON迁移到数据库
+      const result = await databaseService.migrateData('json-to-db');
+      if (result.success) {
+        storageMode.value = 'database';
+        showSuccess(`成功迁移到数据库存储，处理了 ${result.data?.recordsProcessed || 0} 条记录`);
+      } else {
+        throw new Error(result.error || '迁移到数据库失败');
+      }
+    } else {
+      // 从数据库迁移到JSON
+      const result = await databaseService.migrateData('db-to-json');
+      if (result.success) {
+        storageMode.value = 'json';
+        showSuccess(`成功迁移到JSON存储，处理了 ${result.data?.recordsProcessed || 0} 条记录`);
+      } else {
+        throw new Error(result.error || '迁移到JSON失败');
+      }
+    }
+    
+    // 保存存储模式配置到后端
+    await saveStorageModeConfig(selectedStorageMode.value);
+    
+    // 刷新统计信息
+    await refreshStats();
+  } catch (error) {
+    console.error('存储模式切换失败:', error);
+    showError(`存储模式切换失败: ${error instanceof Error ? error.message : '未知错误'}`);
+    // 恢复选择状态
+    selectedStorageMode.value = storageMode.value;
+  } finally {
+    migrationLoading.value = false;
+  }
+};
+
+// 重置存储模式配置
+const resetStorageModeConfig = () => {
+  selectedStorageMode.value = storageMode.value;
+};
+
+const switchStorageMode = async (mode: 'json' | 'database') => {
+  // 保留原函数以防其他地方调用，但现在只是更新选择状态
+  selectedStorageMode.value = mode;
+};
+
 // 格式化日期
 const formatDate = (dateString?: string): string => {
   if (!dateString) return '未知';
@@ -507,17 +725,34 @@ const initDetectionMethod = () => {
   }
 };
 
+// 初始化存储模式
+const initStorageMode = () => {
+  if (config.value.storageMode) {
+    storageMode.value = config.value.storageMode;
+    selectedStorageMode.value = config.value.storageMode; // 同时更新选择状态
+  } else {
+    storageMode.value = 'json'; // 默认值
+    selectedStorageMode.value = 'json';
+  }
+};
+
 // 组件挂载时初始化
 onMounted(async () => {
-  // 从后端获取配置并初始化检测方法
+  // 从后端获取配置并初始化检测方法和存储模式
   try {
     await registryStore.fetchConfig();
     initDetectionMethod();
+    initStorageMode();
   } catch (error) {
     console.error('获取配置失败:', error);
     // 如果获取配置失败，使用默认值
     detectionMethod.value = 'hybrid';
+    storageMode.value = 'json';
+    selectedStorageMode.value = 'json';
   }
+
+  // 检查数据库连接状态
+  await checkDatabaseConnection();
 
   // 初始化时加载统计数据
   refreshStats();
@@ -528,9 +763,10 @@ onUnmounted(() => {
   stopProgressPolling();
 });
 
-// 监听配置变化，自动更新检测方法
+// 监听配置变化，自动更新检测方法和存储模式
 watch(config, () => {
   initDetectionMethod();
+  initStorageMode();
 }, { deep: true });
 </script>
 
@@ -1703,7 +1939,241 @@ watch(config, () => {
   font-size: 1rem;
 }
 
-/* 响应式设计 - 进度显示 */
+/* 存储模式配置样式 */
+.storage-mode-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg, 1rem);
+}
+
+.storage-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md, 0.75rem);
+}
+
+.storage-option {
+  background: var(--color-bg-primary, white);
+  border: 2px solid var(--color-border-light, #e2e8f0);
+  border-radius: var(--radius-lg, 0.5rem);
+  padding: var(--spacing-md, 0.75rem);
+  transition: all var(--transition-normal);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.storage-option:hover {
+  border-color: var(--color-border-hover, #cbd5e1);
+  box-shadow: var(--shadow-sm);
+}
+
+.storage-option.active {
+  border-color: var(--color-primary, #3b82f6);
+  background: var(--color-primary-light, #eff6ff);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.storage-option.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: var(--color-bg-tertiary, #f8fafc);
+}
+
+.storage-option.disabled:hover {
+  border-color: var(--color-border-light, #e2e8f0);
+  box-shadow: none;
+}
+
+.storage-option label {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md, 0.75rem);
+  cursor: pointer;
+  width: 100%;
+}
+
+.storage-option.disabled label {
+  cursor: not-allowed;
+}
+
+.storage-option input[type="radio"] {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.125rem;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.storage-option.disabled input[type="radio"] {
+  cursor: not-allowed;
+}
+
+.option-badge.advanced {
+  background: var(--color-info-light, #e0f2fe);
+  color: var(--color-info-text, #0c4a6e);
+  border: 1px solid var(--color-info-border, #7dd3fc);
+}
+
+.option-badge.advanced.connected {
+  background: var(--color-success-light, #dcfce7);
+  color: var(--color-success-text, #166534);
+  border: 1px solid var(--color-success-border, #bbf7d0);
+}
+
+.database-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md, 0.75rem);
+  padding: var(--spacing-md, 0.75rem);
+  background: var(--color-bg-secondary, #f8fafc);
+  border-radius: var(--radius-md, 0.375rem);
+  border: 1px solid var(--color-border-light, #e2e8f0);
+}
+
+.migration-status {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm, 0.5rem);
+  color: var(--color-text-secondary, #6b7280);
+  font-size: 0.875rem;
+}
+
+/* 存储配置操作样式 */
+.storage-config-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md, 0.75rem);
+  padding: var(--spacing-md, 0.75rem);
+  background: var(--color-bg-secondary, #f8fafc);
+  border-radius: var(--radius-md, 0.375rem);
+  border: 1px solid var(--color-border-light, #e2e8f0);
+}
+
+.config-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-sm, 0.5rem);
+}
+
+.config-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs, 0.25rem);
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: var(--spacing-xs, 0.25rem) var(--spacing-sm, 0.5rem);
+  border-radius: var(--radius-sm, 0.25rem);
+  transition: all var(--transition-normal);
+}
+
+.config-indicator.saved {
+  color: var(--color-success-text, #166534);
+  background: var(--color-success-light, #dcfce7);
+  border: 1px solid var(--color-success-border, #bbf7d0);
+}
+
+.config-indicator.unsaved {
+  color: var(--color-warning-text, #92400e);
+  background: var(--color-warning-light, #fef3c7);
+  border: 1px solid var(--color-warning-border, #fbbf24);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.indicator-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+}
+
+.storage-config-actions .action-buttons {
+  display: flex;
+  gap: var(--spacing-sm, 0.5rem);
+  justify-content: center;
+}
+
+.storage-config-actions .btn {
+  flex: 1;
+  min-width: 0;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* 配置节样式增强 */
+.config-section {
+  margin-bottom: var(--spacing-xl, 1.5rem);
+  background: var(--color-bg-primary, white);
+  border: 1px solid var(--color-border-light, #e2e8f0);
+  border-radius: var(--radius-lg, 0.5rem);
+  overflow: hidden;
+  position: relative;
+}
+
+.config-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+}
+
+.config-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm, 0.5rem);
+  padding: var(--spacing-lg, 1rem);
+  background: var(--color-bg-secondary, #f8fafc);
+  border-bottom: 1px solid var(--color-border-light, #e2e8f0);
+  font-weight: 600;
+  color: var(--color-text-primary, #374151);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.section-icon {
+  width: 1rem;
+  height: 1rem;
+  color: var(--color-primary);
+}
+
+.config-options,
+.storage-options {
+  padding: var(--spacing-lg, 1rem);
+}
+
+/* 响应式设计 - 存储配置 */
+@media (max-width: 768px) {
+  .database-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .migration-status {
+    justify-content: center;
+  }
+  
+  .storage-config-actions .action-buttons {
+    flex-direction: column;
+  }
+  
+  .storage-config-actions .btn {
+    flex: none;
+  }
+}
+
+/* 原有的配置选项样式保持不变 */
 @media (max-width: 768px) {
   .progress-stats {
     grid-template-columns: repeat(2, 1fr);
