@@ -10,11 +10,12 @@ data/
 
 # 用户配置文件
 backend/config/user-config.json
+backend/config/database.json
+backend/backups/
 
 # 自己的配置文件
 start_me.bat
 config.json
-database.json
 
 #打包文件夹
 dist/
