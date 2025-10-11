@@ -110,6 +110,40 @@
                       当前模式: {{ storageMode === 'json' ? 'JSON文件存储' : 'MySQL数据库存储' }}
                     </span>
                   </div>
+
+                  <!-- 迁移选项 -->
+                  <div v-if="hasStorageModeChanges" class="migration-options">
+                    <div class="migration-option-title">切换方式选择：</div>
+                    <div class="migration-option-group">
+                      <div class="migration-option" :class="{ active: migrationMode === 'switch-only' }">
+                        <label>
+                          <input type="radio" v-model="migrationMode" value="switch-only" />
+                          <div class="option-content">
+                            <div class="option-header">
+                              <SvgIcon name="switch" class="option-icon" />
+                              <span class="option-title">仅切换读取方式</span>
+                              <span class="option-badge safe">安全</span>
+                            </div>
+                            <small class="option-description">只改变数据读取方式，不迁移数据，保持两边数据独立</small>
+                          </div>
+                        </label>
+                      </div>
+
+                      <div class="migration-option" :class="{ active: migrationMode === 'migrate-data' }">
+                        <label>
+                          <input type="radio" v-model="migrationMode" value="migrate-data" />
+                          <div class="option-content">
+                            <div class="option-header">
+                              <SvgIcon name="transfer" class="option-icon" />
+                              <span class="option-title">迁移数据并切换</span>
+                              <span class="option-badge warning">覆盖</span>
+                            </div>
+                            <small class="option-description">将当前数据迁移到目标存储并切换，会覆盖目标存储的现有数据</small>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
                   
                   <div class="action-buttons">
                     <button 
@@ -118,7 +152,7 @@
                       :disabled="migrationLoading || !hasStorageModeChanges || (selectedStorageMode === 'database' && !databaseConnected)"
                     >
                       <SvgIcon name="save" class="btn-icon" />
-                      {{ migrationLoading ? '应用中...' : '应用配置' }}
+                      {{ migrationLoading ? '应用中...' : getApplyButtonText() }}
                     </button>
                     
                     <button 
@@ -322,11 +356,21 @@ const databaseConnected = ref(false);
 const storageMode = ref<'json' | 'database'>('json');
 const selectedStorageMode = ref<'json' | 'database'>('json'); // 用户选择的存储模式
 const migrationLoading = ref(false);
+const migrationMode = ref<'switch-only' | 'migrate-data'>('switch-only'); // 迁移模式选择
 
 // 计算属性：检查存储模式是否有变更
 const hasStorageModeChanges = computed(() => {
   return selectedStorageMode.value !== storageMode.value;
 });
+
+// 计算应用按钮文本
+const getApplyButtonText = () => {
+  if (migrationMode.value === 'switch-only') {
+    return '仅切换读取方式';
+  } else {
+    return '迁移数据并切换';
+  }
+};
 
 // 从store中获取响应式数据
 const { stats, loading, error, config } = storeToRefs(registryStore);
@@ -652,9 +696,17 @@ const applyStorageModeConfig = async () => {
     return;
   }
 
-  const confirmMessage = selectedStorageMode.value === 'database' 
-    ? '确定要切换到数据库存储模式吗？这将使用MySQL数据库存储注册表数据。'
-    : '确定要切换到JSON文件存储模式吗？这将使用本地JSON文件存储注册表数据。';
+  // 根据迁移模式生成不同的确认消息
+  let confirmMessage = '';
+  if (migrationMode.value === 'switch-only') {
+    confirmMessage = selectedStorageMode.value === 'database' 
+      ? '确定要切换到数据库存储模式吗？这将仅改变读取方式，不会迁移现有数据。'
+      : '确定要切换到JSON文件存储模式吗？这将仅改变读取方式，不会迁移现有数据。';
+  } else {
+    confirmMessage = selectedStorageMode.value === 'database' 
+      ? '确定要迁移数据并切换到数据库存储模式吗？这将把JSON数据迁移到数据库并覆盖数据库中的现有数据。'
+      : '确定要迁移数据并切换到JSON文件存储模式吗？这将把数据库数据迁移到JSON文件并覆盖JSON文件中的现有数据。';
+  }
 
   if (!confirm(confirmMessage)) {
     return;
@@ -663,24 +715,32 @@ const applyStorageModeConfig = async () => {
   try {
     migrationLoading.value = true;
     
-    if (selectedStorageMode.value === 'database') {
-      // 从JSON迁移到数据库
-      const result = await databaseService.migrateData('json-to-db');
-      if (result.success) {
-        storageMode.value = 'database';
-        showSuccess(`成功迁移到数据库存储，处理了 ${result.data?.recordsProcessed || 0} 条记录`);
+    if (migrationMode.value === 'migrate-data') {
+      // 执行数据迁移
+      if (selectedStorageMode.value === 'database') {
+        // 从JSON迁移到数据库
+        const result = await databaseService.migrateData('json-to-db');
+        if (result.success) {
+          storageMode.value = 'database';
+          showSuccess(`成功迁移到数据库存储，处理了 ${result.data?.recordsProcessed || 0} 条记录`);
+        } else {
+          throw new Error(result.error || '迁移到数据库失败');
+        }
       } else {
-        throw new Error(result.error || '迁移到数据库失败');
+        // 从数据库迁移到JSON
+        const result = await databaseService.migrateData('db-to-json');
+        if (result.success) {
+          storageMode.value = 'json';
+          showSuccess(`成功迁移到JSON存储，处理了 ${result.data?.recordsProcessed || 0} 条记录`);
+        } else {
+          throw new Error(result.error || '迁移到JSON失败');
+        }
       }
     } else {
-      // 从数据库迁移到JSON
-      const result = await databaseService.migrateData('db-to-json');
-      if (result.success) {
-        storageMode.value = 'json';
-        showSuccess(`成功迁移到JSON存储，处理了 ${result.data?.recordsProcessed || 0} 条记录`);
-      } else {
-        throw new Error(result.error || '迁移到JSON失败');
-      }
+      // 仅切换存储模式，不迁移数据
+      storageMode.value = selectedStorageMode.value;
+      const modeText = selectedStorageMode.value === 'database' ? '数据库存储' : 'JSON文件存储';
+      showSuccess(`已切换到${modeText}模式，数据读取方式已更改`);
     }
     
     // 保存存储模式配置到后端

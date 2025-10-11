@@ -74,6 +74,33 @@ class DownloadRegistry {
   }
 
   /**
+   * 重新加载存储模式配置（用于切换存储模式时）
+   */
+  async reloadStorageMode() {
+    try {
+      await this.loadStorageMode();
+      
+      // 根据新的存储模式重新初始化相应的存储
+      if (this.storageMode === 'database') {
+        if (!this.registryDatabase && this.databaseManager) {
+          await this.initDatabaseStorage();
+        }
+      } else {
+        // JSON模式下确保注册表已加载
+        if (!this.loaded) {
+          await this.initJsonStorage();
+        }
+      }
+      
+      logger.info(`存储模式已切换到: ${this.storageMode}`);
+      return { success: true, storageMode: this.storageMode };
+    } catch (error) {
+      logger.error('重新加载存储模式失败:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * 初始化数据库存储
    */
   async initDatabaseStorage() {

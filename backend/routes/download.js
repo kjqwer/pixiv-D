@@ -1262,6 +1262,14 @@ router.put('/registry/config', async (req, res) => {
     // 更新配置
     const updatedConfig = await downloadService.cacheConfigManager.updateConfig(updateData);
     
+    // 如果更新了存储模式，需要重新加载存储模式配置
+    if (storageMode) {
+      const reloadResult = await downloadService.downloadRegistry.reloadStorageMode();
+      if (!reloadResult.success) {
+        logger.warn('重新加载存储模式失败:', reloadResult.error);
+      }
+    }
+    
     res.json({
       success: true,
       data: {
