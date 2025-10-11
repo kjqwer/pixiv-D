@@ -1,9 +1,0 @@
-{
-  "host": "sywb.top",
-  "port": 3306,
-  "user": "pixiv",
-  "password": "yT6LYysxB4HPPkZc",
-  "database": "pixiv",
-  "connectionLimit": 10,
-  "ssl": false
-}
