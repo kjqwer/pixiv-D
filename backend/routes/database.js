@@ -470,7 +470,10 @@ router.get('/registry/export', async (req, res) => {
     
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', 'attachment; filename="database-registry.json"');
-    res.json(registryData);
+    res.json({
+      success: true,
+      data: registryData
+    });
     
   } catch (error) {
     logger.error('导出数据库注册表失败:', error);

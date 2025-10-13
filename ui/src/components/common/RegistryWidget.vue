@@ -414,9 +414,22 @@ const refreshStats = async () => {
 
 // 导出注册表
 const exportRegistry = async () => {
-  const result = await registryStore.exportRegistry();
+  const useDatabase = storageMode.value === 'database';
+  const result = await registryStore.exportRegistry(useDatabase);
   if (result.success) {
-    showSuccess('注册表导出成功');
+    const modeText = useDatabase ? '数据库' : 'JSON文件';
+    showSuccess(`注册表导出成功（${modeText}模式）`);
+    
+    // 创建下载链接
+    const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = useDatabase ? 'database-registry.json' : 'download-registry.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 };
 
@@ -426,9 +439,19 @@ const handleFileImport = async (event: Event) => {
   const file = target.files?.[0];
   if (!file) return;
 
-  const result = await registryStore.importRegistry(file);
-  if (result.success) {
-    showSuccess(`注册表导入成功，处理了 ${result.data?.imported || 0} 条记录`);
+  try {
+    // 读取文件内容
+    const fileContent = await file.text();
+    const registryData = JSON.parse(fileContent);
+    
+    const useDatabase = storageMode.value === 'database';
+    const result = await registryStore.importRegistry(registryData, useDatabase);
+    if (result.success) {
+      const modeText = useDatabase ? '数据库' : 'JSON文件';
+      showSuccess(`注册表导入成功（${modeText}模式），处理了 ${result.data?.imported || result.data?.addedArtworks || 0} 条记录`);
+    }
+  } catch (error: any) {
+    showError(`导入失败: ${error.message}`);
   }
 
   // 清空文件输入

@@ -1005,7 +1005,10 @@ router.get('/registry/export', async (req, res) => {
     
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', 'attachment; filename="download-registry.json"');
-    res.json(registryData);
+    res.json({
+      success: true,
+      data: registryData
+    });
   } catch (error) {
     logger.error('导出下载注册表失败:', error);
     res.status(500).json({
