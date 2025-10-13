@@ -517,6 +517,7 @@ const handleCaptionToggleChange = (event: Event) => {
     padding: var(--spacing-lg);
     background: var(--color-bg-secondary);
     border-radius: var(--radius-lg);
+    justify-content: center;
 }
 
 .nav-btn {
@@ -723,6 +724,7 @@ input:checked+.slider:before {
         background: var(--color-bg-secondary);
         padding: var(--spacing-lg);
         border-radius: var(--radius-lg);
+        margin-top: var(--spacing-md);
         margin-bottom: var(--spacing-xl);
     }
 
@@ -746,14 +748,16 @@ input:checked+.slider:before {
         right: 0;
         background: var(--color-bg-primary);
         border-top: 1px solid var(--color-border);
-        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-        padding: var(--spacing-md);
-        margin: var(--spacing-xl) calc(-1 * var(--spacing-lg)) 0;
+        border-radius: var(--radius-xl);
+        padding: var(--spacing-lg);
+        margin: var(--spacing-xl) 0 0 0;
         display: grid;
         grid-template-columns: auto 1fr auto;
-        gap: var(--spacing-sm);
-        box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+        gap: var(--spacing-md);
+        box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
         z-index: 1001;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
     }
 
     .nav-back {
