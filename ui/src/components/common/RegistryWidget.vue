@@ -494,10 +494,10 @@ const rebuildRegistry = async () => {
 // 开始轮询进度
 const startProgressPolling = () => {
   if (progressPollingInterval.value) {
-    clearInterval(progressPollingInterval.value);
+    window.clearInterval(progressPollingInterval.value);
   }
 
-  progressPollingInterval.value = setInterval(async () => {
+  progressPollingInterval.value = window.setInterval(async () => {
     if (!rebuildTaskId.value) return;
 
     try {

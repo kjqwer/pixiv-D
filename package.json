@@ -20,12 +20,16 @@
     "bp": "npm run build && node scripts/create-portable.js"
   },
   "dependencies": {
+    "adm-zip": "^0.5.16",
     "appdata-path": "^1.0.0",
     "axios": "0.27.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "fs-extra": "^11.3.2",
+    "gifencoder": "^2.0.1",
+    "jpeg-js": "^0.4.4",
     "js-base64": "^3.7.8",
+    "jszip": "^3.10.1",
     "moment": "^2.30.1",
     "mysql2": "^3.15.2",
     "proxy-agent": "^6.5.0",

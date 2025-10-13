@@ -20,6 +20,16 @@ export const getImageProxyUrl = (originalUrl: string) => {
   return originalUrl;
 };
 
+// 获取Pximg资源（包括ZIP等文件）的代理URL
+export const getPximgFileProxyUrl = (originalUrl: string) => {
+  if (!originalUrl) return '';
+  if (originalUrl.includes('i.pximg.net')) {
+    const encodedUrl = encodeURIComponent(originalUrl);
+    return `${getApiBaseUrl()}/api/proxy/file?url=${encodedUrl}`;
+  }
+  return originalUrl;
+};
+
 class ApiService {
   private client: AxiosInstance;
 
@@ -104,4 +114,4 @@ class ApiService {
 }
 
 export const apiService = new ApiService();
-export default apiService; 
+export default apiService;

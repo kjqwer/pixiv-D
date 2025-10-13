@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs-extra');
+const { generatePreviewGifFromUgoira } = require('./ugoira-gif');
 const { defaultLogger } = require('../utils/logger');
 const abortControllerManager = require('../utils/abort-controller-manager');
 
@@ -171,6 +172,31 @@ class DownloadExecutor {
       // 保存作品信息
       const infoPath = path.join(artworkDir, 'artwork_info.json');
       await fs.writeJson(infoPath, artwork, { spaces: 2 });
+
+      // 若为ugoira，基于已下载的ZIP生成预览GIF（不影响注册表判定）
+      try {
+        if (artwork && artwork.type === 'ugoira' && Array.isArray(artwork.ugoira_frames) && artwork.ugoira_frames.length) {
+          const files = await fs.readdir(artworkDir);
+          const zipFile = files.find((f) => f.toLowerCase().endsWith('.zip'));
+          if (zipFile) {
+            const zipPath = path.join(artworkDir, zipFile);
+            const previewGifPath = path.join(artworkDir, 'preview.gif');
+            await generatePreviewGifFromUgoira(zipPath, artwork.ugoira_frames, previewGifPath);
+
+            // 完整性校验预览GIF（不计入任务下载计数）
+            const integrity = await this.fileManager.checkFileIntegrity(previewGifPath, null, 'image/gif');
+            if (!integrity.valid) {
+              // 如果GIF生成不完整，尝试删除以避免残留
+              await this.fileManager.safeDeleteFile(previewGifPath).catch(() => {});
+              logger.warn('预览GIF完整性校验失败，已清理', { previewGifPath, reason: integrity.reason });
+            } else {
+              logger.info('已生成ugoira预览GIF', { previewGifPath });
+            }
+          }
+        }
+      } catch (gifError) {
+        logger.warn('生成ugoira预览GIF失败（继续任务流程）', { error: gifError.message });
+      }
 
       // 更新任务状态 - 确保所有文件都处理完成后再更新
       task.status = task.failed_files === 0 ? 'completed' : 'partial';
@@ -501,6 +527,8 @@ class DownloadExecutor {
         return 'image/webp';
       case 'bmp':
         return 'image/bmp';
+      case 'zip':
+        return 'application/zip';
       default:
         return 'image/jpeg'; // 默认为JPEG
     }

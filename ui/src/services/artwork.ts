@@ -52,6 +52,13 @@ class ArtworkService {
   }
 
   /**
+   * 获取Ugoira元数据（包含zip_urls和frames）
+   */
+  async getUgoiraMeta(id: number): Promise<ApiResponse<{ artwork_id: number; zip_urls: { medium?: string; original?: string }; frames: { file: string; delay: number }[] }>> {
+    return apiService.get(`/api/artwork/${id}/ugoira`);
+  }
+
+  /**
    * 搜索作品
    */
   async searchArtworks(params: SearchParams): Promise<ApiResponse<{ artworks: Artwork[]; next_url?: string; total: number }>> {
@@ -112,4 +119,4 @@ class ArtworkService {
 }
 
 export const artworkService = new ArtworkService();
-export default artworkService; 
+export default artworkService;

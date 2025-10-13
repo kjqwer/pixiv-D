@@ -1,19 +1,21 @@
 <template>
   <div class="artwork-gallery">
-    <div class="main-image">
+    <div v-if="artwork.type !== 'ugoira'" class="main-image">
       <img :src="getImageUrl(currentImageUrl)" :alt="artwork.title" @load="imageLoaded = true"
-        @error="imageError = true" :class="{ loaded: imageLoaded, error: imageError }" crossorigin="anonymous" />
+           @error="imageError = true" :class="{ loaded: imageLoaded, error: imageError }" crossorigin="anonymous" />
       <div v-if="!imageLoaded && !imageError" class="image-placeholder">
         <LoadingSpinner text="图片加载中..." />
       </div>
       <div v-if="imageError" class="image-error">
         <span>图片加载失败</span>
       </div>
-      <!-- 页面切换时的遮罩层 -->
       <div v-if="loading" class="image-overlay">
         <LoadingSpinner text="切换中..." />
       </div>
     </div>
+
+    <!-- Ugoira动图播放器 -->
+    <UgoiraPlayer v-else :artwork="artwork" />
 
     <!-- 多页作品缩略图 -->
     <div v-if="artwork.page_count > 1" class="thumbnails">
@@ -40,6 +42,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { getImageProxyUrl } from '@/services/api';
 import type { Artwork } from '@/types';
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
+import UgoiraPlayer from '@/components/artwork/UgoiraPlayer.vue';
 
 interface Props {
   artwork: Artwork;

@@ -7,6 +7,7 @@ const ProgressManager = require('./progress-manager');
 const HistoryManager = require('./history-manager');
 const DownloadExecutor = require('./download-executor');
 const DownloadRegistry = require('./download-registry');
+const { generatePreviewGifFromUgoira } = require('./ugoira-gif');
 const CacheConfigManager = require('../config/cache-config');
 const fs = require('fs-extra'); // Added for fs-extra
 const { defaultLogger } = require('../utils/logger');
@@ -655,6 +656,8 @@ class DownloadService {
         return 'image/webp';
       case 'bmp':
         return 'image/bmp';
+      case 'zip':
+        return 'application/zip';
       default:
         return 'image/jpeg'; // 默认为JPEG
     }
@@ -959,13 +962,35 @@ class DownloadService {
 
       await this.fileManager.ensureDirectory(artworkDir);
 
-      // 获取图片URL
-      const imagesResult = await this.artworkService.getArtworkImages(artworkId, size);
-      if (!imagesResult.success) {
-        throw new Error(`获取图片URL失败: ${imagesResult.error}`);
+      // 根据作品类型获取下载资源
+      let images = [];
+      if (artwork.type === 'ugoira') {
+        // Ugoira动图：仅下载ZIP，预览将由本地生成GIF
+        const zipResult = await this.artworkService.getUgoiraZipUrl(artworkId);
+        if (!zipResult.success) {
+          throw new Error(`获取ugoira ZIP失败: ${zipResult.error}`);
+        }
+        const zipUrls = zipResult.data?.zip_urls || {};
+        const zipUrl = zipUrls.medium || zipUrls.large || zipUrls.small || Object.values(zipUrls)[0];
+        if (!zipUrl) {
+          throw new Error('未找到ugoira ZIP地址');
+        }
+        // 仅添加ZIP到下载列表
+        images = [
+          { original: zipUrl, large: zipUrl, medium: zipUrl, square_medium: zipUrl },
+        ];
+        // 保存ugoira帧元数据，供执行器生成预览GIF
+        if (Array.isArray(zipResult.data?.frames)) {
+          artwork.ugoira_frames = zipResult.data.frames;
+        }
+      } else {
+        // 普通插画/漫画：按原有逻辑获取图片URL
+        const imagesResult = await this.artworkService.getArtworkImages(artworkId, size);
+        if (!imagesResult.success) {
+          throw new Error(`获取图片URL失败: ${imagesResult.error}`);
+        }
+        images = imagesResult.data.images;
       }
-
-      const images = imagesResult.data.images;
 
       // 创建任务记录
       const task = this.taskManager.createTask('artwork', {
@@ -1094,13 +1119,32 @@ class DownloadService {
 
       await this.fileManager.ensureDirectory(artworkDir);
 
-      // 获取图片URL
-      const imagesResult = await this.artworkService.getArtworkImages(artworkId, size);
-      if (!imagesResult.success) {
-        throw new Error(`获取图片URL失败: ${imagesResult.error}`);
+      // 根据作品类型获取下载资源（批量下载场景）
+      let images = [];
+      if (artwork.type === 'ugoira') {
+        const zipResult = await this.artworkService.getUgoiraZipUrl(artworkId);
+        if (!zipResult.success) {
+          throw new Error(`获取ugoira ZIP失败: ${zipResult.error}`);
+        }
+        const zipUrls = zipResult.data?.zip_urls || {};
+        const zipUrl = zipUrls.medium || zipUrls.large || zipUrls.small || Object.values(zipUrls)[0];
+        if (!zipUrl) {
+          throw new Error('未找到ugoira ZIP地址');
+        }
+        // 仅添加ZIP到下载列表；预览将由本地生成GIF
+        images = [
+          { original: zipUrl, large: zipUrl, medium: zipUrl, square_medium: zipUrl },
+        ];
+        if (Array.isArray(zipResult.data?.frames)) {
+          artwork.ugoira_frames = zipResult.data.frames;
+        }
+      } else {
+        const imagesResult = await this.artworkService.getArtworkImages(artworkId, size);
+        if (!imagesResult.success) {
+          throw new Error(`获取图片URL失败: ${imagesResult.error}`);
+        }
+        images = imagesResult.data.images;
       }
-
-      const images = imagesResult.data.images;
 
       // 直接下载，不创建新任务
       const results = [];
@@ -1165,6 +1209,30 @@ class DownloadService {
       const infoPath = path.join(artworkDir, 'artwork_info.json');
       await fs.writeJson(infoPath, artwork, { spaces: 2 });
 
+      // 若为ugoira，生成预览GIF（不影响注册表判定）
+      try {
+        if (artwork && artwork.type === 'ugoira' && Array.isArray(artwork.ugoira_frames) && artwork.ugoira_frames.length) {
+          const files = await fs.readdir(artworkDir);
+          const zipFile = files.find((f) => f.toLowerCase().endsWith('.zip'));
+          if (zipFile) {
+            const zipPath = path.join(artworkDir, zipFile);
+            const previewGifPath = path.join(artworkDir, 'preview.gif');
+            await generatePreviewGifFromUgoira(zipPath, artwork.ugoira_frames, previewGifPath);
+
+            // 校验GIF完整性（不计入images数量）
+            const headerCheck = await this.fileManager.checkFileHeader(previewGifPath, 'image/gif');
+            if (!headerCheck.valid) {
+              await this.fileManager.safeDeleteFile(previewGifPath).catch(() => {});
+              logger.warn('批量生成的预览GIF完整性校验失败，已清理', { previewGifPath, reason: headerCheck.reason });
+            } else {
+              logger.info('批量已生成ugoira预览GIF', { previewGifPath });
+            }
+          }
+        }
+      } catch (gifError) {
+        logger.warn('批量生成ugoira预览GIF失败（继续流程）', { error: gifError.message });
+      }
+
       // 检查下载结果
       const failedCount = results.filter(r => !r.success).length;
       const successCount = results.filter(r => r.success && !r.skipped).length;
@@ -1190,10 +1258,11 @@ class DownloadService {
                 break;
               }
               
-              // 检查MIME类型 - 使用checkFileHeader方法来检测文件类型
-              const headerCheck = await this.fileManager.checkFileHeader(filePath);
-              if (!headerCheck.valid || !headerCheck.detectedType || !headerCheck.detectedType.startsWith('image/')) {
-                logger.warn(`文件MIME类型检查失败: ${filePath}, 检测结果: ${JSON.stringify(headerCheck)}`);
+              // 检查MIME类型 - 依据扩展名设置期望类型，支持ZIP
+              const expectedMimeType = this.getMimeTypeFromExtension(fileName);
+              const headerCheck = await this.fileManager.checkFileHeader(filePath, expectedMimeType);
+              if (!headerCheck.valid) {
+                logger.warn(`文件MIME类型或头部检查失败: ${filePath}, 检测结果: ${JSON.stringify(headerCheck)}`);
                 integrityCheckPassed = false;
                 break;
               }

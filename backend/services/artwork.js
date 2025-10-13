@@ -487,6 +487,46 @@ class ArtworkService {
       throw error;
     }
   }
+
+  /**
+   * 获取Ugoira动画的ZIP文件URL
+   */
+  async getUgoiraZipUrl(artworkId) {
+    try {
+      // 首先获取作品详情以确认是否为ugoira类型
+      const detailResponse = await this.makeRequest('GET', '/v1/illust/detail', { illust_id: artworkId });
+      const artwork = detailResponse.illust;
+      
+      // 检查作品类型是否为ugoira
+      if (artwork.type !== 'ugoira') {
+        return {
+          success: false,
+          error: 'This artwork is not an ugoira animation'
+        };
+      }
+      
+      // 获取ugoira元数据
+      const metadataResponse = await this.makeRequest('GET', '/v1/ugoira/metadata', { illust_id: artworkId });
+      
+      // 返回ZIP文件URL和其他元数据
+      return {
+        success: true,
+        data: {
+          artwork_id: artworkId,
+          zip_urls: metadataResponse.ugoira_metadata.zip_urls,
+          frames: metadataResponse.ugoira_metadata.frames,
+        }
+      };
+    } catch (error) {
+      logger.error('Get ugoira zip URL error:', error.message);
+      logger.error('Get ugoira zip URL error details:', error.response?.data);
+      
+      return {
+        success: false,
+        error: error.message || 'Failed to get ugoira zip URL'
+      };
+    }
+  }
 }
 
 module.exports = ArtworkService;

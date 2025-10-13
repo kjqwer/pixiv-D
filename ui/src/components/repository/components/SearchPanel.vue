@@ -58,8 +58,8 @@ const filterBy = ref(props.initialFilter)
 // 防抖搜索
 let searchTimeout: number
 const debounceSearch = () => {
-  clearTimeout(searchTimeout)
-  searchTimeout = setTimeout(() => {
+  window.clearTimeout(searchTimeout)
+  searchTimeout = window.setTimeout(() => {
     emit('search', searchQuery.value)
   }, 300)
 }

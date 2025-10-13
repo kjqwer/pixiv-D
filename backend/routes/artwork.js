@@ -307,4 +307,41 @@ router.get('/:id/related', async (req, res) => {
   }
 });
 
-module.exports = router; 
+/**
+ * 获取Ugoira动画的ZIP文件URL
+ * GET /api/artwork/:id/ugoira
+ */
+router.get('/:id/ugoira', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid artwork ID'
+      });
+    }
+    
+    const artworkService = new ArtworkService(req.backend.getAuth());
+    const result = await artworkService.getUgoiraZipUrl(parseInt(id));
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        data: result.data
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        error: result.error
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+module.exports = router;

@@ -168,6 +168,8 @@ class FileManager {
     if (expectedMimeType) {
       if (expectedMimeType.startsWith('image/')) {
         return 1024; // 图片文件至少1KB
+      } else if (expectedMimeType.includes('zip')) {
+        return 1024; // ZIP文件至少1KB
       }
     }
     
@@ -243,6 +245,16 @@ class FileManager {
           return { valid: true, detectedType: 'image/webp' };
         }
 
+        // 非图片类型的文件头检查（例如ZIP）
+        if (expectedMimeType && expectedMimeType.includes('zip')) {
+          // ZIP文件头常见为 504B0304 或 504B0506 等，以 504B 开头
+          const headerHex = buffer.toString('hex', 0, Math.min(bytesRead, 4));
+          if (headerHex.startsWith('504b')) {
+            return { valid: true, detectedType: 'application/zip' };
+          }
+          return { valid: false, reason: '文件格式不匹配：期望ZIP但未检测到ZIP头部' };
+        }
+
         // 如果没有明确的期望类型，且检测到了有效的图片头部，则认为有效
         if (!expectedMimeType) {
           return { valid: true, detectedType: 'unknown' };
@@ -250,7 +262,7 @@ class FileManager {
 
         // 如果有期望类型但未匹配到已知格式，可能是损坏的文件
         return { valid: false, reason: '无法识别的文件格式或文件头部损坏' };
-        
+      
       } finally {
         await fs.close(fd);
       }

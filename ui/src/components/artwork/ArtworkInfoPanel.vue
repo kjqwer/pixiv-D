@@ -740,7 +740,6 @@ input:checked+.slider:before {
         margin: 0 auto;
     }
 
-    /* 移动端导航优化 */
     .artwork-navigation {
         position: sticky;
         bottom: 0;
@@ -751,13 +750,16 @@ input:checked+.slider:before {
         border-radius: var(--radius-xl);
         padding: var(--spacing-lg);
         margin: var(--spacing-xl) 0 0 0;
-        display: grid;
-        grid-template-columns: auto 1fr auto;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         gap: var(--spacing-md);
         box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
         z-index: 1001;
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
+        flex-wrap: nowrap;
+        min-height: 56px; /* 确保最小高度以适应按钮 */
     }
 
     .nav-back {
@@ -767,6 +769,7 @@ input:checked+.slider:before {
         border-radius: var(--radius-md);
         background: var(--color-bg-secondary);
         border-color: var(--color-border);
+        flex-shrink: 0;
     }
 
     .nav-back span {
@@ -780,6 +783,9 @@ input:checked+.slider:before {
         font-weight: 600;
         border-radius: var(--radius-lg);
         height: 44px;
+        flex: 1;
+        flex-shrink: 1;
+        min-width: 100px; /* 确保按钮最小宽度 */
     }
 
     .nav-prev {
