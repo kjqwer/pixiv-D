@@ -209,7 +209,7 @@ onUnmounted(() => {
   position: fixed;
   top: 4.5rem;
   right: 1rem;
-  z-index: 1000;
+  z-index: 1002;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
@@ -554,7 +554,7 @@ onUnmounted(() => {
   background-clip: text;
 }
 
-.stat-value.success + .stat-label {
+.stat-value.success+.stat-label {
   color: #047857;
 }
 
@@ -570,7 +570,7 @@ onUnmounted(() => {
   background-clip: text;
 }
 
-.stat-value.error + .stat-label {
+.stat-value.error+.stat-label {
   color: #b91c1c;
 }
 

@@ -1,5 +1,5 @@
 <template>
-  <div class="settings-widget">
+  <div class="settings-widget" :class="{ 'panel-open': isOpen }">
     <!-- 设置按钮 -->
     <button @click="toggleSettings" class="settings-toggle" :class="{ active: isOpen }" title="设置">
       <SvgIcon name="settings" class="settings-icon" />
@@ -511,13 +511,13 @@ const restartServer = async () => {
   try {
     restarting.value = true;
     error.value = null;
-    
+
     // 调用重启接口
     const response = await apiService.post('/api/system/restart');
-    
+
     if (response.success) {
       showSuccess('服务器重启请求已发送，页面将在几秒后自动刷新...');
-      
+
       // 延迟刷新页面，给服务器时间重启
       setTimeout(() => {
         window.location.reload();
@@ -569,6 +569,11 @@ onMounted(() => {
   bottom: 2rem;
   right: 2rem;
   z-index: 1000;
+  transition: z-index 0.1s ease;
+}
+
+.settings-widget.panel-open {
+  z-index: 1002;
 }
 
 .settings-toggle {

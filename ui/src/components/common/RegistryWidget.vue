@@ -1,5 +1,5 @@
 <template>
-  <div class="registry-widget">
+  <div class="registry-widget" :class="{ 'panel-open': isOpen }">
     <!-- 注册表管理按钮 -->
     <button @click="togglePanel" class="registry-toggle" :class="{ active: isOpen }" title="下载注册表管理">
       <SvgIcon name="down" class="registry-icon" />
@@ -82,9 +82,11 @@
                     </label>
                   </div>
 
-                  <div class="storage-option" :class="{ active: selectedStorageMode === 'database', disabled: !databaseConnected }">
+                  <div class="storage-option"
+                    :class="{ active: selectedStorageMode === 'database', disabled: !databaseConnected }">
                     <label>
-                      <input type="radio" v-model="selectedStorageMode" value="database" :disabled="migrationLoading || !databaseConnected" />
+                      <input type="radio" v-model="selectedStorageMode" value="database"
+                        :disabled="migrationLoading || !databaseConnected" />
                       <div class="option-content">
                         <div class="option-header">
                           <SvgIcon name="database" class="option-icon" />
@@ -144,22 +146,16 @@
                       </div>
                     </div>
                   </div>
-                  
+
                   <div class="action-buttons">
-                    <button 
-                      @click="applyStorageModeConfig" 
-                      class="btn btn-enhanced btn-primary" 
-                      :disabled="migrationLoading || !hasStorageModeChanges || (selectedStorageMode === 'database' && !databaseConnected)"
-                    >
+                    <button @click="applyStorageModeConfig" class="btn btn-enhanced btn-primary"
+                      :disabled="migrationLoading || !hasStorageModeChanges || (selectedStorageMode === 'database' && !databaseConnected)">
                       <SvgIcon name="save" class="btn-icon" />
                       {{ migrationLoading ? '应用中...' : getApplyButtonText() }}
                     </button>
-                    
-                    <button 
-                      @click="resetStorageModeConfig" 
-                      class="btn btn-enhanced btn-secondary" 
-                      :disabled="migrationLoading || !hasStorageModeChanges"
-                    >
+
+                    <button @click="resetStorageModeConfig" class="btn btn-enhanced btn-secondary"
+                      :disabled="migrationLoading || !hasStorageModeChanges">
                       <SvgIcon name="refresh" class="btn-icon" />
                       重置
                     </button>
@@ -167,11 +163,12 @@
                 </div>
 
                 <div class="database-actions">
-                  <button @click="openDatabaseConfig" class="btn btn-enhanced btn-secondary" :disabled="migrationLoading">
+                  <button @click="openDatabaseConfig" class="btn btn-enhanced btn-secondary"
+                    :disabled="migrationLoading">
                     <SvgIcon name="settings" class="btn-icon" />
                     数据库配置
                   </button>
-                  
+
                   <div v-if="migrationLoading" class="migration-status">
                     <LoadingSpinner text="数据迁移中..." />
                   </div>
@@ -240,12 +237,14 @@
           <div class="action-group">
             <div class="action-group-title">基础操作</div>
             <div class="action-buttons basic-actions">
-              <button @click="refreshStats" class="btn btn-enhanced btn-secondary" :disabled="loading || isRebuildingRegistry">
+              <button @click="refreshStats" class="btn btn-enhanced btn-secondary"
+                :disabled="loading || isRebuildingRegistry">
                 <SvgIcon name="refresh" class="btn-icon" />
                 刷新统计
               </button>
 
-              <button @click="exportRegistry" class="btn btn-enhanced btn-primary" :disabled="loading || isRebuildingRegistry">
+              <button @click="exportRegistry" class="btn btn-enhanced btn-primary"
+                :disabled="loading || isRebuildingRegistry">
                 <SvgIcon name="download" class="btn-icon" />
                 导出注册表
               </button>
@@ -263,12 +262,14 @@
           <div class="action-group">
             <div class="action-group-title">高级操作</div>
             <div class="action-buttons advanced-actions">
-              <button @click="rebuildRegistry" class="btn btn-enhanced btn-warning" :disabled="loading || isRebuildingRegistry">
+              <button @click="rebuildRegistry" class="btn btn-enhanced btn-warning"
+                :disabled="loading || isRebuildingRegistry">
                 <SvgIcon name="rebuild" class="btn-icon" />
                 {{ isRebuildingRegistry ? '同步中...' : '同步文件系统' }}
               </button>
 
-              <button @click="cleanupRegistry" class="btn btn-enhanced btn-danger" :disabled="loading || isRebuildingRegistry">
+              <button @click="cleanupRegistry" class="btn btn-enhanced btn-danger"
+                :disabled="loading || isRebuildingRegistry">
                 <SvgIcon name="clean" class="btn-icon" />
                 清理注册表
               </button>
@@ -284,7 +285,7 @@
                 取消
               </button>
             </div>
-            
+
             <div class="progress-content">
               <div class="progress-stats">
                 <div class="progress-stat">
@@ -304,19 +305,19 @@
                   <span class="stat-value">{{ rebuildProgress.skippedArtworks || 0 }}</span>
                 </div>
               </div>
-              
+
               <div v-if="rebuildProgress.currentArtist" class="current-status">
                 <span class="status-label">当前处理:</span>
                 <span class="status-value">{{ rebuildProgress.currentArtist }}</span>
               </div>
-              
+
               <div class="progress-bar-container">
                 <div class="progress-bar">
                   <div class="progress-fill" :style="{ width: progressPercentage + '%' }"></div>
                 </div>
                 <span class="progress-text">{{ progressPercentage.toFixed(1) }}%</span>
               </div>
-              
+
               <div class="time-info">
                 <span class="elapsed-time">已用时: {{ formatElapsedTime(rebuildStartTime) }}</span>
               </div>
@@ -327,11 +328,8 @@
     </div>
 
     <!-- 数据库配置模态框 -->
-    <DatabaseConfigModal 
-      :visible="showDatabaseConfig"
-      @close="closeDatabaseConfig"
-      @saved="handleDatabaseConfigSaved"
-    />
+    <DatabaseConfigModal :visible="showDatabaseConfig" @close="closeDatabaseConfig"
+      @saved="handleDatabaseConfigSaved" />
   </div>
 </template>
 
@@ -419,7 +417,7 @@ const exportRegistry = async () => {
   if (result.success) {
     const modeText = useDatabase ? '数据库' : 'JSON文件';
     showSuccess(`注册表导出成功（${modeText}模式）`);
-    
+
     // 创建下载链接
     const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -443,7 +441,7 @@ const handleFileImport = async (event: Event) => {
     // 读取文件内容
     const fileContent = await file.text();
     const registryData = JSON.parse(fileContent);
-    
+
     const useDatabase = storageMode.value === 'database';
     const result = await registryStore.importRegistry(registryData, useDatabase);
     if (result.success) {
@@ -471,7 +469,7 @@ const rebuildRegistry = async () => {
       rebuildTaskId.value = result.data.taskId;
       isRebuildingRegistry.value = true;
       rebuildStartTime.value = Date.now();
-      
+
       // 重置进度
       rebuildProgress.value = {
         scannedArtists: 0,
@@ -480,7 +478,7 @@ const rebuildRegistry = async () => {
         skippedArtworks: 0,
         currentArtist: ''
       };
-      
+
       // 开始轮询进度
       startProgressPolling();
       showSuccess('文件系统同步已开始，请等待完成...');
@@ -498,15 +496,15 @@ const startProgressPolling = () => {
   if (progressPollingInterval.value) {
     clearInterval(progressPollingInterval.value);
   }
-  
+
   progressPollingInterval.value = setInterval(async () => {
     if (!rebuildTaskId.value) return;
-    
+
     try {
       const statusResult = await downloadService.getRegistryRebuildStatus(rebuildTaskId.value);
       if (statusResult.success && statusResult.data) {
         const status = statusResult.data;
-        
+
         // 更新进度信息
         if (status.progress) {
           rebuildProgress.value = {
@@ -517,17 +515,17 @@ const startProgressPolling = () => {
             currentArtist: status.progress.currentArtist || ''
           };
         }
-        
+
         // 检查任务状态
         if (status.status === 'completed') {
           stopProgressPolling();
           isRebuildingRegistry.value = false;
           rebuildTaskId.value = null;
-          
+
           const addedCount = rebuildProgress.value.addedArtworks;
           const skippedCount = rebuildProgress.value.skippedArtworks;
           showSuccess(`文件系统同步完成！新增 ${addedCount} 个作品，跳过 ${skippedCount} 个已存在作品`);
-          
+
           // 刷新统计信息
           refreshStats();
         } else if (status.status === 'failed') {
@@ -560,11 +558,11 @@ const stopProgressPolling = () => {
 // 取消重建任务
 const cancelRebuild = async () => {
   if (!rebuildTaskId.value) return;
-  
+
   if (!confirm('确定要取消文件系统同步吗？')) {
     return;
   }
-  
+
   try {
     const result = await downloadService.cancelRegistryRebuild(rebuildTaskId.value);
     if (result.success) {
@@ -584,11 +582,11 @@ const cancelRebuild = async () => {
 // 格式化已用时间
 const formatElapsedTime = (startTime: number): string => {
   if (!startTime) return '00:00';
-  
+
   const elapsed = Math.floor((Date.now() - startTime) / 1000);
   const minutes = Math.floor(elapsed / 60);
   const seconds = elapsed % 60;
-  
+
   return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 };
 
@@ -722,11 +720,11 @@ const applyStorageModeConfig = async () => {
   // 根据迁移模式生成不同的确认消息
   let confirmMessage = '';
   if (migrationMode.value === 'switch-only') {
-    confirmMessage = selectedStorageMode.value === 'database' 
+    confirmMessage = selectedStorageMode.value === 'database'
       ? '确定要切换到数据库存储模式吗？这将仅改变读取方式，不会迁移现有数据。'
       : '确定要切换到JSON文件存储模式吗？这将仅改变读取方式，不会迁移现有数据。';
   } else {
-    confirmMessage = selectedStorageMode.value === 'database' 
+    confirmMessage = selectedStorageMode.value === 'database'
       ? '确定要迁移数据并切换到数据库存储模式吗？这将把JSON数据迁移到数据库并覆盖数据库中的现有数据。'
       : '确定要迁移数据并切换到JSON文件存储模式吗？这将把数据库数据迁移到JSON文件并覆盖JSON文件中的现有数据。';
   }
@@ -737,7 +735,7 @@ const applyStorageModeConfig = async () => {
 
   try {
     migrationLoading.value = true;
-    
+
     if (migrationMode.value === 'migrate-data') {
       // 执行数据迁移
       if (selectedStorageMode.value === 'database') {
@@ -765,10 +763,10 @@ const applyStorageModeConfig = async () => {
       const modeText = selectedStorageMode.value === 'database' ? '数据库存储' : 'JSON文件存储';
       showSuccess(`已切换到${modeText}模式，数据读取方式已更改`);
     }
-    
+
     // 保存存储模式配置到后端
     await saveStorageModeConfig(selectedStorageMode.value);
-    
+
     // 刷新统计信息
     await refreshStats();
   } catch (error) {
@@ -859,6 +857,11 @@ watch(config, () => {
   bottom: 1rem;
   left: 1rem;
   z-index: 1000;
+  transition: z-index 0.1s ease;
+}
+
+.registry-widget.panel-open {
+  z-index: 1002;
 }
 
 .registry-toggle {
@@ -1148,7 +1151,7 @@ watch(config, () => {
   right: 0;
   bottom: 0;
   background: radial-gradient(circle at 20% 80%, rgba(59, 130, 246, 0.03), transparent 50%),
-              radial-gradient(circle at 80% 20%, rgba(16, 185, 129, 0.03), transparent 50%);
+    radial-gradient(circle at 80% 20%, rgba(16, 185, 129, 0.03), transparent 50%);
   pointer-events: none;
 }
 
@@ -1790,6 +1793,7 @@ watch(config, () => {
   0% {
     opacity: 0.6;
   }
+
   100% {
     opacity: 1;
   }
@@ -1821,9 +1825,12 @@ watch(config, () => {
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scale(1);
   }
+
   50% {
     transform: scale(1.1);
   }
@@ -1941,20 +1948,20 @@ watch(config, () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(90deg, 
-    rgba(255, 255, 255, 0.1) 0%, 
-    rgba(255, 255, 255, 0.3) 50%, 
-    rgba(255, 255, 255, 0.1) 100%);
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0.3) 50%,
+      rgba(255, 255, 255, 0.1) 100%);
   animation: shimmer 2s infinite;
   pointer-events: none;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, 
-    var(--color-success, #16a34a) 0%, 
-    var(--color-info, #06b6d4) 50%, 
-    var(--color-warning, #f59e0b) 100%);
+  background: linear-gradient(90deg,
+      var(--color-success, #16a34a) 0%,
+      var(--color-info, #06b6d4) 50%,
+      var(--color-warning, #f59e0b) 100%);
   border-radius: var(--radius-full, 9999px);
   transition: width 0.5s ease-out;
   position: relative;
@@ -1968,10 +1975,10 @@ watch(config, () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(90deg, 
-    transparent 0%, 
-    rgba(255, 255, 255, 0.3) 50%, 
-    transparent 100%);
+  background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.3) 50%,
+      transparent 100%);
   animation: progressShine 1.5s ease-in-out infinite;
 }
 
@@ -1979,6 +1986,7 @@ watch(config, () => {
   0% {
     transform: translateX(-100%);
   }
+
   100% {
     transform: translateX(100%);
   }
@@ -2183,9 +2191,12 @@ watch(config, () => {
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.7;
   }
@@ -2242,15 +2253,15 @@ watch(config, () => {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .migration-status {
     justify-content: center;
   }
-  
+
   .storage-config-actions .action-buttons {
     flex-direction: column;
   }
-  
+
   .storage-config-actions .btn {
     flex: none;
   }
@@ -2262,34 +2273,34 @@ watch(config, () => {
     grid-template-columns: repeat(2, 1fr);
     gap: var(--spacing-xs, 0.25rem);
   }
-  
+
   .progress-stat {
     font-size: 0.65rem;
   }
-  
+
   .progress-stat .stat-label {
     font-size: 0.65rem;
   }
-  
+
   .progress-stat .stat-value {
     font-size: 1rem;
   }
-  
+
   .current-status {
     flex-direction: column;
     align-items: flex-start;
     gap: var(--spacing-xs, 0.25rem);
   }
-  
+
   .status-value {
     width: 100%;
   }
-  
+
   .progress-bar-container {
     flex-direction: column;
     gap: var(--spacing-sm, 0.5rem);
   }
-  
+
   .progress-text {
     align-self: center;
   }
@@ -2299,17 +2310,17 @@ watch(config, () => {
   .rebuild-progress {
     padding: var(--spacing-md, 0.75rem);
   }
-  
+
   .progress-header {
     flex-direction: column;
     align-items: flex-start;
     gap: var(--spacing-sm, 0.5rem);
   }
-  
+
   .progress-stats {
     grid-template-columns: 1fr;
   }
-  
+
   .btn-small {
     align-self: flex-end;
   }

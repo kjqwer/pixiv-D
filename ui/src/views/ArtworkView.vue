@@ -29,8 +29,8 @@
           @page-change="currentImagePage = $event" />
 
         <!-- 右侧信息面板组件 -->
-        <ArtworkInfoPanel :artwork="artwork" :downloading="downloading" :deleting="deleting" :is-downloaded="isDownloaded"
-          :current-task="currentTask" :loading="loading" :show-navigation="showNavigation"
+        <ArtworkInfoPanel :artwork="artwork" :downloading="downloading" :deleting="deleting"
+          :is-downloaded="isDownloaded" :current-task="currentTask" :loading="loading" :show-navigation="showNavigation"
           :previous-artwork="previousArtwork" :next-artwork="nextArtwork" :canNavigatePrevious="canNavigateToPrevious"
           :canNavigateNext="canNavigateToNext" :selected-tags="selectedTags" :show-recommendations="showRecommendations"
           :show-caption="showCaption" @download="handleDownload" @delete="handleDelete" @go-back="goBackToArtist"
@@ -122,7 +122,7 @@ const checkMobileDevice = () => {
 // 触摸开始事件
 const handleTouchStart = (event: TouchEvent) => {
   if (!showNavigation.value || loading.value) return;
-  
+
   const touch = event.touches[0];
   touchStartX.value = touch.clientX;
   touchStartY.value = touch.clientY;
@@ -132,11 +132,11 @@ const handleTouchStart = (event: TouchEvent) => {
 // 触摸移动事件
 const handleTouchMove = (event: TouchEvent) => {
   if (!showNavigation.value || loading.value) return;
-  
+
   const touch = event.touches[0];
   const deltaX = Math.abs(touch.clientX - touchStartX.value);
   const deltaY = Math.abs(touch.clientY - touchStartY.value);
-  
+
   // 如果水平滑动距离大于垂直滑动距离，且超过阈值，则激活滑动状态
   if (deltaX > deltaY && deltaX > 30) {
     isSwipeActive.value = true;
@@ -147,18 +147,18 @@ const handleTouchMove = (event: TouchEvent) => {
 // 触摸结束事件
 const handleTouchEnd = (event: TouchEvent) => {
   if (!showNavigation.value || loading.value) return;
-  
+
   const touch = event.changedTouches[0];
   touchEndX.value = touch.clientX;
   touchEndY.value = touch.clientY;
-  
+
   const deltaX = touchEndX.value - touchStartX.value;
   const deltaY = Math.abs(touchEndY.value - touchStartY.value);
-  
+
   // 检查是否为有效的水平滑动
   const minSwipeDistance = 80; // 最小滑动距离
   const maxVerticalDistance = 100; // 最大垂直偏移
-  
+
   if (Math.abs(deltaX) > minSwipeDistance && deltaY < maxVerticalDistance) {
     if (deltaX > 0 && canNavigateToPrevious.value) {
       // 向右滑动 - 上一个作品
@@ -168,14 +168,14 @@ const handleTouchEnd = (event: TouchEvent) => {
       navigateToNext();
     }
   }
-  
+
   isSwipeActive.value = false;
 };
 
 // 显示滑动提示
 const showSwipeHintTemporarily = () => {
   if (!isMobile.value || !showNavigation.value) return;
-  
+
   showSwipeHint.value = true;
   setTimeout(() => {
     showSwipeHint.value = false;
@@ -454,7 +454,7 @@ const handleDelete = async () => {
     if (response.success) {
       // 删除成功后更新本地状态
       isDownloaded.value = false;
-      
+
       // 显示成功提示（非阻塞）
       const successMessage = document.createElement('div');
       successMessage.textContent = '作品删除成功';
@@ -471,21 +471,21 @@ const handleDelete = async () => {
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       `;
       document.body.appendChild(successMessage);
-      
+
       // 3秒后自动移除提示
       setTimeout(() => {
         if (successMessage.parentNode) {
           successMessage.parentNode.removeChild(successMessage);
         }
       }, 3000);
-      
+
       // 不退出页面，保持在当前页面
     } else {
       throw new Error(response.error || '删除失败');
     }
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : '删除作品失败';
-    
+
     // 显示错误提示（非阻塞）
     const errorDiv = document.createElement('div');
     errorDiv.textContent = '删除失败: ' + errorMessage;
@@ -502,14 +502,14 @@ const handleDelete = async () => {
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     `;
     document.body.appendChild(errorDiv);
-    
+
     // 3秒后自动移除提示
     setTimeout(() => {
       if (errorDiv.parentNode) {
         errorDiv.parentNode.removeChild(errorDiv);
       }
     }, 3000);
-    
+
     console.error('删除作品失败:', err);
   } finally {
     deleting.value = false; // 重置删除状态
@@ -906,7 +906,7 @@ onMounted(() => {
 
   // 检测移动设备
   checkMobileDevice();
-  
+
   // 监听窗口大小变化
   window.addEventListener('resize', checkMobileDevice);
 
@@ -927,7 +927,7 @@ onMounted(() => {
 
   // 初始化 Caption 开关状态
   initializeCaptionState();
-  
+
   // 延迟显示滑动提示（仅在移动端且有导航时）
   setTimeout(() => {
     showSwipeHintTemporarily();
@@ -994,18 +994,21 @@ onUnmounted(() => {
 
 @media (max-width: 768px) {
   .artwork-page {
-    padding: 1rem 0 0 0; /* 移除底部内边距 */
+    padding: 1rem 0 0 0;
+    /* 移除底部内边距 */
   }
 
   .container {
     padding: 0 1rem;
-    margin-bottom: 0; /* 移除底部外边距 */
+    margin-bottom: 0;
+    /* 移除底部外边距 */
   }
 
   .artwork-content {
     gap: 1rem;
     transition: transform 0.3s ease, opacity 0.3s ease;
-    padding-bottom: 0; /* 确保没有额外的底部内边距 */
+    padding-bottom: 0;
+    /* 确保没有额外的底部内边距 */
   }
 
   .artwork-content.swiping {
@@ -1026,7 +1029,7 @@ onUnmounted(() => {
   border-radius: 2rem;
   font-size: 0.875rem;
   font-weight: 500;
-  z-index: 1000;
+  z-index: 1002;
   opacity: 0;
   visibility: hidden;
   transition: all 0.3s ease;

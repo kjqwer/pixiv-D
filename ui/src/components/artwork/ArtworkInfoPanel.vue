@@ -753,7 +753,7 @@ input:checked+.slider:before {
         grid-template-columns: auto 1fr auto;
         gap: var(--spacing-sm);
         box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
-        z-index: 2000;
+        z-index: 1001;
     }
 
     .nav-back {

@@ -575,7 +575,7 @@ watch(() => route.fullPath, () => {
   position: fixed;
   top: 4.5rem;
   left: 1rem;
-  z-index: 1000;
+  z-index: 1002;
   display: flex;
   flex-direction: column;
   gap: 8px;

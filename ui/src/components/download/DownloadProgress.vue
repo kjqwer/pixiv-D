@@ -3,16 +3,15 @@
     <div class="progress-header">
       <h4 class="progress-title">{{ getTaskTitle(task) }}</h4>
       <div class="progress-actions">
-        <button v-if="task.status === 'downloading' || task.status === 'pausing'" @click="pauseTask" class="btn btn-sm btn-secondary"
-          :disabled="loading || task.status === 'pausing'">
+        <button v-if="task.status === 'downloading' || task.status === 'pausing'" @click="pauseTask"
+          class="btn btn-sm btn-secondary" :disabled="loading || task.status === 'pausing'">
           {{ task.status === 'pausing' ? '暂停中...' : '暂停' }}
         </button>
-        <button v-if="task.status === 'paused' || task.status === 'resuming'" @click="resumeTask" class="btn btn-sm btn-primary" 
-          :disabled="loading || task.status === 'resuming'">
+        <button v-if="task.status === 'paused' || task.status === 'resuming'" @click="resumeTask"
+          class="btn btn-sm btn-primary" :disabled="loading || task.status === 'resuming'">
           {{ task.status === 'resuming' ? '恢复中...' : '恢复' }}
         </button>
-        <button @click="cancelTask" class="btn btn-sm btn-danger" 
-          :disabled="loading || task.status === 'cancelling'">
+        <button @click="cancelTask" class="btn btn-sm btn-danger" :disabled="loading || task.status === 'cancelling'">
           {{ task.status === 'cancelling' ? '取消中...' : '取消' }}
         </button>
       </div>
@@ -192,6 +191,7 @@ const cancelTask = async () => {
   border-radius: 0.75rem;
   padding: 1.25rem;
   margin-bottom: 0;
+  z-index: 1002;
 }
 
 .progress-header {
@@ -514,7 +514,7 @@ const cancelTask = async () => {
   background-clip: text;
 }
 
-.stat-value.success + .stat-label {
+.stat-value.success+.stat-label {
   color: #047857;
 }
 
@@ -530,7 +530,7 @@ const cancelTask = async () => {
   background-clip: text;
 }
 
-.stat-value.error + .stat-label {
+.stat-value.error+.stat-label {
   color: #b91c1c;
 }
 
