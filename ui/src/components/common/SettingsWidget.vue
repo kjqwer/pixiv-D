@@ -573,7 +573,7 @@ onMounted(() => {
 }
 
 .settings-widget.panel-open {
-  z-index: 1002;
+  z-index: 1004;
 }
 
 .settings-toggle {
