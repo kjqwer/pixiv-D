@@ -6,6 +6,12 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+
+// 只在 Windows 环境下设置终端标题
+if (os.platform() === 'win32') {
+  process.title = 'Pixiv Manager';
+}
 
 // 加载配置文件
 function loadConfig() {

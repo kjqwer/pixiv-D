@@ -212,7 +212,7 @@ class PixivServer {
    */
   start() {
     this.server = this.app.listen(this.port, () => {
-      logger.info('Pixiv 后端服务器已启动');
+      logger.info('Pixiv 后端服务器已启动2');
       logger.info(`服务地址: http://localhost:${this.port}`);
       logger.info(`健康检查: http://localhost:${this.port}/health`);
       logger.info(`登录状态: ${this.backend.isLoggedIn ? '已登录' : '未登录'}`);
@@ -239,14 +239,23 @@ class PixivServer {
   openBrowser() {
     const url = `http://localhost:${this.port}`;
     logger.info(`正在打开浏览器: ${url}`);
-    
+
     const { spawn } = require('child_process');
     const os = require('os');
+    const fs = require('fs');
+    const platform = os.platform();
     
+    // 在服务器环境中直接跳过打开浏览器
+    if (platform === 'linux') {
+      // 直接跳过 Linux 服务器环境的浏览器打开
+      logger.info('在 Linux 服务器环境中，跳过打开浏览器');
+      return;
+    }
+
     let command;
     let args = [url];
-    
-    switch (os.platform()) {
+
+    switch (platform) {
       case 'win32':
         command = 'cmd';
         args = ['/c', 'start', '""', url];
@@ -254,21 +263,24 @@ class PixivServer {
       case 'darwin':
         command = 'open';
         break;
-      case 'linux':
-        command = 'xdg-open';
-        break;
       default:
         logger.warn('不支持的操作系统，无法自动打开浏览器');
         return;
     }
-    
+
     try {
-      const child = spawn(command, args, { 
-        detached: true, 
-        stdio: 'ignore' 
+      const child = spawn(command, args, {
+        detached: true,
+        stdio: 'ignore',
       });
+      
+      // 添加错误处理
+      child.on('error', (err) => {
+        logger.warn('打开浏览器失败:', err.message);
+      });
+      
       child.unref();
-      logger.info('浏览器已打开');
+      logger.info('浏览器打开命令已执行');
     } catch (error) {
       logger.warn('打开浏览器失败:', error.message);
     }

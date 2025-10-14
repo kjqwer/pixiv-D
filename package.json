@@ -17,7 +17,11 @@
   "scripts": {
     "dev": "node backend/start.js",
     "build": "pkg . && node scripts/add-icon.js",
-    "bp": "npm run build && node scripts/create-portable.js"
+    "bp": "npm run build && node scripts/create-portable.js",
+    "build:linux": "pkg . --targets=node18-linux-x64 --output=dist/pixiv-manager",
+    "build:macos": "pkg . --targets=node18-macos-x64 --output=dist/pixiv-manager",
+    "bp:linux": "npm run build:linux && node scripts/create-portable.js linux",
+    "bp:macos": "npm run build:macos && node scripts/create-portable.js macos"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",

@@ -5,9 +5,24 @@ const { defaultLogger } = require('../backend/utils/logger');
 // 创建logger实例
 const logger = defaultLogger.child('CreatePortable');
 
-async function createPortable() {
+async function createPortable(platform = 'win') {
   const distDir = path.join(__dirname, '..', 'dist');
-  const portableDir = path.join(__dirname, '..', 'pixiv-manager-portable');
+  let portableDir = path.join(__dirname, '..', 'pixiv-manager-portable');
+  
+  // 根据平台设置不同的目录名和可执行文件名
+  let exeName = 'pixiv-manager.exe';
+  let exePath = path.join(distDir, exeName);
+  
+  // 根据平台参数设置
+  if (platform === 'linux') {
+    portableDir = path.join(__dirname, '..', 'pixiv-manager-portable-linux');
+    exeName = 'pixiv-manager';
+    exePath = path.join(distDir, exeName);
+  } else if (platform === 'macos') {
+    portableDir = path.join(__dirname, '..', 'pixiv-manager-portable-macos');
+    exeName = 'pixiv-manager';
+    exePath = path.join(distDir, exeName);
+  }
   
   try {
     // 清理之前的便携版
@@ -15,8 +30,6 @@ async function createPortable() {
     await fs.ensureDir(portableDir);
     
     // 复制可执行文件
-    const exeName = 'pixiv-manager.exe';
-    const exePath = path.join(distDir, exeName);
     if (await fs.pathExists(exePath)) {
       await fs.copy(exePath, path.join(portableDir, exeName));
     }
@@ -42,13 +55,24 @@ async function createPortable() {
     await fs.writeFile(path.join(portableDir, 'config.json'), JSON.stringify(config, null, 2), 'utf8');
     
     // 创建README
+    let executableInstructions = '';
+    if (platform === 'linux') {
+      executableInstructions = `1. 添加执行权限: \`chmod +x pixiv-manager-linux\`
+2. 运行程序: \`./pixiv-manager-linux\``;
+    } else if (platform === 'macos') {
+      executableInstructions = `1. 添加执行权限: \`chmod +x pixiv-manager-macos\`
+2. 运行程序: \`./pixiv-manager-macos\``;
+    } else {
+      executableInstructions = `1. 双击 \`pixiv-manager.exe\` 启动程序`;
+    }
+    
     const readme = `# Pixiv Manager 便携版
 
 ## 使用说明
 
-1. 双击 \`pixiv-manager.exe\` 启动程序
-2. 在浏览器中访问 http://localhost:3000
-3. 按 Ctrl+C 停止服务器
+${executableInstructions}
+${platform === 'win' ? '' : '3. '}在浏览器中访问 http://localhost:3000
+${platform === 'win' ? '3' : '4'}. 按 Ctrl+C 停止服务器
 
 ## 配置设置
 
@@ -139,4 +163,6 @@ async function createPortable() {
   }
 }
 
-createPortable();
+// 获取命令行参数
+const platform = process.argv[2] || 'win';
+createPortable(platform);

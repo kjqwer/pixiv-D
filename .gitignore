@@ -20,6 +20,8 @@ config.json
 #打包文件夹
 dist/
 pixiv-manager-portable/
+pixiv-manager-portable-linux/
+pixiv-manager-portable-macos/
 pixiv-manager-portable.rar
 build/
 zzip.bat
