@@ -212,7 +212,7 @@ class PixivServer {
    */
   start() {
     this.server = this.app.listen(this.port, () => {
-      logger.info('Pixiv 后端服务器已启动2');
+      logger.info('Pixiv 后端服务器已启动');
       logger.info(`服务地址: http://localhost:${this.port}`);
       logger.info(`健康检查: http://localhost:${this.port}/health`);
       logger.info(`登录状态: ${this.backend.isLoggedIn ? '已登录' : '未登录'}`);

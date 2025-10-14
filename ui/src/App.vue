@@ -165,7 +165,7 @@ onMounted(async () => {
   border-bottom: 1px solid #e5e7eb;
   position: sticky;
   top: 0;
-  z-index: 1002; /* 提高导航栏z-index，确保在所有元素之上 */
+  z-index: 1005; /* 提高导航栏z-index，确保在所有元素之上 */
 }
 
 .nav-container {
@@ -282,7 +282,6 @@ onMounted(async () => {
   opacity: 0;
   visibility: hidden;
   transition: all 0.3s ease;
-  z-index: 1001; /* 提高z-index，确保在小组件之上 */
 }
 
 .mobile-nav-menu.active {
