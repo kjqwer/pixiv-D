@@ -22,6 +22,11 @@ export interface UpdateWatchlistItemParams {
   url?: string;
 }
 
+// 存储配置接口
+export interface WatchlistConfig {
+  storageMode: 'json' | 'database';
+}
+
 class WatchlistService {
   /**
    * 获取所有待看项目
@@ -50,7 +55,45 @@ class WatchlistService {
   async deleteItem(id: string): Promise<ApiResponse<WatchlistItem[]>> {
     return apiService.delete<WatchlistItem[]>(`/api/watchlist/${id}`);
   }
+
+  /**
+   * 导出待看名单（后端）
+   */
+  async export(): Promise<ApiResponse<{ version: string; exportTime: string; items: WatchlistItem[] }>> {
+    return apiService.get<{ version: string; exportTime: string; items: WatchlistItem[] }>(
+      '/api/watchlist/export'
+    );
+  }
+
+  /**
+   * 导入待看名单（后端）
+   */
+  async import(data: any, importMode: 'merge' | 'overwrite' = 'merge'): Promise<
+    ApiResponse<{ message: string; stats: { successCount: number; skipCount: number; errorCount: number; deletedCount: number }; items: WatchlistItem[] }>
+  > {
+    return apiService.post(
+      '/api/watchlist/import',
+      {
+        watchlistData: data,
+        importMode
+      }
+    );
+  }
+
+  /**
+   * 获取待看名单存储配置
+   */
+  async getConfig(): Promise<ApiResponse<WatchlistConfig>> {
+    return apiService.get<WatchlistConfig>('/api/watchlist/config');
+  }
+
+  /**
+   * 更新待看名单存储配置
+   */
+  async updateConfig(storageMode: 'json' | 'database'): Promise<ApiResponse<WatchlistConfig>> {
+    return apiService.put<WatchlistConfig>('/api/watchlist/config', { storageMode });
+  }
 }
 
 export const watchlistService = new WatchlistService();
-export default watchlistService; 
+export default watchlistService;

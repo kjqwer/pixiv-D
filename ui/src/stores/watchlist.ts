@@ -1,12 +1,14 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { watchlistService, type WatchlistItem, type AddWatchlistItemParams, type UpdateWatchlistItemParams } from '@/services/watchlist';
+import { watchlistService, type WatchlistItem, type AddWatchlistItemParams, type UpdateWatchlistItemParams, type WatchlistConfig } from '@/services/watchlist';
 
 export const useWatchlistStore = defineStore('watchlist', () => {
   // 状态
   const items = ref<WatchlistItem[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  const configLoading = ref(false);
+  const storageMode = ref<'json' | 'database'>('json');
 
   // 计算属性
   const itemCount = computed(() => items.value.length);
@@ -34,6 +36,44 @@ export const useWatchlistStore = defineStore('watchlist', () => {
       handleError(err, '获取待看名单失败');
     } finally {
       loading.value = false;
+    }
+  };
+
+  // 获取存储配置
+  const fetchConfig = async () => {
+    try {
+      configLoading.value = true;
+      const response = await watchlistService.getConfig();
+      if (response.success && response.data) {
+        storageMode.value = (response.data.storageMode ?? 'json') as 'json' | 'database';
+        return true;
+      } else {
+        throw new Error(response.error || '获取存储配置失败');
+      }
+    } catch (err) {
+      handleError(err, '获取存储配置失败');
+      return false;
+    } finally {
+      configLoading.value = false;
+    }
+  };
+
+  // 保存存储模式
+  const saveStorageModeConfig = async (mode: 'json' | 'database') => {
+    try {
+      configLoading.value = true;
+      const response = await watchlistService.updateConfig(mode);
+      if (response.success && response.data) {
+        storageMode.value = response.data.storageMode;
+        return true;
+      } else {
+        throw new Error(response.error || '更新存储配置失败');
+      }
+    } catch (err) {
+      handleError(err, '更新存储配置失败');
+      return false;
+    } finally {
+      configLoading.value = false;
     }
   };
 
@@ -184,106 +224,57 @@ export const useWatchlistStore = defineStore('watchlist', () => {
     });
   };
 
-  // 导出待看名单数据
-  const exportWatchlist = () => {
-    const exportData = {
-      version: '1.0',
-      exportTime: new Date().toISOString(),
-      items: items.value.map(item => ({
-        id: item.id,
-        title: item.title,
-        url: item.url,
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt
-      }))
-    };
-    
-    const dataStr = JSON.stringify(exportData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(dataBlob);
-    link.download = `watchlist-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(link.href);
+  // 导出待看名单数据（通过后端）
+  const exportWatchlist = async () => {
+    try {
+      loading.value = true;
+      error.value = null;
+      const response = await watchlistService.export();
+      if (response.success && response.data) {
+        const dataStr = JSON.stringify(response.data, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(dataBlob);
+        link.download = `watchlist-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+        return { success: true };
+      } else {
+        throw new Error(response.error || '导出待看名单失败');
+      }
+    } catch (err) {
+      handleError(err, '导出待看名单失败');
+      return { success: false };
+    } finally {
+      loading.value = false;
+    }
   };
 
-  // 导入待看名单数据
+  // 导入待看名单数据（通过后端）
   const importWatchlist = async (file: File, importMode: 'merge' | 'overwrite' = 'merge') => {
     try {
+      loading.value = true;
+      error.value = null;
       const text = await file.text();
       const importData = JSON.parse(text);
-      
-      // 验证数据格式
       if (!importData.items || !Array.isArray(importData.items)) {
         throw new Error('无效的导入文件格式');
       }
-      
-      // 统计导入结果
-      let successCount = 0;
-      let skipCount = 0;
-      let errorCount = 0;
-      let deletedCount = 0;
-      
-      // 如果是覆盖模式，先删除所有现有项目
-      if (importMode === 'overwrite') {
-        const allItems = items.value;
-        for (const item of allItems) {
-          try {
-            await deleteItem(item.id);
-            deletedCount++;
-          } catch (err) {
-            console.error('删除项目失败:', item, err);
-          }
-        }
-      }
-      
-      for (const item of importData.items) {
-        try {
-          // 在重合模式下检查是否已存在
-          if (importMode === 'merge' && hasUrl(item.url)) {
-            skipCount++;
-            continue;
-          }
-          
-          // 添加项目
-          const success = await addItem({
-            url: item.url,
-            title: item.title
-          });
-          
-          if (success) {
-            successCount++;
-          } else {
-            errorCount++;
-          }
-        } catch (err) {
-          console.error('导入项目失败:', item, err);
-          errorCount++;
-        }
-      }
-      
-      let message = '';
-      if (importMode === 'overwrite') {
-        message = `覆盖导入完成：删除 ${deletedCount} 项，成功添加 ${successCount} 项，失败 ${errorCount} 项`;
+      const response = await watchlistService.import(importData, importMode);
+      if (response.success && response.data) {
+        // 刷新本地列表
+        items.value = response.data.items || items.value;
+        return { success: true, message: response.data.message, stats: response.data.stats };
       } else {
-        message = `重合导入完成：成功 ${successCount} 项，跳过 ${skipCount} 项，失败 ${errorCount} 项`;
+        throw new Error(response.error || '导入待看名单失败');
       }
-      
-      return {
-        success: true,
-        message,
-        stats: { successCount, skipCount, errorCount, deletedCount }
-      };
     } catch (err) {
-      console.error('导入失败:', err);
-      return {
-        success: false,
-        message: err instanceof Error ? err.message : '导入失败',
-        stats: { successCount: 0, skipCount: 0, errorCount: 0, deletedCount: 0 }
-      };
+      handleError(err, '导入待看名单失败');
+      return { success: false, message: error.value || '导入待看名单失败', stats: { successCount: 0, skipCount: 0, errorCount: 0, deletedCount: 0 } };
+    } finally {
+      loading.value = false;
     }
   };
 
@@ -292,11 +283,15 @@ export const useWatchlistStore = defineStore('watchlist', () => {
     items,
     loading,
     error,
+    configLoading,
+    storageMode,
     // 计算属性
     itemCount,
     hasItems,
     // 方法
     fetchItems,
+    fetchConfig,
+    saveStorageModeConfig,
     addItem,
     updateItem,
     deleteItem,

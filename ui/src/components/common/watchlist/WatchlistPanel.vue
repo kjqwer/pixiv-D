@@ -49,6 +49,27 @@
       @update:search-query="$emit('update:searchQuery', $event)" @clear-search="$emit('clearSearch')"
       @toggle-sort="$emit('toggleSort')" />
 
+    <!-- 存储模式设置 -->
+    <div class="storage-config">
+      <div class="storage-row">
+        <span class="storage-label">存储模式：</span>
+        <select v-model="selectedStorageMode" class="storage-select">
+          <option value="json">JSON文件存储</option>
+          <option value="database">MySQL数据库存储</option>
+        </select>
+        <span class="config-indicator" :class="{ unsaved: hasStorageModeChanges, saved: !hasStorageModeChanges }">
+          <SvgIcon :name="hasStorageModeChanges ? 'warning' : 'check'" class="indicator-icon" />
+          {{ hasStorageModeChanges ? '配置已修改' : `当前模式: ${storageModeText}` }}
+        </span>
+        <button class="save-config-btn" :disabled="configLoading || !hasStorageModeChanges" @click="saveStorageMode">
+          保存
+        </button>
+        <button class="reset-config-btn" :disabled="configLoading || !hasStorageModeChanges" @click="resetStorageMode">
+          重置
+        </button>
+      </div>
+    </div>
+
     <!-- 内容区域 -->
     <WatchlistContent :loading="loading" :error="error" :items="items" :filtered-items="filteredItems"
       :search-query="searchQuery" :is-current-url="isCurrentUrl" :is-duplicate-author="isDuplicateAuthor"
@@ -58,7 +79,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useWatchlistStore } from '@/stores/watchlist';
 import WatchlistControls from './WatchlistControls.vue';
 import WatchlistContent from './WatchlistContent.vue';
@@ -143,6 +164,31 @@ const handleFileImport = async (event: Event) => {
     target.value = '';
   }
 };
+
+// 存储模式相关逻辑
+const selectedStorageMode = ref<'json' | 'database'>('json');
+const configLoading = computed(() => watchlistStore.configLoading);
+const hasStorageModeChanges = computed(() => selectedStorageMode.value !== watchlistStore.storageMode);
+const storageModeText = computed(() => watchlistStore.storageMode === 'database' ? 'MySQL数据库存储' : 'JSON文件存储');
+
+const saveStorageMode = async () => {
+  if (configLoading.value || !hasStorageModeChanges.value) return;
+  const ok = await watchlistStore.saveStorageModeConfig(selectedStorageMode.value);
+  if (!ok) return;
+  // 成功后同步选择值并刷新列表与配置
+  selectedStorageMode.value = watchlistStore.storageMode;
+  await watchlistStore.fetchConfig();
+  await watchlistStore.fetchItems();
+};
+
+const resetStorageMode = () => {
+  selectedStorageMode.value = watchlistStore.storageMode;
+};
+
+onMounted(async () => {
+  await watchlistStore.fetchConfig();
+  selectedStorageMode.value = watchlistStore.storageMode;
+});
 </script>
 
 <style scoped>
@@ -150,7 +196,7 @@ const handleFileImport = async (event: Event) => {
   position: absolute;
   top: 50px;
   left: 0;
-  width: 400px;
+  width: 570px;
   max-height: 600px;
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
@@ -196,6 +242,65 @@ const handleFileImport = async (event: Event) => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.storage-config {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  gap: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.storage-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.storage-label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.storage-select {
+  padding: 4px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+.config-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.config-indicator.saved {
+  color: var(--color-success, #16a34a);
+}
+.config-indicator.unsaved {
+  color: var(--color-warning, #ca8a04);
+}
+.indicator-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.save-config-btn,
+.reset-config-btn {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+.save-config-btn:disabled,
+.reset-config-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .item-count-text {

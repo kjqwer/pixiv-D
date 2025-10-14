@@ -63,6 +63,7 @@ const ModuleColors = {
   'AbortControllerManager': '\x1b[94m', // 亮蓝色
   'DatabaseManager': '\x1b[95m', // 亮紫色
   'RegistrySchema': '\x1b[94m', // 亮蓝色
+  'WatchlistDatabase': '\x1b[94m', // 亮蓝色
   'RegistryDatabase': '\x1b[94m', // 亮蓝色
   'Default': '\x1b[39m'      // 默认颜色
 };

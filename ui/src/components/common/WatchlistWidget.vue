@@ -147,10 +147,10 @@ const filteredAndSortedItems = computed(() => {
     otherItems = filteredItems;
   }
 
-  // 对其他项目进行排序
+  // 对其他项目进行排序（按更新时间排序）
   otherItems.sort((a, b) => {
-    const dateA = new Date(a.createdAt).getTime();
-    const dateB = new Date(b.createdAt).getTime();
+    const dateA = new Date(a.updatedAt || a.createdAt).getTime();
+    const dateB = new Date(b.updatedAt || b.createdAt).getTime();
     return sortOrder.value === 'desc' ? dateB - dateA : dateA - dateB;
   });
 

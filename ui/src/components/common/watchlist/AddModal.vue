@@ -33,7 +33,7 @@
           <div class="form-group">
             <label>URL或路由路径</label>
             <input :value="url" @input="$emit('update:url', ($event.target as HTMLInputElement).value)" type="text"
-              class="form-input" placeholder="例如: /artist/12345?page=2 或 http://localhost:3001/artwork/98765"
+              class="form-input" placeholder="例如: /artist/12345?page=2 或 http://localhost:3000/artwork/98765"
               @keyup.enter="handleSave">
             <small class="form-help">
               支持完整URL或相对路径，如：/artist/12345、/search?keyword=插画 等
@@ -86,8 +86,8 @@
             <textarea :value="batchUrls"
               @input="$emit('update:batchUrls', ($event.target as HTMLTextAreaElement).value)" class="form-textarea"
               rows="8" placeholder="请输入多个URL，每行一个，例如：
-http://localhost:3001/artist/72143697
-http://localhost:3001/artist/103047332
+http://localhost:3000/artist/72143697
+http://localhost:3000/artist/103047332
 /artist/113088709
 /artwork/98765?page=2
 

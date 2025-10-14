@@ -55,6 +55,11 @@ class CacheConfigManager {
         // 存储模式配置
         storageMode: 'json', // 存储模式：'json' 或 'database'
       },
+      // 待看名单配置
+      watchlist: {
+        // 存储模式：'json' 或 'database'
+        storageMode: 'json'
+      },
       // 新增Windows特定配置
       windows: {
         skipInUseFiles: true, // 跳过被占用的文件
