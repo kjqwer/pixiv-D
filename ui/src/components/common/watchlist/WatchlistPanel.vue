@@ -401,7 +401,8 @@ onMounted(async () => {
 @media (max-width: 768px) {
   .watchlist-panel {
     position: fixed;
-    top: 0;
+    /* 向下偏移导航栏高度，避免与顶部导航重叠 */
+    top: 3.5rem;
     left: 0;
     right: 0;
     bottom: 0;
@@ -425,6 +426,36 @@ onMounted(async () => {
 
   .watchlist-header {
     border-radius: 0;
+    /* 让标题和操作区在小屏下更好适配 */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* 标题可收缩，给右侧操作区更多空间 */
+  .watchlist-header h3 {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* 移动端隐藏容易占空间的元素，避免溢出 */
+  .item-count-text,
+  .import-mode-selector {
+    display: none;
+  }
+
+  /* 压缩按钮尺寸与间距，保证关闭按钮可见 */
+  .header-actions {
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+
+  .add-btn,
+  .close-btn,
+  .export-btn,
+  .import-btn {
+    width: 26px;
+    height: 26px;
   }
 }
 
