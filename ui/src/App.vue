@@ -10,6 +10,7 @@ import DownloadProgressWidget from '@/components/common/DownloadProgressWidget.v
 import WatchlistWidget from '@/components/common/WatchlistWidget.vue'
 import RegistryWidget from '@/components/common/RegistryWidget.vue'
 import UpdateChecker from '@/components/common/UpdateChecker.vue'
+import TitleStatusWatcher from '@/components/common/TitleStatusWatcher.vue'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -92,6 +93,9 @@ onMounted(async () => {
 
           <!-- 更新检查器 -->
           <UpdateChecker />
+
+          <!-- 页面标题状态监听（无UI，仅逻辑） -->
+          <TitleStatusWatcher />
 
           <!-- GitHub 链接 -->
           <a href="https://github.com/kjqwer/pixiv-D" target="_blank" rel="noopener noreferrer" class="github-link"
