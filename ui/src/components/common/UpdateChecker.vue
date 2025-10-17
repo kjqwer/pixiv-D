@@ -63,7 +63,7 @@
                                         <div class="instruction-step">
                                             <span class="step-number">1</span>
                                             <span class="step-text">下载新版本的 <code>pixiv-manager-portable.rar</code>
-                                                文件</span>
+                                                文件（如果是linux，下载 <code>pixiv-manager-portable-linux.zip</code>）</span>
                                         </div>
                                         <div class="instruction-step">
                                             <span class="step-number">2</span>
@@ -71,11 +71,6 @@
                                         </div>
                                         <div class="instruction-step">
                                             <span class="step-number">3</span>
-                                            <span class="step-text">⚠️ <strong>重要：</strong>重新检查 <code>start.bat</code>
-                                                中的代理端口和启动端口配置</span>
-                                        </div>
-                                        <div class="instruction-step">
-                                            <span class="step-number">4</span>
                                             <span class="step-text">重新启动程序即可</span>
                                         </div>
                                     </div>

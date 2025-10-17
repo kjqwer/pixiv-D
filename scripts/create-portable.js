@@ -34,26 +34,6 @@ async function createPortable(platform = 'win') {
       await fs.copy(exePath, path.join(portableDir, exeName));
     }
     
-    // 创建配置文件
-    const config = {
-      server: {
-        port: 3000,
-        autoOpenBrowser: true
-      },
-      proxy: {
-        port: null,
-        enabled: "auto"
-      },
-      logging: {
-        level: "INFO"
-      },
-      system: {
-        threadPoolSize: 16
-      }
-    };
-    
-    await fs.writeFile(path.join(portableDir, 'config.json'), JSON.stringify(config, null, 2), 'utf8');
-    
     // 创建README
     let executableInstructions = '';
     if (platform === 'linux') {
