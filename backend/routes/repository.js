@@ -58,6 +58,74 @@ router.get('/stats', async (req, res) => {
   }
 })
 
+// 快速扫描 - 仅获取基本信息
+router.get('/quick-scan', async (req, res) => {
+  try {
+    const result = await repositoryService.quickScan()
+    res.json(ResponseUtil.success(result))
+  } catch (error) {
+    res.status(500).json(ResponseUtil.error(error.message))
+  }
+})
+
+// 完整扫描 - 支持并发和缓存
+router.post('/scan', async (req, res) => {
+  try {
+    const { 
+      maxConcurrency = 5, // 减少默认并发数
+      useCache = true, 
+      forceRefresh = false 
+    } = req.body
+
+    const result = await repositoryService.scanRepository({
+      maxConcurrency: parseInt(maxConcurrency),
+      useCache: useCache === true,
+      forceRefresh: forceRefresh === true,
+      progressCallback: (progress) => {
+        // 可以通过 WebSocket 发送进度更新
+        console.log('扫描进度:', progress)
+      }
+    })
+    
+    res.json(ResponseUtil.success(result))
+  } catch (error) {
+    res.status(500).json(ResponseUtil.error(error.message))
+  }
+})
+
+// 增量扫描 - 只扫描变更的目录和文件
+router.post('/incremental-scan', async (req, res) => {
+  try {
+    const { 
+      maxConcurrency = 5, // 减少默认并发数
+      useCache = true 
+    } = req.body
+
+    const result = await repositoryService.incrementalScan({
+      maxConcurrency: parseInt(maxConcurrency),
+      useCache: useCache === true,
+      progressCallback: (progress) => {
+        // 可以通过 WebSocket 发送进度更新
+        console.log('增量扫描进度:', progress)
+      }
+    })
+    
+    res.json(ResponseUtil.success(result))
+  } catch (error) {
+    res.status(500).json(ResponseUtil.error(error.message))
+  }
+})
+
+// 清除扫描缓存
+router.post('/clear-scan-cache', async (req, res) => {
+  try {
+    const result = await repositoryService.clearScanCache()
+    res.json(ResponseUtil.success(result))
+  } catch (error) {
+    res.status(500).json(ResponseUtil.error(error.message))
+  }
+})
+
 // 清除磁盘使用情况缓存
 router.post('/stats/clear-cache', async (req, res) => {
   try {

@@ -209,6 +209,32 @@ export const useRepositoryStore = defineStore('repository', () => {
     })
   }
 
+  // 快速扫描 - 仅获取基本信息
+  const quickScan = async () => {
+    return await apiCall('/quick-scan')
+  }
+
+  // 完整扫描 - 支持并发和缓存
+  const scanRepository = async (options: {
+    maxConcurrency?: number
+    useCache?: boolean
+    forceRefresh?: boolean
+  } = {}) => {
+    return await apiCall('/scan', {
+      method: 'POST',
+      body: JSON.stringify({
+        maxConcurrency: options.maxConcurrency || 5, // 减少默认并发数
+        useCache: options.useCache !== false,
+        forceRefresh: options.forceRefresh === true,
+      }),
+    })
+  }
+
+  // 清除扫描缓存
+  const clearScanCache = async () => {
+    return await apiCall('/clear-scan-cache', { method: 'POST' })
+  }
+
   return {
     // 状态
     config,
@@ -232,5 +258,8 @@ export const useRepositoryStore = defineStore('repository', () => {
     checkArtworkDownloaded,
     checkDirectoryExists,
     migrateFromOldToNew,
+    quickScan,
+    scanRepository,
+    clearScanCache,
   }
 })

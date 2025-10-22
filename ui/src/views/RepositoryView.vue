@@ -20,6 +20,26 @@
         </button>
       </div>
 
+      <!-- 扫描控制面板 -->
+      <div class="scan-controls">
+        <div class="scan-buttons">
+          <button @click="performFullScan" :disabled="isScanning" class="scan-button">
+            {{ isScanning ? '扫描中...' : '完整扫描' }}
+          </button>
+          <button @click="clearCache" class="clear-cache-button">
+            清除缓存
+          </button>
+        </div>
+        
+        <!-- 扫描进度 -->
+        <div v-if="isScanning" class="scan-progress">
+          <div class="progress-bar">
+            <div class="progress-fill" :style="{ width: scanProgress + '%' }"></div>
+          </div>
+          <div class="progress-text">{{ scanStatus }}</div>
+        </div>
+      </div>
+
       <!-- 配置管理 -->
       <div v-if="activeTab === 'config'" class="tab-content">
         <RepositoryConfigComponent :config="config" :migrating="migrating" :migration-progress="migrationProgress"
@@ -65,6 +85,11 @@ const config = ref<RepositoryConfig>({
   migrationRules: []
 })
 
+// 扫描相关状态
+const isScanning = ref(false)
+const scanProgress = ref(0)
+const scanStatus = ref('')
+
 // 浏览相关
 const searchQuery = ref('')
 const viewMode = ref('artworks') // 默认显示作品模式
@@ -96,6 +121,15 @@ onMounted(async () => {
 // 加载统计信息
 const loadStats = async () => {
   try {
+    // 首先尝试快速扫描获取基本信息
+    try {
+      const quickResult = await repositoryStore.quickScan()
+      console.log('快速扫描结果:', quickResult)
+    } catch (error) {
+      console.warn('快速扫描失败，使用传统方法:', error)
+    }
+    
+    // 然后获取完整统计信息
     stats.value = await repositoryStore.getStats()
   } catch (error: any) {
     console.error('加载统计信息失败:', error)
@@ -408,6 +442,49 @@ const handleConfigSaved = async () => {
     console.error('配置保存后刷新数据失败:', error)
   }
 }
+
+// 执行完整扫描
+const performFullScan = async () => {
+  try {
+    isScanning.value = true
+    scanProgress.value = 0
+    scanStatus.value = '开始扫描...'
+
+    const result = await repositoryStore.scanRepository({
+      maxConcurrency: 5, // 减少并发数，避免文件句柄过多
+      useCache: true,
+      forceRefresh: true
+    })
+
+    scanStatus.value = '扫描完成'
+    scanProgress.value = 100
+
+    // 重新加载数据
+    await loadStats()
+    await loadArtists()
+    await loadAllArtworks(1)
+
+    alert(`扫描完成！发现 ${result.artworks.length} 个作品，${result.artists.length} 个作者`)
+  } catch (error: any) {
+    console.error('扫描失败:', error)
+    alert('扫描失败: ' + error.message)
+  } finally {
+    isScanning.value = false
+    scanStatus.value = ''
+    scanProgress.value = 0
+  }
+}
+
+// 清除扫描缓存
+const clearCache = async () => {
+  try {
+    await repositoryStore.clearScanCache()
+    alert('扫描缓存已清除')
+  } catch (error: any) {
+    console.error('清除缓存失败:', error)
+    alert('清除缓存失败: ' + error.message)
+  }
+}
 </script>
 
 <style scoped>
@@ -471,9 +548,87 @@ const handleConfigSaved = async () => {
   padding: 2rem;
 }
 
+.scan-controls {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.scan-buttons {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.scan-button {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.scan-button:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.scan-button:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.clear-cache-button {
+  background: #6b7280;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.clear-cache-button:hover {
+  background: #4b5563;
+}
+
+.scan-progress {
+  margin-top: 1rem;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #3b82f6;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 0.875rem;
+  color: #6b7280;
+  text-align: center;
+}
+
 @media (max-width: 768px) {
   .container {
     padding: 0 1rem;
+  }
+  
+  .scan-buttons {
+    flex-direction: column;
   }
 }
 </style>

@@ -18,6 +18,10 @@ class RepositoryService {
     this.configManager = new ConfigManager()
     this.config = null
     
+    // 配置加载状态
+    this.configLoaded = false
+    this.configLoading = false
+    
     // 磁盘使用情况缓存
     this.diskUsageCache = {
       data: null,
@@ -25,8 +29,16 @@ class RepositoryService {
       cacheDuration: 5 * 60 * 1000 // 5分钟缓存
     }
     
+    // 文件扫描缓存
+    this.scanCache = {
+      data: null,
+      timestamp: 0,
+      cacheDuration: 10 * 60 * 1000 // 10分钟缓存
+    }
+    
     // 缓存文件路径
     this.cacheFilePath = null
+    this.scanCacheFilePath = null
   }
 
   // 获取当前工作目录（基于配置）
@@ -56,9 +68,11 @@ class RepositoryService {
       
       // 初始化缓存文件路径
       this.cacheFilePath = path.join(path.dirname(this.configManager.getConfigPath()), 'disk-usage-cache.json')
+      this.scanCacheFilePath = path.join(path.dirname(this.configManager.getConfigPath()), 'scan-cache.json')
       
       // 加载持久化缓存
       await this.loadPersistentCache()
+      await this.loadScanCache()
       
       return { success: true, message: '仓库初始化成功' }
     } catch (error) {
@@ -66,12 +80,31 @@ class RepositoryService {
     }
   }
 
-  // 加载配置
+  // 加载配置 - 优化版本，支持缓存和防重复加载
   async loadConfig() {
+    // 如果配置已加载，直接返回
+    if (this.configLoaded && this.config) {
+      return this.config
+    }
+    
+    // 如果正在加载，等待加载完成
+    if (this.configLoading) {
+      while (this.configLoading) {
+        await new Promise(resolve => setTimeout(resolve, 50))
+      }
+      return this.config
+    }
+    
+    // 开始加载配置
+    this.configLoading = true
+    
     try {
       this.config = await this.configManager.readConfig()
+      this.configLoaded = true
+      logger.info('配置加载成功')
+      return this.config
     } catch (error) {
-      logger.error('加载配置失败:', error)
+      logger.error('加载配置失败，使用默认配置:', error)
       // 如果加载失败，使用默认配置对象
       this.config = {
         downloadDir: "./downloads",
@@ -83,6 +116,10 @@ class RepositoryService {
         migrationRules: [],
         lastUpdated: new Date().toISOString()
       }
+      this.configLoaded = true
+      return this.config
+    } finally {
+      this.configLoading = false
     }
   }
 
@@ -134,108 +171,228 @@ class RepositoryService {
     }
   }
 
-  // 扫描仓库
-  async scanRepository() {
+  // 扫描仓库 - 优化版本，支持并发扫描
+  async scanRepository(options = {}) {
+    const { 
+      maxConcurrency = 5, // 减少默认并发数，避免文件句柄过多
+      useCache = true, 
+      forceRefresh = false,
+      progressCallback = null 
+    } = options
+
+    // 检查缓存
+    if (useCache && !forceRefresh) {
+      const cachedResult = await this.getCachedScanResult()
+      if (cachedResult) {
+        logger.info('使用缓存的扫描结果')
+        return cachedResult
+      }
+    }
+
     const artworks = []
     const artists = new Set()
     let totalSize = 0
+    let processedArtists = 0
 
     try {
-      // 确保配置已加载
-      await this.loadConfig()
+      // 确保配置已加载（使用缓存版本）
+      if (!this.configLoaded) {
+        await this.loadConfig()
+      }
       
       // 使用当前配置的目录
       const currentBaseDir = this.getCurrentBaseDir()
       
       // 扫描作者目录
       const artistEntries = await fs.readdir(currentBaseDir, { withFileTypes: true })
-      
-      for (const artistEntry of artistEntries) {
-        if (!artistEntry.isDirectory()) continue
-        
-        // 跳过配置文件和隐藏文件
-        if (artistEntry.name.startsWith('.') || artistEntry.name === '.repository-config.json') {
-          continue
-        }
-        
-        const artistName = artistEntry.name
-        const artistPath = path.join(currentBaseDir, artistName)
-        
-        // 扫描作者下的作品目录
-        const artworkEntries = await fs.readdir(artistPath, { withFileTypes: true })
-        
-        for (const artworkEntry of artworkEntries) {
-          if (!artworkEntry.isDirectory()) continue
+      const artistDirs = artistEntries
+        .filter(entry => entry.isDirectory() && 
+                        !entry.name.startsWith('.') && 
+                        entry.name !== '.repository-config.json')
+        .map(entry => ({
+          name: entry.name,
+          path: path.join(currentBaseDir, entry.name)
+        }))
+
+      logger.info(`开始并发扫描 ${artistDirs.length} 个作者目录`)
+
+      // 并发处理作者目录
+      const artistPromises = artistDirs.map(async (artistDir) => {
+        try {
+          const artistName = artistDir.name
+          const artistPath = artistDir.path
           
-          const fullPath = path.join(artistPath, artworkEntry.name)
-          
-          // 检查是否是作品目录（包含数字ID）
-          const artworkMatch = artworkEntry.name.match(/^(\d+)_(.+)$/)
-          if (artworkMatch) {
-            const artworkId = artworkMatch[1]
-            const title = artworkMatch[2]
-            
-            // 扫描作品文件
-            const files = await this.scanArtworkFiles(fullPath)
-            
-            if (files.length > 0) {
-              artworks.push({
-                id: artworkId,
-                title: title,
-                artist: artistName,
-                artistPath: artistPath,
-                path: fullPath,
-                files: files,
-                size: files.reduce((sum, file) => sum + file.size, 0),
-                createdAt: await this.getFileCreationTime(fullPath)
-              })
-              artists.add(artistName)
-              totalSize += files.reduce((sum, file) => sum + file.size, 0)
+          // 扫描作者下的作品目录
+          const artworkEntries = await fs.readdir(artistPath, { withFileTypes: true })
+          const artworkDirs = artworkEntries
+            .filter(entry => entry.isDirectory())
+            .map(entry => ({
+              name: entry.name,
+              path: path.join(artistPath, entry.name)
+            }))
+
+          // 并发扫描作品文件
+          const artworkPromises = artworkDirs.map(async (artworkDir) => {
+            try {
+              const fullPath = artworkDir.path
+              
+              // 检查是否是作品目录（包含数字ID）
+              const artworkMatch = artworkDir.name.match(/^(\d+)_(.+)$/)
+              if (!artworkMatch) return null
+              
+              const artworkId = artworkMatch[1]
+              const title = artworkMatch[2]
+              
+              // 扫描作品文件
+              const files = await this.scanArtworkFiles(fullPath)
+              
+              if (files.length > 0) {
+                const artworkSize = files.reduce((sum, file) => sum + file.size, 0)
+                return {
+                  id: artworkId,
+                  title: title,
+                  artist: artistName,
+                  artistPath: artistPath,
+                  path: fullPath,
+                  files: files,
+                  size: artworkSize,
+                  createdAt: await this.getFileCreationTime(fullPath)
+                }
+              }
+              return null
+            } catch (error) {
+              logger.warn(`扫描作品目录失败 ${artworkDir.path}:`, error.message)
+              return null
             }
+          })
+
+          // 等待所有作品扫描完成
+          const artworkResults = await Promise.all(artworkPromises)
+          const validArtworks = artworkResults.filter(artwork => artwork !== null)
+          
+          processedArtists++
+          if (progressCallback) {
+            progressCallback({
+              type: 'artist_completed',
+              artist: artistName,
+              artworkCount: validArtworks.length,
+              progress: Math.round((processedArtists / artistDirs.length) * 100)
+            })
+          }
+
+          return validArtworks
+        } catch (error) {
+          logger.warn(`扫描作者目录失败 ${artistDir.path}:`, error.message)
+          return []
+        }
+      })
+
+      // 分批处理，避免过多并发
+      const batchSize = maxConcurrency
+      for (let i = 0; i < artistPromises.length; i += batchSize) {
+        const batch = artistPromises.slice(i, i + batchSize)
+        const batchResults = await Promise.all(batch)
+        
+        // 处理批次结果
+        for (const artistArtworks of batchResults) {
+          for (const artwork of artistArtworks) {
+            artworks.push(artwork)
+            artists.add(artwork.artist)
+            totalSize += artwork.size
           }
         }
+
+        // 更新进度
+        if (progressCallback) {
+          progressCallback({
+            type: 'batch_completed',
+            processed: Math.min(i + batchSize, artistDirs.length),
+            total: artistDirs.length,
+            progress: Math.round((Math.min(i + batchSize, artistDirs.length) / artistDirs.length) * 100)
+          })
+        }
       }
       
-      return {
+      const result = {
         artworks,
         artists: Array.from(artists),
-        totalSize
+        totalSize,
+        scanTime: Date.now()
       }
+
+      // 缓存结果
+      if (useCache) {
+        await this.cacheScanResult(result)
+      }
+
+      logger.info(`扫描完成: ${artworks.length} 个作品, ${artists.size} 个作者, 总大小: ${Math.round(totalSize / 1024 / 1024)}MB`)
+      
+      return result
     } catch (error) {
       throw new Error(`扫描仓库失败: ${error.message}`)
     }
   }
 
-  // 扫描作品文件
+  // 扫描作品文件 - 优化版本，支持并发扫描和批量统计
   async scanArtworkFiles(artworkPath) {
     try {
-      // 确保配置已加载
-      await this.loadConfig()
+      // 确保配置已加载（使用缓存版本）
+      if (!this.configLoaded) {
+        await this.loadConfig()
+      }
       
-      const files = []
       const entries = await fs.readdir(artworkPath, { withFileTypes: true })
+      const fileEntries = entries.filter(entry => entry.isFile())
       
-      for (const entry of entries) {
-        if (entry.isFile()) {
-          const filePath = path.join(artworkPath, entry.name)
-          const ext = path.extname(entry.name).toLowerCase()
-          
-          if (this.config.allowedExtensions.includes(ext)) {
+      // 过滤允许的扩展名
+      const allowedFiles = fileEntries.filter(entry => {
+        const ext = path.extname(entry.name).toLowerCase()
+        return this.config.allowedExtensions.includes(ext)
+      })
+
+      if (allowedFiles.length === 0) {
+        return []
+      }
+
+      // 大幅减少并发数量，避免 "too many open files" 错误
+      const batchSize = 3 // 进一步减少到3，更安全
+      const results = []
+      
+      for (let i = 0; i < allowedFiles.length; i += batchSize) {
+        const batch = allowedFiles.slice(i, i + batchSize)
+        
+        // 处理当前批次
+        const batchPromises = batch.map(async (entry) => {
+          try {
+            const filePath = path.join(artworkPath, entry.name)
             const stats = await fs.stat(filePath)
             const currentBaseDir = this.getCurrentBaseDir()
-            files.push({
+            
+            return {
               name: entry.name,
               path: path.relative(currentBaseDir, filePath),
               size: stats.size,
-              extension: ext,
+              extension: path.extname(entry.name).toLowerCase(),
               modifiedAt: stats.mtime
-            })
+            }
+          } catch (error) {
+            logger.warn(`获取文件统计信息失败 ${entry.name}:`, error.message)
+            return null
           }
+        })
+        
+        const batchResults = await Promise.all(batchPromises)
+        results.push(...batchResults)
+        
+        // 添加小延迟，让系统有时间关闭文件句柄
+        if (i + batchSize < allowedFiles.length) {
+          await new Promise(resolve => setTimeout(resolve, 20)) // 增加延迟时间
         }
       }
-      
-      return files
+
+      return results.filter(file => file !== null)
     } catch (error) {
+      logger.warn(`扫描作品文件失败 ${artworkPath}:`, error.message)
       return []
     }
   }
@@ -1043,6 +1200,318 @@ class RepositoryService {
     // 这里可以返回一个代理URL，用于前端预览
     const relativePath = path.relative(this.baseDir, filePath)
     return `/api/repository/preview?path=${encodeURIComponent(relativePath)}`
+  }
+
+  // 获取缓存的扫描结果
+  async getCachedScanResult() {
+    try {
+      const now = Date.now()
+      
+      // 检查内存缓存
+      if (this.scanCache.data && 
+          (now - this.scanCache.timestamp) < this.scanCache.cacheDuration) {
+        return this.scanCache.data
+      }
+      
+      // 检查持久化缓存
+      if (this.scanCacheFilePath && await fs.access(this.scanCacheFilePath).then(() => true).catch(() => false)) {
+        const cacheData = await fs.readFile(this.scanCacheFilePath, 'utf8')
+        const cache = JSON.parse(cacheData)
+        
+        // 检查缓存是否有效
+        const cacheAge = now - cache.timestamp
+        if (cacheAge < this.scanCache.cacheDuration) {
+          this.scanCache.data = cache.data
+          this.scanCache.timestamp = cache.timestamp
+          return cache.data
+        }
+      }
+      
+      return null
+    } catch (error) {
+      logger.warn('获取扫描缓存失败:', error.message)
+      return null
+    }
+  }
+
+  // 缓存扫描结果
+  async cacheScanResult(result) {
+    try {
+      const now = Date.now()
+      
+      // 更新内存缓存
+      this.scanCache.data = result
+      this.scanCache.timestamp = now
+      
+      // 保存到持久化缓存
+      if (this.scanCacheFilePath) {
+        const cacheData = {
+          data: result,
+          timestamp: now,
+          savedAt: new Date().toISOString()
+        }
+        
+        await fs.writeFile(this.scanCacheFilePath, JSON.stringify(cacheData, null, 2), 'utf8')
+        logger.info('扫描结果已缓存')
+      }
+    } catch (error) {
+      logger.warn('缓存扫描结果失败:', error.message)
+    }
+  }
+
+  // 加载扫描缓存
+  async loadScanCache() {
+    try {
+      if (!this.scanCacheFilePath) {
+        return
+      }
+      
+      const cacheData = await fs.readFile(this.scanCacheFilePath, 'utf8')
+      const cache = JSON.parse(cacheData)
+      
+      // 检查缓存是否有效（10分钟内）
+      const now = Date.now()
+      const cacheAge = now - cache.timestamp
+      const maxCacheAge = this.scanCache.cacheDuration
+      
+      if (cacheAge < maxCacheAge) {
+        this.scanCache.data = cache.data
+        this.scanCache.timestamp = cache.timestamp
+        logger.info('已加载扫描缓存，缓存年龄:', Math.round(cacheAge / 1000 / 60), '分钟')
+      } else {
+        logger.info('扫描缓存已过期，将重新扫描')
+      }
+    } catch (error) {
+      logger.info('加载扫描缓存失败，将重新扫描:', error.message)
+    }
+  }
+
+  // 清除扫描缓存
+  async clearScanCache() {
+    try {
+      // 清除内存缓存
+      this.scanCache.data = null
+      this.scanCache.timestamp = 0
+      
+      // 删除持久化缓存文件
+      if (this.scanCacheFilePath) {
+        try {
+          await fs.unlink(this.scanCacheFilePath)
+          logger.info('扫描缓存文件已删除')
+        } catch (error) {
+          logger.info('删除扫描缓存文件失败:', error.message)
+        }
+      }
+      
+      return { success: true, message: '扫描缓存已清除' }
+    } catch (error) {
+      throw new Error(`清除扫描缓存失败: ${error.message}`)
+    }
+  }
+
+  // 快速扫描 - 仅获取基本信息，不扫描文件详情
+  async quickScan() {
+    try {
+      // 确保配置已加载（使用缓存版本）
+      if (!this.configLoaded) {
+        await this.loadConfig()
+      }
+      const currentBaseDir = this.getCurrentBaseDir()
+      
+      const artistEntries = await fs.readdir(currentBaseDir, { withFileTypes: true })
+      const artistDirs = artistEntries
+        .filter(entry => entry.isDirectory() && 
+                        !entry.name.startsWith('.') && 
+                        entry.name !== '.repository-config.json')
+
+      const artists = artistDirs.map(entry => entry.name)
+      let totalArtworks = 0
+
+      // 快速统计作品数量
+      for (const artistDir of artistDirs) {
+        try {
+          const artistPath = path.join(currentBaseDir, artistDir.name)
+          const artworkEntries = await fs.readdir(artistPath, { withFileTypes: true })
+          const artworkDirs = artworkEntries.filter(entry => entry.isDirectory())
+          totalArtworks += artworkDirs.length
+        } catch (error) {
+          logger.warn(`快速扫描作者目录失败 ${artistDir.name}:`, error.message)
+        }
+      }
+
+      return {
+        totalArtists: artists.length,
+        totalArtworks,
+        artists,
+        scanTime: Date.now()
+      }
+    } catch (error) {
+      throw new Error(`快速扫描失败: ${error.message}`)
+    }
+  }
+
+  // 增量扫描 - 只扫描变更的目录和文件
+  async incrementalScan(options = {}) {
+    const { 
+      maxConcurrency = 10, 
+      useCache = true, 
+      progressCallback = null 
+    } = options
+
+    try {
+      // 确保配置已加载（使用缓存版本）
+      if (!this.configLoaded) {
+        await this.loadConfig()
+      }
+      const currentBaseDir = this.getCurrentBaseDir()
+      
+      // 获取上次扫描的时间戳
+      const lastScanTime = this.scanCache.timestamp || 0
+      const now = Date.now()
+      
+      // 如果缓存时间超过1小时，执行完整扫描
+      if (now - lastScanTime > 60 * 60 * 1000) {
+        logger.info('缓存过期，执行完整扫描')
+        return await this.scanRepository(options)
+      }
+
+      const artworks = []
+      const artists = new Set()
+      let totalSize = 0
+      let changedCount = 0
+
+      // 扫描作者目录
+      const artistEntries = await fs.readdir(currentBaseDir, { withFileTypes: true })
+      const artistDirs = artistEntries
+        .filter(entry => entry.isDirectory() && 
+                        !entry.name.startsWith('.') && 
+                        entry.name !== '.repository-config.json')
+
+      logger.info(`开始增量扫描 ${artistDirs.length} 个作者目录`)
+
+      // 并发处理作者目录
+      const artistPromises = artistDirs.map(async (artistDir) => {
+        try {
+          const artistName = artistDir.name
+          const artistPath = path.join(currentBaseDir, artistName)
+          
+          // 检查作者目录是否在缓存时间后有变更
+          const artistStats = await fs.stat(artistPath)
+          if (artistStats.mtime.getTime() <= lastScanTime) {
+            // 目录未变更，跳过
+            return []
+          }
+
+          changedCount++
+          logger.debug(`检测到变更的作者目录: ${artistName}`)
+
+          // 扫描作者下的作品目录
+          const artworkEntries = await fs.readdir(artistPath, { withFileTypes: true })
+          const artworkDirs = artworkEntries
+            .filter(entry => entry.isDirectory())
+            .map(entry => ({
+              name: entry.name,
+              path: path.join(artistPath, entry.name)
+            }))
+
+          // 并发扫描作品文件
+          const artworkPromises = artworkDirs.map(async (artworkDir) => {
+            try {
+              const fullPath = artworkDir.path
+              
+              // 检查作品目录是否在缓存时间后有变更
+              const artworkStats = await fs.stat(fullPath)
+              if (artworkStats.mtime.getTime() <= lastScanTime) {
+                // 作品目录未变更，跳过
+                return null
+              }
+
+              // 检查是否是作品目录（包含数字ID）
+              const artworkMatch = artworkDir.name.match(/^(\d+)_(.+)$/)
+              if (!artworkMatch) return null
+              
+              const artworkId = artworkMatch[1]
+              const title = artworkMatch[2]
+              
+              // 扫描作品文件
+              const files = await this.scanArtworkFiles(fullPath)
+              
+              if (files.length > 0) {
+                const artworkSize = files.reduce((sum, file) => sum + file.size, 0)
+                return {
+                  id: artworkId,
+                  title: title,
+                  artist: artistName,
+                  artistPath: artistPath,
+                  path: fullPath,
+                  files: files,
+                  size: artworkSize,
+                  createdAt: await this.getFileCreationTime(fullPath)
+                }
+              }
+              return null
+            } catch (error) {
+              logger.warn(`扫描作品目录失败 ${artworkDir.path}:`, error.message)
+              return null
+            }
+          })
+
+          // 等待所有作品扫描完成
+          const artworkResults = await Promise.all(artworkPromises)
+          return artworkResults.filter(artwork => artwork !== null)
+        } catch (error) {
+          logger.warn(`扫描作者目录失败 ${artistDir.path}:`, error.message)
+          return []
+        }
+      })
+
+      // 分批处理，避免过多并发
+      const batchSize = maxConcurrency
+      for (let i = 0; i < artistPromises.length; i += batchSize) {
+        const batch = artistPromises.slice(i, i + batchSize)
+        const batchResults = await Promise.all(batch)
+        
+        // 处理批次结果
+        for (const artistArtworks of batchResults) {
+          for (const artwork of artistArtworks) {
+            artworks.push(artwork)
+            artists.add(artwork.artist)
+            totalSize += artwork.size
+          }
+        }
+
+        // 更新进度
+        if (progressCallback) {
+          progressCallback({
+            type: 'incremental_progress',
+            processed: Math.min(i + batchSize, artistDirs.length),
+            total: artistDirs.length,
+            changed: changedCount,
+            progress: Math.round((Math.min(i + batchSize, artistDirs.length) / artistDirs.length) * 100)
+          })
+        }
+      }
+      
+      const result = {
+        artworks,
+        artists: Array.from(artists),
+        totalSize,
+        scanTime: now,
+        isIncremental: true,
+        changedCount
+      }
+
+      // 更新缓存
+      if (useCache) {
+        await this.cacheScanResult(result)
+      }
+
+      logger.info(`增量扫描完成: ${artworks.length} 个作品, ${artists.size} 个作者, 变更: ${changedCount} 个目录`)
+      
+      return result
+    } catch (error) {
+      throw new Error(`增量扫描失败: ${error.message}`)
+    }
   }
 }
 

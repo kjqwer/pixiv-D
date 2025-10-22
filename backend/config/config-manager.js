@@ -62,6 +62,19 @@ class ConfigManager {
       // 检查配置文件是否存在
       await fs.access(this.configDir)
       logger.info('用户配置文件已存在')
+      
+      // 验证配置文件是否有效
+      try {
+        const configData = await fs.readFile(this.configDir, 'utf8')
+        if (!configData || configData.trim() === '') {
+          throw new Error('配置文件为空')
+        }
+        JSON.parse(configData)
+        logger.info('配置文件验证通过')
+      } catch (parseError) {
+        logger.warn('配置文件损坏，将重新创建:', parseError.message)
+        await this.createDefaultConfig()
+      }
     } catch (error) {
       // 配置文件不存在，创建默认配置
       logger.info('创建默认用户配置文件...')
@@ -118,21 +131,46 @@ class ConfigManager {
       }
       
       const configData = await fs.readFile(this.configDir, 'utf8')
+      
+      // 检查文件内容是否为空或损坏
+      if (!configData || configData.trim() === '') {
+        logger.warn('配置文件为空，重新创建默认配置...')
+        await this.createDefaultConfig()
+        return this.defaultConfig
+      }
+      
       const config = JSON.parse(configData)
       
       // 合并默认配置，确保所有必要的字段都存在
       return { ...this.defaultConfig, ...config }
     } catch (error) {
       logger.error('读取配置文件失败:', error)
-      logger.info('使用默认配置...')
-      // 如果读取失败，尝试创建默认配置
+      logger.info('配置文件可能损坏，尝试重新创建...')
+      
+      // 如果读取失败，尝试备份损坏的文件并创建默认配置
       try {
+        // 备份损坏的配置文件
+        const backupPath = this.configDir + '.backup.' + Date.now()
+        try {
+          await fs.copyFile(this.configDir, backupPath)
+          logger.info(`已备份损坏的配置文件到: ${backupPath}`)
+        } catch (backupError) {
+          logger.warn('备份损坏的配置文件失败:', backupError.message)
+        }
+        
+        // 删除损坏的配置文件
+        try {
+          await fs.unlink(this.configDir)
+        } catch (unlinkError) {
+          logger.warn('删除损坏的配置文件失败:', unlinkError.message)
+        }
+        
+        // 创建新的默认配置
         await this.createDefaultConfig()
-        return { ...this.defaultConfig }
+        return this.defaultConfig
       } catch (createError) {
-        logger.error('创建默认配置也失败:', createError)
-        // 最后返回内存中的默认配置
-        return { ...this.defaultConfig }
+        logger.error('创建默认配置失败:', createError)
+        return this.defaultConfig
       }
     }
   }
